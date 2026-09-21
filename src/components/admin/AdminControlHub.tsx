@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import {
   Shield,
+  ShieldCheck,
   BarChart3,
   Users,
   Package,
@@ -25,6 +26,7 @@ import { Role, SellerStatus, PayoutStatus, Coupon } from '../../types';
 
 export const AdminControlHub: React.FC = () => {
   const {
+    authUser,
     currentRole,
     setCurrentRole,
     sellers,
@@ -110,63 +112,31 @@ export const AdminControlHub: React.FC = () => {
             </p>
           </div>
         </div>
-
-        {/* Role Switcher */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-neutral-400">Active Admin Role:</span>
-          <select
-            value={currentRole}
-            onChange={(e) => setCurrentRole(e.target.value as Role)}
-            className="bg-neutral-800 text-amber-400 font-bold p-2 rounded border border-neutral-700 text-xs focus:outline-none"
-          >
-            <option value="super_admin">Super Administrator (Full Privileges)</option>
-            <option value="seller_admin">Seller KYC & Compliance Admin</option>
-            <option value="finance_admin">Finance & Payouts Admin</option>
-            <option value="logistics_admin">Logistics & Delivery Admin</option>
-          </select>
-        </div>
       </div>
-
-      {/* Role-Based Access Notice if viewing as Customer or Seller */}
-      {(currentRole === 'customer' || currentRole === 'seller') && (
-        <div className="mb-6 bg-purple-50 border border-purple-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle className="w-5 h-5 text-purple-700 flex-shrink-0" />
-            <div>
-              <p className="font-bold text-purple-950">You are viewing Admin Hub in Preview Mode</p>
-              <p className="text-purple-800">
-                You are currently signed in as <span className="font-semibold capitalize">{currentRole.replace('_', ' ')}</span>. Switch to Super Administrator to test executive controls.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setCurrentRole('super_admin')}
-            className="px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 active:bg-purple-900 text-white font-bold rounded-lg whitespace-nowrap transition-colors shadow-2xs"
-          >
-            Switch to Super Administrator
-          </button>
-        </div>
-      )}
 
       {/* 2. Main Layout with Left Sidebar to prevent content overload */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Sidebar Navigation (3 cols) */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Admin Role Scope Switcher */}
+          {/* Admin Identity Card */}
           <div className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs">
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
-              Active Admin Role
-            </label>
-            <select
-              value={currentRole}
-              onChange={(e) => setCurrentRole(e.target.value as Role)}
-              className="w-full bg-neutral-50 border border-neutral-300 rounded-lg p-2 text-xs font-bold text-neutral-900 focus:outline-none focus:border-amber-500"
-            >
-              <option value="super_admin">Super Administrator</option>
-              <option value="seller_admin">Seller KYC & Compliance</option>
-              <option value="finance_admin">Finance & Escrow Admin</option>
-              <option value="logistics_admin">Logistics & Fulfillment</option>
-            </select>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-800 font-black text-sm flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-xs text-neutral-900 truncate">
+                  {authUser?.name || 'Administrator'}
+                </div>
+                <div className="text-[10px] text-purple-700 font-semibold capitalize mt-0.5">
+                  {currentRole.replace('_', ' ')}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-500">
+              <span>Security Level:</span>
+              <span className="font-bold text-emerald-600">Enterprise RBAC</span>
+            </div>
           </div>
 
           {/* Sidebar Menu */}

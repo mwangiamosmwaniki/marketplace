@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
+  User,
   Role,
   Seller,
   Product,
@@ -23,6 +24,7 @@ import {
   ProductVariant,
 } from '../types';
 import {
+  INITIAL_USERS,
   INITIAL_CATEGORIES,
   INITIAL_BRANDS,
   INITIAL_SELLERS,
@@ -36,7 +38,21 @@ import {
 } from '../data/initialData';
 
 interface MarketplaceContextType {
-  // Navigation & Role
+  // Authentication & Real User State
+  authUser: User | null;
+  users: User[];
+  login: (email: string, password?: string) => { success: boolean; message?: string; user?: User };
+  logout: () => void;
+  registerUser: (userData: {
+    name: string;
+    email: string;
+    phone: string;
+    role: Role;
+    sellerBusinessName?: string;
+    password?: string;
+  }) => { success: boolean; message?: string; user?: User };
+
+  // Navigation & Role derived from authenticated user
   currentRole: Role;
   setCurrentRole: (role: Role) => void;
   currentSellerId: string;
@@ -118,50 +134,81 @@ interface MarketplaceContextType {
 const MarketplaceContext = createContext<MarketplaceContextType | undefined>(undefined);
 
 export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current view state
-  const [currentRole, setCurrentRole] = useState<Role>('customer');
-  const [currentSellerId, setCurrentSellerId] = useState<string>('seller-1');
+  // Authentication & Real User State
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('allsales_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+
+  const [authUser, setAuthUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('allsales_auth_user');
+    return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Jane Wambui (Customer)
+  });
+
+  // Current view state derived from authenticated user
+  const [currentRole, setCurrentRoleState] = useState<Role>(() => authUser ? authUser.role : 'customer');
+  const [currentSellerId, setCurrentSellerIdState] = useState<string>(() => (authUser && authUser.sellerId) || 'seller-1');
+
+  // Keep role and sellerId strictly synchronized with authenticated user
+  useEffect(() => {
+    if (authUser) {
+      setCurrentRoleState(authUser.role);
+      if (authUser.sellerId) {
+        setCurrentSellerIdState(authUser.sellerId);
+      }
+    } else {
+      setCurrentRoleState('customer');
+    }
+  }, [authUser]);
+
+  const setCurrentRole = (role: Role) => {
+    setCurrentRoleState(role);
+  };
+
+  const setCurrentSellerId = (sellerId: string) => {
+    setCurrentSellerIdState(sellerId);
+  };
 
   // Datasets initialized from storage or defaults
   const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [brands] = useState<Brand[]>(INITIAL_BRANDS);
   const [sellers, setSellers] = useState<Seller[]>(() => {
-    const saved = localStorage.getItem('jumia_sellers');
+    const saved = localStorage.getItem('allsales_sellers');
     return saved ? JSON.parse(saved) : INITIAL_SELLERS;
   });
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('jumia_products');
+    const saved = localStorage.getItem('allsales_products');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
   const [orders, setOrders] = useState<MasterOrder[]>(() => {
-    const saved = localStorage.getItem('jumia_orders');
+    const saved = localStorage.getItem('allsales_orders');
     return saved ? JSON.parse(saved) : INITIAL_ORDERS;
   });
   const [ledger, setLedger] = useState<FinancialLedgerEntry[]>(() => {
-    const saved = localStorage.getItem('jumia_ledger');
+    const saved = localStorage.getItem('allsales_ledger');
     return saved ? JSON.parse(saved) : INITIAL_LEDGER;
   });
   const [payouts, setPayouts] = useState<SellerPayoutRequest[]>(() => {
-    const saved = localStorage.getItem('jumia_payouts');
+    const saved = localStorage.getItem('allsales_payouts');
     return saved ? JSON.parse(saved) : INITIAL_PAYOUTS;
   });
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('jumia_coupons');
+    const saved = localStorage.getItem('allsales_coupons');
     return saved ? JSON.parse(saved) : INITIAL_COUPONS;
   });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('jumia_audit_logs');
+    const saved = localStorage.getItem('allsales_audit_logs');
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
   const [deliveryZones] = useState<DeliveryZone[]>(INITIAL_DELIVERY_ZONES);
 
   // Cart & Wishlist
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('jumia_cart');
+    const saved = localStorage.getItem('allsales_cart');
     return saved ? JSON.parse(saved) : [];
   });
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem('jumia_wishlist');
+    const saved = localStorage.getItem('allsales_wishlist');
     return saved ? JSON.parse(saved) : ['prod-sony-wh1000xm5', 'prod-nike-airmax-90'];
   });
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -201,41 +248,139 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     ],
   });
 
+  // Authentication methods
+  const login = (email: string, password?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const found = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!found) {
+      return { success: false, message: 'Account not found. Please verify your email or register.' };
+    }
+    if (found.status === 'suspended') {
+      return { success: false, message: 'Your account has been suspended by marketplace compliance.' };
+    }
+
+    setAuthUser(found);
+    localStorage.setItem('allsales_auth_user', JSON.stringify(found));
+    return { success: true, user: found };
+  };
+
+  const logout = () => {
+    setAuthUser(null);
+    localStorage.removeItem('allsales_auth_user');
+  };
+
+  const registerUser = (userData: {
+    name: string;
+    email: string;
+    phone: string;
+    role: Role;
+    sellerBusinessName?: string;
+    password?: string;
+  }) => {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      return { success: false, message: 'An account with this email address already exists.' };
+    }
+
+    let sellerId: string | undefined = undefined;
+    if (userData.role === 'seller') {
+      sellerId = `seller-${Date.now()}`;
+      const newSeller: Seller = {
+        id: sellerId,
+        userId: `user-${Date.now()}`,
+        businessName: userData.sellerBusinessName || `${userData.name} Store`,
+        slug: (userData.sellerBusinessName || userData.name).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        ownerName: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        county: 'Nairobi',
+        town: 'Nairobi CBD',
+        address: 'Nairobi, Kenya',
+        taxPin: 'P051' + Math.floor(100000 + Math.random() * 900000) + 'X',
+        businessRegNumber: 'BN-' + Math.floor(100000 + Math.random() * 900000),
+        logo: 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=150&auto=format&fit=crop&q=80',
+        banner: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&auto=format&fit=crop&q=80',
+        description: 'New verified vendor on Allsales Kenya marketplace.',
+        status: 'approved',
+        commissionRate: 10,
+        rating: 5.0,
+        totalSalesCount: 0,
+        pendingBalance: 0,
+        availableBalance: 0,
+        totalPayouts: 0,
+        payoutMethod: 'mpesa',
+        payoutAccount: userData.phone,
+        createdAt: new Date().toISOString(),
+      };
+      setSellers((prev) => [newSeller, ...prev]);
+    }
+
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      role: userData.role,
+      sellerId,
+      permissions:
+        userData.role === 'customer'
+          ? ['orders.view', 'orders.create', 'reviews.create', 'wishlist.manage']
+          : ['products.manage', 'orders.fulfill', 'payouts.request', 'inventory.manage'],
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+
+    setUsers((prev) => {
+      const updated = [...prev, newUser];
+      localStorage.setItem('allsales_users', JSON.stringify(updated));
+      return updated;
+    });
+
+    setAuthUser(newUser);
+    localStorage.setItem('allsales_auth_user', JSON.stringify(newUser));
+    return { success: true, user: newUser };
+  };
+
   // Sync state to LocalStorage
   useEffect(() => {
-    localStorage.setItem('jumia_sellers', JSON.stringify(sellers));
+    localStorage.setItem('allsales_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_sellers', JSON.stringify(sellers));
   }, [sellers]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_products', JSON.stringify(products));
+    localStorage.setItem('allsales_products', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_orders', JSON.stringify(orders));
+    localStorage.setItem('allsales_orders', JSON.stringify(orders));
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_ledger', JSON.stringify(ledger));
+    localStorage.setItem('allsales_ledger', JSON.stringify(ledger));
   }, [ledger]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_payouts', JSON.stringify(payouts));
+    localStorage.setItem('allsales_payouts', JSON.stringify(payouts));
   }, [payouts]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_coupons', JSON.stringify(coupons));
+    localStorage.setItem('allsales_coupons', JSON.stringify(coupons));
   }, [coupons]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_cart', JSON.stringify(cart));
+    localStorage.setItem('allsales_cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_wishlist', JSON.stringify(wishlist));
+    localStorage.setItem('allsales_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
   useEffect(() => {
-    localStorage.setItem('jumia_audit_logs', JSON.stringify(auditLogs));
+    localStorage.setItem('allsales_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
   // Current logged in seller object
@@ -927,6 +1072,11 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   return (
     <MarketplaceContext.Provider
       value={{
+        authUser,
+        users,
+        login,
+        logout,
+        registerUser,
         currentRole,
         setCurrentRole,
         currentSellerId,

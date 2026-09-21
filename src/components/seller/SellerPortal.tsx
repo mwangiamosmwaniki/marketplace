@@ -236,47 +236,32 @@ export const SellerPortal: React.FC = () => {
         </div>
       </div>
 
-      {/* Role-Based Access Notice if viewing as Customer */}
-      {currentRole !== 'seller' && (
-        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <div>
-              <p className="font-bold text-amber-950">You are viewing Seller Center in Preview Mode</p>
-              <p className="text-amber-800">
-                You are currently signed in with the <span className="font-semibold capitalize">{currentRole.replace('_', ' ')}</span> role. Switch to Seller role for full catalog & payout authorization.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setCurrentRole('seller')}
-            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg whitespace-nowrap transition-colors shadow-2xs"
-          >
-            Activate Seller Session
-          </button>
-        </div>
-      )}
-
       {/* 2. Main Layout with Left Sidebar to prevent content overload */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Sidebar Navigation (3 cols) */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Shop Switcher Card */}
+          {/* Active Store Card */}
           <div className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs">
-            <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
-              Active Vendor Account
-            </label>
-            <select
-              value={currentSellerId}
-              onChange={(e) => setCurrentSellerId(e.target.value)}
-              className="w-full bg-neutral-50 border border-neutral-300 rounded-lg p-2 text-xs font-bold text-neutral-900 focus:outline-none focus:border-amber-500"
-            >
-              {sellers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.businessName} ({s.status})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800 font-black text-sm flex-shrink-0">
+                {currentSeller.businessName.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-xs text-neutral-900 truncate">
+                  {currentSeller.businessName}
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span className="text-[10px] text-emerald-700 font-semibold capitalize">
+                    {currentSeller.status} Partner
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-500">
+              <span>Commission:</span>
+              <span className="font-bold text-neutral-800">{currentSeller.commissionRate}%</span>
+            </div>
           </div>
 
           {/* Sidebar Menu */}

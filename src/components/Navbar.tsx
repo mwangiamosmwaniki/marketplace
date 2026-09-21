@@ -4,117 +4,22 @@ import {
   Search,
   ShoppingCart,
   Heart,
-  User,
+  User as UserIcon,
   HelpCircle,
   Store,
   Shield,
-  Code,
-  Layers,
   ChevronDown,
   Menu,
   X,
   Package,
-  CheckCircle2,
-  AlertCircle,
-  Key,
-  ShieldAlert,
-  Sparkles,
+  LogOut,
+  Settings,
+  MapPin,
+  Clock,
   Phone,
-  Briefcase,
-  Users,
-  Truck,
-  CreditCard,
+  Bell,
+  ExternalLink,
 } from 'lucide-react';
-import { Role } from '../types';
-
-export interface Persona {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  roleLabel: string;
-  roleBadgeColor: string;
-  sellerId?: string;
-  description: string;
-}
-
-export const DEMO_PERSONAS: Persona[] = [
-  {
-    id: 'persona-customer',
-    name: 'Jane Wambui',
-    email: 'jane.wambui@allsales.ke',
-    role: 'customer',
-    roleLabel: 'Customer / Buyer',
-    roleBadgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
-    description: 'Shopping, tracking multi-vendor orders, wishlist & returns',
-  },
-  {
-    id: 'persona-seller-1',
-    name: 'Tech Point Kenya (David Kiprono)',
-    email: 'seller@techpoint.co.ke',
-    role: 'seller',
-    roleLabel: 'Approved Electronics Seller',
-    roleBadgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    sellerId: 'seller-1',
-    description: 'Official store partner, SKU catalog, dispatch & payouts',
-  },
-  {
-    id: 'persona-seller-2',
-    name: 'Kilifi Spice & Goods (Amina Hassan)',
-    email: 'sales@kilifispice.co.ke',
-    role: 'seller',
-    roleLabel: 'Apparel & Food Merchant',
-    roleBadgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    sellerId: 'seller-2',
-    description: 'Fashion & spices merchant with regional dispatch orders',
-  },
-  {
-    id: 'persona-seller-3',
-    name: 'Nairobi Sound Masters (Kevin O.)',
-    email: 'kevin@soundmasters.co.ke',
-    role: 'seller',
-    roleLabel: 'Audio Seller (Under Review)',
-    roleBadgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
-    sellerId: 'seller-3',
-    description: 'New vendor undergoing KYC document compliance audit',
-  },
-  {
-    id: 'persona-super-admin',
-    name: 'Robert Otieno',
-    email: 'robert.admin@allsales.ke',
-    role: 'super_admin',
-    roleLabel: 'Platform Superadmin',
-    roleBadgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
-    description: 'Unrestricted governance, ledger, KYC approvals & policies',
-  },
-  {
-    id: 'persona-finance-admin',
-    name: 'Faith Muthoni',
-    email: 'faith.finance@allsales.ke',
-    role: 'finance_admin',
-    roleLabel: 'Finance & Escrow Admin',
-    roleBadgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-    description: 'Settlement disbursements, double-entry ledger & vouchers',
-  },
-  {
-    id: 'persona-logistics-admin',
-    name: 'Brian Cheruiyot',
-    email: 'brian.logistics@allsales.ke',
-    role: 'logistics_admin',
-    roleLabel: 'Fulfillment & Logistics Admin',
-    roleBadgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
-    description: 'County delivery zones tariffs, pickup stations & dispatch',
-  },
-  {
-    id: 'persona-seller-admin',
-    name: 'Grace Nduta',
-    email: 'grace.kyc@allsales.ke',
-    role: 'seller_admin',
-    roleLabel: 'Seller Compliance Admin',
-    roleBadgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
-    description: 'KYC business tax PIN audits & catalog moderation',
-  },
-];
 
 interface NavbarProps {
   onOpenCart: () => void;
@@ -124,6 +29,7 @@ interface NavbarProps {
   setSearchQuery: (query: string) => void;
   activeView: 'storefront' | 'seller' | 'admin' | 'customer' | 'api' | 'laravel';
   setActiveView: (view: 'storefront' | 'seller' | 'admin' | 'customer' | 'api' | 'laravel') => void;
+  onOpenAuthModal: (tab?: 'login' | 'register_customer' | 'register_seller') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -134,63 +40,327 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSearchQuery,
   activeView,
   setActiveView,
+  onOpenAuthModal,
 }) => {
   const {
+    authUser,
+    logout,
     cart,
     wishlist,
-    currentRole,
-    setCurrentRole,
-    currentSellerId,
-    setCurrentSellerId,
-    sellers,
+    currentSeller,
     categories,
-    formatKSh,
     cartSubtotal,
   } = useMarketplace();
 
-  const [showRoleModal, setShowRoleModal] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const [showHelpDropdown, setShowHelpDropdown] = useState(false);
-  const [showDevDropdown, setShowDevDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
-  const roleMenuRef = useRef<HTMLDivElement>(null);
-
-  // Determine current persona
-  const activePersona =
-    DEMO_PERSONAS.find((p) => {
-      if (p.role === 'seller') {
-        return p.role === currentRole && p.sellerId === currentSellerId;
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setShowAccountDropdown(false);
       }
-      return p.role === currentRole;
-    }) || DEMO_PERSONAS[0];
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleSelectPersona = (persona: Persona) => {
-    setCurrentRole(persona.role);
-    if (persona.sellerId) {
-      setCurrentSellerId(persona.sellerId);
-    }
+  // Determine user context
+  const isSellerUser = authUser?.role === 'seller';
+  const isAdminUser =
+    authUser?.role === 'super_admin' ||
+    authUser?.role === 'finance_admin' ||
+    authUser?.role === 'seller_admin' ||
+    authUser?.role === 'logistics_admin' ||
+    authUser?.role === 'product_admin';
 
-    // Auto-navigate to appropriate view
-    if (persona.role === 'customer') {
-      setActiveView('storefront');
-    } else if (persona.role === 'seller') {
-      setActiveView('seller');
-    } else {
-      setActiveView('admin');
-    }
+  /* -------------------------------------------------------------
+   * 1. SELLER HEADER: Dedicated, compact & role-aware
+   * ------------------------------------------------------------- */
+  if (isSellerUser) {
+    return (
+      <header id="seller-header" className="sticky top-0 z-40 bg-white border-b border-neutral-200 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 py-2.5">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo & Store Context */}
+            <div className="flex items-center gap-3">
+              <div
+                onClick={() => setActiveView('seller')}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <div className="w-8 h-8 bg-amber-500 text-neutral-950 rounded-lg flex items-center justify-center font-black text-lg">
+                  ★
+                </div>
+                <div>
+                  <span className="font-black text-lg tracking-tight text-neutral-900">
+                    ALLSALES<span className="text-amber-500">.</span>
+                  </span>
+                  <span className="text-[10px] font-extrabold tracking-widest text-emerald-700 block -mt-1 uppercase">
+                    Seller Center
+                  </span>
+                </div>
+              </div>
 
-    setShowRoleModal(false);
-  };
+              {currentSeller && (
+                <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-neutral-200">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span className="text-xs font-bold text-neutral-800">{currentSeller.businessName}</span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 font-semibold capitalize">
+                    {currentSeller.status}
+                  </span>
+                </div>
+              )}
+            </div>
 
+            {/* Seller Quick Search */}
+            <div className="flex-1 max-w-md hidden md:block">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  placeholder="Search products, SKUs, or customer orders..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-neutral-50 text-xs rounded-lg border border-neutral-300 focus:outline-none focus:border-amber-500"
+                />
+                <Search className="w-4 h-4 text-neutral-400 absolute left-3 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Right Context Controls */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setActiveView('storefront')}
+                className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-amber-600 px-2.5 py-1.5 rounded-lg hover:bg-neutral-50 transition-colors"
+                title="Preview public storefront"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>View Storefront</span>
+              </button>
+
+              {/* Notifications */}
+              <div className="relative p-2 text-neutral-600 hover:text-neutral-900 cursor-pointer">
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
+              </div>
+
+              {/* Seller Account Menu */}
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-neutral-50 hover:bg-white transition-all text-xs"
+                >
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+                    {authUser?.name.charAt(0) || 'S'}
+                  </div>
+                  <span className="font-bold text-neutral-800 hidden sm:inline">{authUser?.name}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                </button>
+
+                {showAccountDropdown && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 py-1 z-50 text-xs">
+                    <div className="px-3 py-2 border-b border-neutral-100">
+                      <div className="font-bold text-neutral-900">{authUser?.name}</div>
+                      <div className="text-[11px] text-neutral-500">{authUser?.email}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveView('seller');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Store className="w-4 h-4 text-neutral-400" />
+                      <span>My Store & Dashboard</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('seller');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Package className="w-4 h-4 text-neutral-400" />
+                      <span>Inventory & SKUs</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('seller');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4 text-neutral-400" />
+                      <span>Store Settings</span>
+                    </button>
+                    <div className="border-t border-neutral-100 my-1"></div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setActiveView('storefront');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 font-semibold"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  /* -------------------------------------------------------------
+   * 2. ADMIN HEADER: Dedicated, compact & governance-focused
+   * ------------------------------------------------------------- */
+  if (isAdminUser) {
+    const roleLabel =
+      authUser?.role === 'super_admin'
+        ? 'Super Administrator'
+        : authUser?.role === 'finance_admin'
+        ? 'Finance & Escrow Admin'
+        : authUser?.role === 'seller_admin'
+        ? 'Seller Compliance Admin'
+        : authUser?.role === 'logistics_admin'
+        ? 'Logistics & Delivery Admin'
+        : 'Product Catalog Admin';
+
+    return (
+      <header id="admin-header" className="sticky top-0 z-40 bg-neutral-950 text-white border-b border-neutral-800 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-2.5">
+          <div className="flex items-center justify-between gap-4">
+            {/* Logo & Section Context */}
+            <div className="flex items-center gap-3">
+              <div
+                onClick={() => setActiveView('admin')}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <div className="w-8 h-8 bg-amber-500 text-neutral-950 rounded-lg flex items-center justify-center font-black text-lg">
+                  ★
+                </div>
+                <div>
+                  <span className="font-black text-lg tracking-tight text-white">
+                    ALLSALES<span className="text-amber-500">.</span>
+                  </span>
+                  <span className="text-[10px] font-extrabold tracking-widest text-amber-400 block -mt-1 uppercase">
+                    Admin Control Hub
+                  </span>
+                </div>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-neutral-800">
+                <Shield className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-xs font-semibold text-neutral-300">{roleLabel}</span>
+              </div>
+            </div>
+
+            {/* Admin Search */}
+            <div className="flex-1 max-w-md hidden md:block">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  placeholder="Search sellers, audit logs, ledger records..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-neutral-900 text-xs text-white rounded-lg border border-neutral-700 focus:outline-none focus:border-amber-500 placeholder:text-neutral-500"
+                />
+                <Search className="w-4 h-4 text-neutral-500 absolute left-3 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Right Context Controls */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setActiveView('storefront')}
+                className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-neutral-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-neutral-900 transition-colors"
+                title="View customer storefront"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Storefront</span>
+              </button>
+
+              <div className="relative p-2 text-neutral-400 hover:text-white cursor-pointer">
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
+              </div>
+
+              {/* Admin Account Menu */}
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-neutral-800 hover:border-neutral-700 bg-neutral-900 hover:bg-neutral-850 transition-all text-xs"
+                >
+                  <div className="w-6 h-6 rounded-full bg-purple-900 text-purple-200 font-bold flex items-center justify-center text-xs">
+                    {authUser?.name.charAt(0) || 'A'}
+                  </div>
+                  <span className="font-bold text-neutral-200 hidden sm:inline">{authUser?.name}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                </button>
+
+                {showAccountDropdown && (
+                  <div className="absolute right-0 mt-2 w-52 bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800 py-1 z-50 text-xs text-neutral-200">
+                    <div className="px-3 py-2 border-b border-neutral-800">
+                      <div className="font-bold text-white">{authUser?.name}</div>
+                      <div className="text-[11px] text-neutral-400">{roleLabel}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveView('admin');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-800 text-neutral-200 flex items-center gap-2"
+                    >
+                      <Shield className="w-4 h-4 text-purple-400" />
+                      <span>Governance Dashboard</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('admin');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-800 text-neutral-200 flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4 text-neutral-400" />
+                      <span>System Settings</span>
+                    </button>
+                    <div className="border-t border-neutral-800 my-1"></div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setActiveView('storefront');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-950/50 text-red-400 flex items-center gap-2 font-semibold"
+                    >
+                      <LogOut className="w-4 h-4 text-red-400" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  /* -------------------------------------------------------------
+   * 3. CUSTOMER / PUBLIC HEADER: Clean, commercial & focused
+   * ------------------------------------------------------------- */
   return (
-    <header id="main-header" className="sticky top-0 z-40 bg-white border-b border-neutral-200 shadow-xs">
-      {/* 1. Clean Top Utility Bar */}
+    <header id="main-header" className="sticky top-0 z-40 bg-white border-b border-neutral-200 shadow-2xs">
+      {/* 1. Top Utility Announcement Bar */}
       <div className="bg-neutral-900 text-neutral-300 text-xs py-1.5 px-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          {/* Left Announcement */}
           <div className="flex items-center gap-3 text-[11px]">
             <span className="text-amber-400 font-extrabold tracking-wide flex items-center gap-1">
               <span>★</span> ALLSALES MARKETPLACE
@@ -200,106 +370,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          {/* Right Fast Portal Switcher & Tech Dropdown */}
-          <div className="flex items-center gap-2 sm:gap-4 text-[11px]">
-            {/* Primary Interface Tabs */}
-            <div className="flex items-center bg-neutral-800 rounded-md p-0.5 border border-neutral-700">
-              <button
-                id="top-nav-storefront"
-                onClick={() => setActiveView('storefront')}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 ${
-                  activeView === 'storefront'
-                    ? 'bg-amber-500 text-neutral-950'
-                    : 'text-neutral-300 hover:text-white'
-                }`}
-              >
-                <span>Storefront</span>
-              </button>
+          <div className="flex items-center gap-4 text-[11px]">
+            <button
+              onClick={() => onOpenAuthModal('register_seller')}
+              className="text-neutral-300 hover:text-amber-400 transition-colors font-medium flex items-center gap-1"
+            >
+              <Store className="w-3 h-3 text-amber-400" />
+              <span>Sell on Allsales</span>
+            </button>
 
-              <button
-                id="top-nav-customer"
-                onClick={() => setActiveView('customer')}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 ${
-                  activeView === 'customer'
-                    ? 'bg-amber-500 text-neutral-950'
-                    : 'text-neutral-300 hover:text-white'
-                }`}
-              >
-                <span>My Account</span>
-              </button>
-
-              <button
-                id="top-nav-seller"
-                onClick={() => {
-                  setActiveView('seller');
-                  if (currentRole === 'customer') {
-                    setCurrentRole('seller');
-                  }
-                }}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 ${
-                  activeView === 'seller'
-                    ? 'bg-amber-500 text-neutral-950'
-                    : 'text-neutral-300 hover:text-white'
-                }`}
-              >
-                <Store className="w-3 h-3" />
-                <span>Seller Center</span>
-              </button>
-
-              <button
-                id="top-nav-admin"
-                onClick={() => {
-                  setActiveView('admin');
-                  if (currentRole === 'customer' || currentRole === 'seller') {
-                    setCurrentRole('super_admin');
-                  }
-                }}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 ${
-                  activeView === 'admin'
-                    ? 'bg-amber-500 text-neutral-950'
-                    : 'text-neutral-300 hover:text-white'
-                }`}
-              >
-                <Shield className="w-3 h-3" />
-                <span>Admin Hub</span>
-              </button>
-            </div>
-
-            {/* Dev Tools Dropdown (Clean, tucked away) */}
-            <div className="relative">
-              <button
-                onClick={() => setShowDevDropdown(!showDevDropdown)}
-                className="flex items-center gap-1 text-[11px] text-neutral-400 hover:text-amber-400 transition-colors py-0.5 px-1.5 rounded hover:bg-neutral-800"
-              >
-                <Code className="w-3 h-3" />
-                <span className="hidden md:inline">Dev Tools</span>
-                <ChevronDown className="w-2.5 h-2.5" />
-              </button>
-
-              {showDevDropdown && (
-                <div
-                  className="absolute right-0 mt-1.5 w-48 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl py-1 z-50 text-xs"
-                  onClick={() => setShowDevDropdown(false)}
-                >
-                  <button
-                    onClick={() => setActiveView('api')}
-                    className="w-full text-left px-3 py-1.5 hover:bg-neutral-800 text-neutral-200 hover:text-amber-400 flex items-center gap-2"
-                  >
-                    <Code className="w-3.5 h-3.5" />
-                    <span>REST API Explorer</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveView('laravel')}
-                    className="w-full text-left px-3 py-1.5 hover:bg-neutral-800 text-neutral-200 hover:text-amber-400 flex items-center gap-2"
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Laravel 11 Architecture</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="hidden lg:flex items-center gap-1 text-neutral-400 text-[11px]">
+            <div className="hidden sm:flex items-center gap-1 text-neutral-400">
               <Phone className="w-3 h-3 text-amber-400" />
               <span>0700 000 000</span>
             </div>
@@ -307,7 +387,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Clean Topbar */}
+      {/* 2. Main Topbar */}
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Brand Logo */}
@@ -323,13 +403,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ALLSALES<span className="text-amber-500 text-2xl leading-none">.</span>
               </span>
               <span className="text-[9px] font-extrabold tracking-widest text-neutral-500 block -mt-1 uppercase">
-                {activeView === 'seller'
-                  ? 'Seller Center'
-                  : activeView === 'admin'
-                  ? 'Admin Control Hub'
-                  : activeView === 'customer'
-                  ? 'Customer Account'
-                  : 'Marketplace'}
+                {activeView === 'customer' ? 'My Account' : 'Marketplace'}
               </span>
             </div>
           </div>
@@ -340,26 +414,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <input
                 id="main-search-input"
                 type="text"
-                placeholder={
-                  activeView === 'seller'
-                    ? 'Search products, inventory SKUs, or customer orders...'
-                    : activeView === 'admin'
-                    ? 'Search registered sellers, catalog items, or ledger records...'
-                    : 'Search products, brands and categories in Kenya...'
-                }
+                placeholder="Search products, brands and categories in Kenya..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (activeView !== 'storefront' && activeView !== 'seller' && activeView !== 'admin') {
-                    setActiveView('storefront');
-                  }
+                  if (activeView !== 'storefront') setActiveView('storefront');
                 }}
                 className="w-full pl-10 pr-20 py-2 bg-neutral-50 hover:bg-neutral-100/70 focus:bg-white text-xs text-neutral-900 rounded-lg border border-neutral-300 focus:outline-none focus:border-amber-500 transition-colors shadow-2xs"
               />
               <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 pointer-events-none" />
               <button
                 onClick={() => {
-                  if (activeView === 'customer') setActiveView('storefront');
+                  if (activeView !== 'storefront') setActiveView('storefront');
                 }}
                 className="absolute right-1 bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-bold py-1 px-3 rounded-md shadow-xs transition-colors"
               >
@@ -368,149 +434,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Right Role-Based Control Items */}
+          {/* Right Action Items */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* RBAC Persona / Role Switcher Pill */}
-            <div className="relative" ref={roleMenuRef}>
-              <button
-                id="btn-role-switcher"
-                onClick={() => setShowRoleModal(!showRoleModal)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-amber-400 bg-neutral-50 hover:bg-white transition-all text-xs shadow-2xs"
-                title="Switch Active Persona and Role Access"
-              >
-                <div className="w-5 h-5 rounded-full bg-amber-500 text-neutral-950 font-extrabold flex items-center justify-center text-[10px]">
-                  {activePersona.role === 'customer'
-                    ? '👤'
-                    : activePersona.role === 'seller'
-                    ? '🏪'
-                    : '🛡️'}
-                </div>
-                <div className="text-left hidden sm:block">
-                  <div className="font-bold text-neutral-900 leading-tight line-clamp-1 max-w-[130px]">
-                    {activePersona.name}
-                  </div>
-                  <div className="text-[10px] text-amber-700 font-semibold leading-tight">
-                    {activePersona.roleLabel}
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-              </button>
-
-              {/* RBAC Persona Switcher Dropdown */}
-              {showRoleModal && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-neutral-200 p-3 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-100">
-                    <div>
-                      <h4 className="font-bold text-neutral-900 text-xs flex items-center gap-1.5">
-                        <Key className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Role-Based Access Control (RBAC)</span>
-                      </h4>
-                      <p className="text-[11px] text-neutral-500">
-                        Switch persona to experience each dedicated interface
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowRoleModal(false)}
-                      className="p-1 rounded-full hover:bg-neutral-100 text-neutral-400"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Persona Options */}
-                  <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
-                    <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 pt-1">
-                      Customer & Buyer
-                    </div>
-                    {DEMO_PERSONAS.filter((p) => p.role === 'customer').map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSelectPersona(p)}
-                        className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-start justify-between gap-2 ${
-                          currentRole === p.role
-                            ? 'border-amber-500 bg-amber-50/60 shadow-2xs'
-                            : 'border-neutral-100 hover:border-neutral-300 hover:bg-neutral-50'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-neutral-900">{p.name}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${p.roleBadgeColor}`}>
-                              {p.roleLabel}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 mt-0.5">{p.description}</p>
-                        </div>
-                        {currentRole === p.role && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    ))}
-
-                    <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 pt-2">
-                      Sellers & Vendors
-                    </div>
-                    {DEMO_PERSONAS.filter((p) => p.role === 'seller').map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSelectPersona(p)}
-                        className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-start justify-between gap-2 ${
-                          currentRole === p.role && currentSellerId === p.sellerId
-                            ? 'border-amber-500 bg-amber-50/60 shadow-2xs'
-                            : 'border-neutral-100 hover:border-neutral-300 hover:bg-neutral-50'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-neutral-900">{p.name}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${p.roleBadgeColor}`}>
-                              {p.roleLabel}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 mt-0.5">{p.description}</p>
-                        </div>
-                        {currentRole === p.role && currentSellerId === p.sellerId && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    ))}
-
-                    <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 pt-2">
-                      Admin & Staff Roles
-                    </div>
-                    {DEMO_PERSONAS.filter((p) => p.role !== 'customer' && p.role !== 'seller').map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSelectPersona(p)}
-                        className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-start justify-between gap-2 ${
-                          currentRole === p.role
-                            ? 'border-amber-500 bg-amber-50/60 shadow-2xs'
-                            : 'border-neutral-100 hover:border-neutral-300 hover:bg-neutral-50'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-neutral-900">{p.name}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${p.roleBadgeColor}`}>
-                              {p.roleLabel}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 mt-0.5">{p.description}</p>
-                        </div>
-                        {currentRole === p.role && (
-                          <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-2 pt-2 border-t border-neutral-100 text-[10px] text-neutral-400 text-center">
-                    Simulating live authentication and permissions across Kenyan commerce actors
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Wishlist Button */}
             <button
               id="btn-nav-wishlist"
@@ -543,6 +468,97 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
+            {/* Account / Sign In */}
+            {authUser ? (
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  id="btn-nav-account"
+                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-amber-400 bg-neutral-50 hover:bg-white transition-all text-xs"
+                >
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs">
+                    {authUser.name.charAt(0)}
+                  </div>
+                  <div className="text-left hidden sm:block">
+                    <div className="font-bold text-neutral-900 leading-tight line-clamp-1 max-w-[120px]">
+                      {authUser.name.split(' ')[0]}
+                    </div>
+                    <div className="text-[10px] text-neutral-500 leading-tight">My Account</div>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                </button>
+
+                {showAccountDropdown && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 py-1 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3 py-2 border-b border-neutral-100">
+                      <div className="font-bold text-neutral-900">{authUser.name}</div>
+                      <div className="text-[11px] text-neutral-500 truncate">{authUser.email}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveView('customer');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <UserIcon className="w-4 h-4 text-neutral-400" />
+                      <span>My Account</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('customer');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Package className="w-4 h-4 text-neutral-400" />
+                      <span>My Orders</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('customer');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Heart className="w-4 h-4 text-neutral-400" />
+                      <span>Saved Wishlist</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView('customer');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <MapPin className="w-4 h-4 text-neutral-400" />
+                      <span>Saved Addresses</span>
+                    </button>
+                    <div className="border-t border-neutral-100 my-1"></div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setActiveView('storefront');
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 font-semibold"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => onOpenAuthModal('login')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-300 hover:border-amber-500 text-xs font-bold text-neutral-800 hover:bg-amber-50/50 transition-colors"
+              >
+                <UserIcon className="w-4 h-4 text-neutral-600" />
+                <span>Sign In</span>
+              </button>
+            )}
+
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -568,7 +584,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* 3. Storefront Contextual Categories Ribbon (Only shown on Storefront) */}
+      {/* 3. Categories Ribbon (Storefront only) */}
       {activeView === 'storefront' && (
         <div className="bg-neutral-50 border-t border-neutral-200 overflow-x-auto py-2 px-4 scrollbar-none">
           <div className="max-w-7xl mx-auto flex items-center gap-6 text-xs font-medium text-neutral-600 whitespace-nowrap">

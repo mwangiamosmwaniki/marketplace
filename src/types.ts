@@ -4,6 +4,8 @@ export type Role =
   | 'seller_admin'
   | 'finance_admin'
   | 'logistics_admin'
+  | 'support_admin'
+  | 'marketing_admin'
   | 'seller'
   | 'customer';
 
@@ -32,6 +34,7 @@ export interface User {
   email: string;
   phone: string;
   role: Role;
+  sellerId?: string;
   permissions: string[];
   status: 'active' | 'suspended';
   avatar?: string;

@@ -33,6 +33,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
   onContinueShopping,
 }) => {
   const {
+    authUser,
     orders,
     wishlist,
     products,
@@ -40,8 +41,6 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
     cancelOrder,
     addToCart,
     toggleWishlist,
-    currentRole,
-    setCurrentRole,
   } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState<
@@ -113,17 +112,17 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
       <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-amber-500 text-white font-bold text-xl flex items-center justify-center shadow-xs">
-            JW
+            {authUser?.name ? authUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'CU'}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-neutral-900">Jane Wambui</h1>
+              <h1 className="text-xl font-bold text-neutral-900">{authUser?.name || 'Customer Account'}</h1>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
                 Verified Buyer
               </span>
             </div>
             <p className="text-xs text-neutral-500 mt-0.5">
-              jane.wambui@allsales.ke • +254 712 345678 • Nairobi, Kenya
+              {authUser?.email || 'customer@allsales.ke'} • {authUser?.phone || '+254 712 345678'} • Nairobi, Kenya
             </p>
           </div>
         </div>

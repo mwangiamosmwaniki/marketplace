@@ -14,8 +14,9 @@ import { SellerPortal } from './components/seller/SellerPortal';
 import { AdminControlHub } from './components/admin/AdminControlHub';
 import { RestApiExplorer } from './components/api/RestApiExplorer';
 import { LaravelArchitectureViewer } from './components/laravel/LaravelArchitectureViewer';
+import { AuthModal } from './components/auth/AuthModal';
 import { Footer } from './components/Footer';
-import { Product, MasterOrder } from './types';
+import { Product, MasterOrder, Role } from './types';
 import {
   SlidersHorizontal,
   ArrowUpDown,
@@ -25,11 +26,13 @@ import {
   ShoppingBag,
   Store,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
   Zap,
 } from 'lucide-react';
 
 function MarketplaceApp() {
-  const { products, categories, brands, formatKSh } = useMarketplace();
+  const { products, categories, brands, formatKSh, authUser } = useMarketplace();
 
   // Navigation & Modals View state
   const [activeView, setActiveView] = useState<
@@ -39,6 +42,10 @@ function MarketplaceApp() {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
+
+  // Real Authentication Modal state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register_customer' | 'register_seller'>('login');
 
   // Search & Filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,7 +155,14 @@ function MarketplaceApp() {
       {/* 1. Global Navigation Bar */}
       <Navbar
         onOpenCart={() => setIsCartOpen(true)}
-        onOpenAccount={() => setActiveView('customer')}
+        onOpenAccount={() => {
+          if (!authUser) {
+            setAuthModalTab('login');
+            setIsAuthModalOpen(true);
+          } else {
+            setActiveView('customer');
+          }
+        }}
         onSelectCategory={(catId) => {
           setSelectedCategory(catId);
           if (activeView !== 'storefront') setActiveView('storefront');
@@ -157,6 +171,10 @@ function MarketplaceApp() {
         setSearchQuery={setSearchQuery}
         activeView={activeView}
         setActiveView={setActiveView}
+        onOpenAuthModal={(tab) => {
+          setAuthModalTab(tab || 'login');
+          setIsAuthModalOpen(true);
+        }}
       />
 
       {/* 2. Main Body Content Switcher */}
@@ -169,7 +187,14 @@ function MarketplaceApp() {
               <>
                 <HeroSection
                   onSelectCategory={(catId) => setSelectedCategory(catId)}
-                  onOpenSellerPortal={() => setActiveView('seller')}
+                  onOpenSellerPortal={() => {
+                    if (authUser?.role === 'seller') {
+                      setActiveView('seller');
+                    } else {
+                      setAuthModalTab('register_seller');
+                      setIsAuthModalOpen(true);
+                    }
+                  }}
                 />
                 <FlashSalesSection
                   onViewProduct={(product) => setSelectedProductForDetail(product)}
@@ -391,11 +416,77 @@ function MarketplaceApp() {
           />
         )}
 
-        {/* VIEW 3: SELLER CENTER PORTAL (WITH SIDEBAR) */}
-        {activeView === 'seller' && <SellerPortal />}
+        {/* VIEW 3: SELLER CENTER PORTAL (RBAC Guarded) */}
+        {activeView === 'seller' && (
+          authUser?.role === 'seller' ? (
+            <SellerPortal />
+          ) : (
+            <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
+              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600 border border-emerald-200">
+                <Store className="w-7 h-7" />
+              </div>
+              <h2 className="text-lg font-black text-neutral-900 mb-1">
+                Allsales Seller Center
+              </h2>
+              <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
+                Access to the merchant portal requires an approved Allsales Kenya seller account. Sign in to your vendor profile or register your shop today.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setAuthModalTab('login');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition-colors"
+                >
+                  Sign In as Seller
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthModalTab('register_seller');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors"
+                >
+                  Register New Vendor Account
+                </button>
+              </div>
+            </div>
+          )
+        )}
 
-        {/* VIEW 4: ADMIN CONTROL HUB (WITH SIDEBAR) */}
-        {activeView === 'admin' && <AdminControlHub />}
+        {/* VIEW 4: ADMIN CONTROL HUB (RBAC Guarded) */}
+        {activeView === 'admin' && (
+          (authUser?.role === 'super_admin' ||
+           authUser?.role === 'finance_admin' ||
+           authUser?.role === 'seller_admin' ||
+           authUser?.role === 'logistics_admin' ||
+           authUser?.role === 'product_admin') ? (
+            <AdminControlHub />
+          ) : (
+            <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
+              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 border border-purple-200">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <h2 className="text-lg font-black text-neutral-900 mb-1">
+                Restricted Governance Area
+              </h2>
+              <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
+                This console is reserved exclusively for authenticated Allsales Kenya administrative staff (Finance, KYC Compliance, Super Admin).
+              </p>
+              <button
+                onClick={() => {
+                  setAuthModalTab('login');
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-xs transition-colors inline-flex items-center gap-2"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Sign In with Staff Credentials</span>
+              </button>
+            </div>
+          )
+        )}
 
         {/* VIEW 5: REST API EXPLORER */}
         {activeView === 'api' && <RestApiExplorer />}
@@ -406,6 +497,28 @@ function MarketplaceApp() {
 
       {/* 3. Global Footer */}
       <Footer />
+
+      {/* 4. Real Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        defaultTab={authModalTab}
+        onSuccess={(role) => {
+          if (role === 'seller') {
+            setActiveView('seller');
+          } else if (
+            role === 'super_admin' ||
+            role === 'finance_admin' ||
+            role === 'seller_admin' ||
+            role === 'logistics_admin' ||
+            role === 'product_admin'
+          ) {
+            setActiveView('admin');
+          } else {
+            setActiveView('storefront');
+          }
+        }}
+      />
 
       {/* 4. Modals & Drawers */}
       {/* Product Detail Modal */}
