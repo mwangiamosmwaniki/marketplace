@@ -71,22 +71,22 @@ export const Footer: React.FC = () => {
             <h5 className="text-white font-bold uppercase tracking-wider mb-3">Customer Care</h5>
             <ul className="space-y-2 text-neutral-400">
               <li><a href="#help" className="hover:text-amber-400">Help Center & FAQs</a></li>
-              <li><a href="#how-to-buy" className="hover:text-amber-400">How to Shop on Jumia</a></li>
+              <li><a href="#how-to-buy" className="hover:text-amber-400">How to Shop on Allsales</a></li>
               <li><a href="#delivery" className="hover:text-amber-400">Delivery Timelines & Fees</a></li>
               <li><a href="#disputes" className="hover:text-amber-400">Dispute Resolution</a></li>
               <li><a href="#returns" className="hover:text-amber-400">Return & Refund Policy</a></li>
             </ul>
           </div>
 
-          {/* Col 2: About Jumia */}
+          {/* Col 2: About Allsales */}
           <div>
-            <h5 className="text-white font-bold uppercase tracking-wider mb-3">About Jumia</h5>
+            <h5 className="text-white font-bold uppercase tracking-wider mb-3">About Allsales</h5>
             <ul className="space-y-2 text-neutral-400">
               <li><a href="#about" className="hover:text-amber-400">About Us</a></li>
-              <li><a href="#jumia-express" className="hover:text-amber-400">Jumia Express</a></li>
+              <li><a href="#allsales-express" className="hover:text-amber-400">Allsales Express</a></li>
               <li><a href="#terms" className="hover:text-amber-400">Terms & Conditions</a></li>
               <li><a href="#privacy" className="hover:text-amber-400">Privacy Notice</a></li>
-              <li><a href="#careers" className="hover:text-amber-400">Careers at Jumia</a></li>
+              <li><a href="#careers" className="hover:text-amber-400">Careers at Allsales</a></li>
             </ul>
           </div>
 
@@ -94,10 +94,10 @@ export const Footer: React.FC = () => {
           <div>
             <h5 className="text-white font-bold uppercase tracking-wider mb-3">Make Money With Us</h5>
             <ul className="space-y-2 text-neutral-400">
-              <li><a href="#sell" className="hover:text-amber-400">Sell on Jumia (Vendor Center)</a></li>
+              <li><a href="#sell" className="hover:text-amber-400">Sell on Allsales (Vendor Center)</a></li>
               <li><a href="#logistics" className="hover:text-amber-400">Become a Logistics Partner</a></li>
-              <li><a href="#hub" className="hover:text-amber-400">Open a Jumia Pickup Station</a></li>
-              <li><a href="#affiliate" className="hover:text-amber-400">Jumia Affiliate Program</a></li>
+              <li><a href="#hub" className="hover:text-amber-400">Open an Allsales Pickup Station</a></li>
+              <li><a href="#affiliate" className="hover:text-amber-400">Allsales Affiliate Program</a></li>
             </ul>
           </div>
 
@@ -126,7 +126,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom copyright */}
         <div className="mt-12 pt-6 border-t border-neutral-800 text-[11px] text-neutral-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Jumia Marketplace Kenya. All rights reserved.</p>
+          <p>© 2026 Allsales Marketplace Kenya. All rights reserved.</p>
           <div className="flex gap-4">
             <span>Kenya</span>
             <span>•</span>

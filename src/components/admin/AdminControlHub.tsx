@@ -100,7 +100,7 @@ export const AdminControlHub: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white">Jumia Marketplace Admin Hub</h1>
+              <h1 className="text-lg font-bold text-white">Allsales Marketplace Admin Hub</h1>
               <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded tracking-wide uppercase">
                 Enterprise
               </span>
@@ -341,7 +341,7 @@ export const AdminControlHub: React.FC = () => {
                 {formatKSh(totalCommissionsEarned)}
               </div>
               <p className="text-[11px] text-neutral-400 mt-1">
-                Net earned revenue retained by Jumia
+                Net earned revenue retained by Allsales
               </p>
             </div>
 

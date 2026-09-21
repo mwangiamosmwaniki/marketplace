@@ -123,7 +123,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
               </span>
             </div>
             <p className="text-xs text-neutral-500 mt-0.5">
-              jane.wambui@jumia.ke • +254 712 345678 • Nairobi, Kenya
+              jane.wambui@allsales.ke • +254 712 345678 • Nairobi, Kenya
             </p>
           </div>
         </div>
@@ -272,7 +272,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
           <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-xs text-xs">
             <h4 className="font-bold text-amber-900 mb-1">Need help with an order?</h4>
             <p className="text-amber-800 text-[11px] leading-relaxed mb-3">
-              Jumia Customer Protection guarantees 100% genuine products with 15-day return policy and instant M-Pesa refunds.
+              Allsales Customer Protection guarantees 100% genuine products with 15-day return policy and instant M-Pesa refunds.
             </p>
             <div className="flex items-center gap-2 text-[11px] font-bold text-amber-900">
               <Phone className="w-3.5 h-3.5" />
@@ -457,7 +457,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                       <Package className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
                       <h4 className="font-bold text-sm text-neutral-800">No orders placed yet</h4>
                       <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-                        Explore Jumia's official stores, flash sales, and top-rated electronics.
+                        Explore Allsales's official stores, flash sales, and top-rated electronics.
                       </p>
                       {onContinueShopping && (
                         <button

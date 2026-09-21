@@ -174,7 +174,7 @@ class MpesaDarajaService
             'PhoneNumber' => $phoneNumber,
             'CallBackURL' => $this->callbackUrl,
             'AccountReference' => $order->order_number,
-            'TransactionDesc' => 'Payment for Jumia Order ' . $order->order_number,
+            'TransactionDesc' => 'Payment for Allsales Order ' . $order->order_number,
         ];
 
         $response = Http::withToken($token)

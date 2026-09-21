@@ -42,7 +42,7 @@ export const DEMO_PERSONAS: Persona[] = [
   {
     id: 'persona-customer',
     name: 'Jane Wambui',
-    email: 'jane.wambui@jumia.ke',
+    email: 'jane.wambui@allsales.ke',
     role: 'customer',
     roleLabel: 'Customer / Buyer',
     roleBadgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -81,7 +81,7 @@ export const DEMO_PERSONAS: Persona[] = [
   {
     id: 'persona-super-admin',
     name: 'Robert Otieno',
-    email: 'robert.admin@jumia.ke',
+    email: 'robert.admin@allsales.ke',
     role: 'super_admin',
     roleLabel: 'Platform Superadmin',
     roleBadgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
@@ -90,7 +90,7 @@ export const DEMO_PERSONAS: Persona[] = [
   {
     id: 'persona-finance-admin',
     name: 'Faith Muthoni',
-    email: 'faith.finance@jumia.ke',
+    email: 'faith.finance@allsales.ke',
     role: 'finance_admin',
     roleLabel: 'Finance & Escrow Admin',
     roleBadgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -99,7 +99,7 @@ export const DEMO_PERSONAS: Persona[] = [
   {
     id: 'persona-logistics-admin',
     name: 'Brian Cheruiyot',
-    email: 'brian.logistics@jumia.ke',
+    email: 'brian.logistics@allsales.ke',
     role: 'logistics_admin',
     roleLabel: 'Fulfillment & Logistics Admin',
     roleBadgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
@@ -108,7 +108,7 @@ export const DEMO_PERSONAS: Persona[] = [
   {
     id: 'persona-seller-admin',
     name: 'Grace Nduta',
-    email: 'grace.kyc@jumia.ke',
+    email: 'grace.kyc@allsales.ke',
     role: 'seller_admin',
     roleLabel: 'Seller Compliance Admin',
     roleBadgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
@@ -193,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Left Announcement */}
           <div className="flex items-center gap-3 text-[11px]">
             <span className="text-amber-400 font-extrabold tracking-wide flex items-center gap-1">
-              <span>★</span> JUMIA ONLINE MARKETPLACE
+              <span>★</span> ALLSALES MARKETPLACE
             </span>
             <span className="hidden lg:inline text-neutral-400 border-l border-neutral-700 pl-3">
               Kenya's Leading Multi-Vendor E-Commerce Platform
@@ -320,7 +320,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <span className="font-black text-xl tracking-tight text-neutral-900 flex items-center">
-                JUMIA<span className="text-amber-500 text-2xl leading-none">.</span>
+                ALLSALES<span className="text-amber-500 text-2xl leading-none">.</span>
               </span>
               <span className="text-[9px] font-extrabold tracking-widest text-neutral-500 block -mt-1 uppercase">
                 {activeView === 'seller'

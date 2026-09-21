@@ -478,10 +478,10 @@ export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
     pickupStationFee: 100,
     estimatedDays: 'Same Day - 24 Hours',
     pickupStations: [
-      'Jumia Hub - Sarit Centre Westlands',
-      'Jumia Station - Yaya Centre Kilimani',
-      'Jumia Express - Kencom CBD Posta',
-      'Jumia Hub - The Hub Karen',
+      'Allsales Hub - Sarit Centre Westlands',
+      'Allsales Station - Yaya Centre Kilimani',
+      'Allsales Express - Kencom CBD Posta',
+      'Allsales Hub - The Hub Karen',
     ],
   },
   {
@@ -490,7 +490,7 @@ export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
     homeDeliveryFee: 400,
     pickupStationFee: 200,
     estimatedDays: '1 - 2 Business Days',
-    pickupStations: ['Jumia Hub - City Mall Nyali', 'Jumia Station - Digo Road CBD', 'Jumia Express - Bamburi Plaza'],
+    pickupStations: ['Allsales Hub - City Mall Nyali', 'Allsales Station - Digo Road CBD', 'Allsales Express - Bamburi Plaza'],
   },
   {
     county: 'Kisumu',
@@ -498,7 +498,7 @@ export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
     homeDeliveryFee: 450,
     pickupStationFee: 250,
     estimatedDays: '2 - 3 Business Days',
-    pickupStations: ['Jumia Hub - Mega Plaza Oginga Odinga St', 'Jumia Express - United Mall Kisumu'],
+    pickupStations: ['Allsales Hub - Mega Plaza Oginga Odinga St', 'Allsales Express - United Mall Kisumu'],
   },
   {
     county: 'Nakuru',
@@ -506,7 +506,7 @@ export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
     homeDeliveryFee: 350,
     pickupStationFee: 180,
     estimatedDays: '1 - 2 Business Days',
-    pickupStations: ['Jumia Station - Westside Mall Nakuru', 'Jumia Hub - Golden Life Mall'],
+    pickupStations: ['Allsales Station - Westside Mall Nakuru', 'Allsales Hub - Golden Life Mall'],
   },
   {
     county: 'Eldoret',
@@ -514,7 +514,7 @@ export const INITIAL_DELIVERY_ZONES: DeliveryZone[] = [
     homeDeliveryFee: 450,
     pickupStationFee: 250,
     estimatedDays: '2 - 3 Business Days',
-    pickupStations: ['Jumia Station - Rupa Mills Mall Eldoret', 'Jumia Express - Zion Mall CBD'],
+    pickupStations: ['Allsales Station - Rupa Mills Mall Eldoret', 'Allsales Express - Zion Mall CBD'],
   },
 ];
 

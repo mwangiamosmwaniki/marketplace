@@ -229,7 +229,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-xs text-neutral-900 mb-1">
                       <MapPin className="w-4 h-4 text-amber-600" />
-                      <span>Jumia Pickup Station</span>
+                      <span>Allsales Pickup Station</span>
                     </div>
                     <p className="text-[11px] text-neutral-500">
                       Collect at a designated secure neighborhood hub.
