@@ -22,6 +22,10 @@ import {
   AuditLog,
   DeliveryZone,
   ProductVariant,
+  SystemSettings,
+  SupportTicket,
+  Promotion,
+  ReturnRequest,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -35,6 +39,10 @@ import {
   INITIAL_COUPONS,
   INITIAL_AUDIT_LOGS,
   INITIAL_DELIVERY_ZONES,
+  INITIAL_SETTINGS,
+  INITIAL_SUPPORT_TICKETS,
+  INITIAL_PROMOTIONS,
+  INITIAL_RETURNS,
 } from '../data/initialData';
 
 interface MarketplaceContextType {
@@ -127,6 +135,70 @@ interface MarketplaceContextType {
   // Reviews
   addProductReview: (productId: string, rating: number, comment: string, customerName?: string) => void;
 
+  // System Settings (Admin / Governance)
+  settings: SystemSettings;
+  updateSettings: (newSettings: SystemSettings) => void;
+
+  // Customer Support Tickets
+  supportTickets: SupportTicket[];
+  createSupportTicket: (
+    ticket: Omit<SupportTicket, 'id' | 'ticketNumber' | 'createdAt' | 'updatedAt' | 'messages'>,
+    initialMessage: string
+  ) => void;
+  replySupportTicket: (ticketId: string, message: string) => void;
+  updateTicketStatus: (ticketId: string, status: SupportTicket['status']) => void;
+
+  // Promotions & Homepage Marketing
+  promotions: Promotion[];
+  createPromotion: (promo: Omit<Promotion, 'id'>) => void;
+  updatePromotion: (id: string, updates: Partial<Promotion>) => void;
+  deletePromotion: (id: string) => void;
+
+  // Customer Returns & Admin Refunds
+  returns: ReturnRequest[];
+  requestReturn: (
+    orderId: string,
+    subOrderId: string,
+    productId: string,
+    reason: string
+  ) => { success: boolean; message: string };
+  updateReturnStatus: (returnId: string, status: ReturnRequest['status'], rejectionReason?: string) => void;
+  processReturnRefund: (returnId: string) => void;
+
+  // Customer Addresses
+  addresses: DeliveryAddress[];
+  addAddress: (address: DeliveryAddress) => void;
+  updateAddress: (id: string, updates: Partial<DeliveryAddress>) => void;
+  deleteAddress: (id: string) => void;
+  setDefaultAddress: (id: string) => void;
+
+  // Seller Product Operations
+  deleteSellerProduct: (productId: string) => void;
+
+  // Catalog Governance (Categories & Brands)
+  addCategory: (cat: Omit<Category, 'id'>) => void;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
+  addBrand: (brand: Omit<Brand, 'id'>) => void;
+  updateBrand: (id: string, updates: Partial<Brand>) => void;
+  deleteBrand: (id: string) => void;
+
+  // Marketing Governance
+  deleteCoupon: (code: string) => void;
+
+  // User Governance
+  createUser: (userData: Omit<User, 'id' | 'createdAt'>) => void;
+  suspendUser: (userId: string) => void;
+  restoreUser: (userId: string) => void;
+
+  // Logistics Governance
+  addDeliveryZone: (zone: DeliveryZone) => void;
+  updateDeliveryZone: (county: string, updates: Partial<DeliveryZone>) => void;
+  deleteDeliveryZone: (county: string) => void;
+
+  // Audit Logs
+  addAuditLog: (action: string, entity: string, entityId: string, details: string) => void;
+
   // Utilities
   formatKSh: (amount: number) => string;
 }
@@ -170,8 +242,14 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   // Datasets initialized from storage or defaults
-  const [categories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [brands] = useState<Brand[]>(INITIAL_BRANDS);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('allsales_categories');
+    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+  });
+  const [brands, setBrands] = useState<Brand[]>(() => {
+    const saved = localStorage.getItem('allsales_brands');
+    return saved ? JSON.parse(saved) : INITIAL_BRANDS;
+  });
   const [sellers, setSellers] = useState<Seller[]>(() => {
     const saved = localStorage.getItem('allsales_sellers');
     return saved ? JSON.parse(saved) : INITIAL_SELLERS;
@@ -200,7 +278,51 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const saved = localStorage.getItem('allsales_audit_logs');
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
-  const [deliveryZones] = useState<DeliveryZone[]>(INITIAL_DELIVERY_ZONES);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(() => {
+    const saved = localStorage.getItem('allsales_delivery_zones');
+    return saved ? JSON.parse(saved) : INITIAL_DELIVERY_ZONES;
+  });
+  const [settings, setSettings] = useState<SystemSettings>(() => {
+    const saved = localStorage.getItem('allsales_settings');
+    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+  });
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
+    const saved = localStorage.getItem('allsales_support_tickets');
+    return saved ? JSON.parse(saved) : INITIAL_SUPPORT_TICKETS;
+  });
+  const [promotions, setPromotions] = useState<Promotion[]>(() => {
+    const saved = localStorage.getItem('allsales_promotions');
+    return saved ? JSON.parse(saved) : INITIAL_PROMOTIONS;
+  });
+  const [returns, setReturns] = useState<ReturnRequest[]>(() => {
+    const saved = localStorage.getItem('allsales_returns');
+    return saved ? JSON.parse(saved) : INITIAL_RETURNS;
+  });
+  const [addresses, setAddresses] = useState<DeliveryAddress[]>(() => {
+    const saved = localStorage.getItem('allsales_addresses');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'addr-1',
+        fullName: 'Jane Wambui',
+        phone: '+254 712 345678',
+        county: 'Nairobi',
+        town: 'Westlands / Parklands',
+        streetAddress: 'Mpaka Road, Woodvale Grove, Apt 4B',
+        deliveryInstructions: 'Ring bell 4B or leave at gate security',
+        isDefault: true,
+      },
+      {
+        id: 'addr-2',
+        fullName: 'Jane Wambui',
+        phone: '+254 712 345678',
+        county: 'Nairobi',
+        town: 'Kilimani / Kileleshwa',
+        streetAddress: 'Argwings Kodhek Road, Landmark Plaza, 3rd Floor',
+        deliveryInstructions: 'Reception desk during business hours (8am - 5pm)',
+        isDefault: false,
+      },
+    ];
+  });
 
   // Cart & Wishlist
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -382,6 +504,38 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     localStorage.setItem('allsales_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_categories', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_brands', JSON.stringify(brands));
+  }, [brands]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_delivery_zones', JSON.stringify(deliveryZones));
+  }, [deliveryZones]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_support_tickets', JSON.stringify(supportTickets));
+  }, [supportTickets]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_promotions', JSON.stringify(promotions));
+  }, [promotions]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_returns', JSON.stringify(returns));
+  }, [returns]);
+
+  useEffect(() => {
+    localStorage.setItem('allsales_addresses', JSON.stringify(addresses));
+  }, [addresses]);
 
   // Current logged in seller object
   const currentSeller = sellers.find((s) => s.id === currentSellerId);
@@ -1027,6 +1181,363 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     logAuditAction('COUPON_CREATED', 'Coupon', coupon.code, `Created coupon ${coupon.code}`);
   };
 
+  const deleteCoupon = (code: string) => {
+    setCoupons((prev) => prev.filter((c) => c.code !== code));
+    logAuditAction('COUPON_DELETED', 'Coupon', code, `Deleted coupon code ${code}`);
+  };
+
+  // System Settings Operations
+  const updateSettings = (newSettings: SystemSettings) => {
+    setSettings(newSettings);
+    logAuditAction(
+      'SETTINGS_UPDATED',
+      'SystemSettings',
+      'global',
+      `Marketplace system configurations updated by ${authUser?.name || 'Administrator'}`
+    );
+  };
+
+  // Catalog Governance (Categories & Brands)
+  const addCategory = (cat: Omit<Category, 'id'>) => {
+    const id = `cat-${Date.now()}`;
+    const newCat: Category = { id, ...cat };
+    setCategories((prev) => [...prev, newCat]);
+    logAuditAction('CATEGORY_CREATED', 'Category', id, `Added category ${cat.name}`);
+  };
+
+  const updateCategory = (id: string, updates: Partial<Category>) => {
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    logAuditAction('CATEGORY_UPDATED', 'Category', id, `Updated category ${updates.name || id}`);
+  };
+
+  const deleteCategory = (id: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+    logAuditAction('CATEGORY_DELETED', 'Category', id, `Deleted category ${id}`);
+  };
+
+  const addBrand = (brand: Omit<Brand, 'id'>) => {
+    const id = `brand-${Date.now()}`;
+    const newBrand: Brand = { id, ...brand };
+    setBrands((prev) => [...prev, newBrand]);
+    logAuditAction('BRAND_CREATED', 'Brand', id, `Added brand ${brand.name}`);
+  };
+
+  const updateBrand = (id: string, updates: Partial<Brand>) => {
+    setBrands((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
+    logAuditAction('BRAND_UPDATED', 'Brand', id, `Updated brand ${updates.name || id}`);
+  };
+
+  const deleteBrand = (id: string) => {
+    setBrands((prev) => prev.filter((b) => b.id !== id));
+    logAuditAction('BRAND_DELETED', 'Brand', id, `Deleted brand ${id}`);
+  };
+
+  // Seller Product Delete
+  const deleteSellerProduct = (productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    logAuditAction('PRODUCT_DELETED', 'Product', productId, `Deleted or archived product SKU/ID ${productId}`);
+  };
+
+  // User Governance Operations
+  const createUser = (userData: Omit<User, 'id' | 'createdAt'>) => {
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      ...userData,
+    };
+    setUsers((prev) => [newUser, ...prev]);
+    logAuditAction('USER_CREATED', 'User', newUser.id, `Created staff/user account ${newUser.email} with role ${newUser.role}`);
+  };
+
+  const suspendUser = (userId: string) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 'suspended' as const } : u)));
+    logAuditAction('USER_SUSPENDED', 'User', userId, `Suspended user account ${userId}`);
+  };
+
+  const restoreUser = (userId: string) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 'active' as const } : u)));
+    logAuditAction('USER_RESTORED', 'User', userId, `Restored user account ${userId}`);
+  };
+
+  // Customer Support Operations
+  const createSupportTicket = (
+    ticket: Omit<SupportTicket, 'id' | 'ticketNumber' | 'createdAt' | 'updatedAt' | 'messages'>,
+    initialMessage: string
+  ) => {
+    const ticketId = `ticket-${Date.now()}`;
+    const ticketNum = `TCK-2026-${Math.floor(100 + Math.random() * 900)}`;
+    const now = new Date().toISOString();
+    const newTicket: SupportTicket = {
+      id: ticketId,
+      ticketNumber: ticketNum,
+      ...ticket,
+      createdAt: now,
+      updatedAt: now,
+      messages: [
+        {
+          id: `msg-${Date.now()}`,
+          senderId: ticket.userId,
+          senderName: ticket.userName,
+          senderRole: ticket.userRole,
+          message: initialMessage,
+          createdAt: now,
+        },
+      ],
+    };
+    setSupportTickets((prev) => [newTicket, ...prev]);
+    logAuditAction('TICKET_CREATED', 'SupportTicket', ticketId, `Created ticket ${ticketNum}: ${ticket.subject}`);
+  };
+
+  const replySupportTicket = (ticketId: string, message: string) => {
+    const now = new Date().toISOString();
+    setSupportTickets((prev) =>
+      prev.map((t) => {
+        if (t.id === ticketId) {
+          return {
+            ...t,
+            updatedAt: now,
+            status: authUser?.role === 'customer' || authUser?.role === 'seller' ? 'open' : 'in_progress',
+            messages: [
+              ...t.messages,
+              {
+                id: `msg-${Date.now()}`,
+                senderId: authUser?.id || 'admin',
+                senderName: authUser?.name || 'Customer Support',
+                senderRole: authUser?.role || 'support_admin',
+                message,
+                createdAt: now,
+              },
+            ],
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const updateTicketStatus = (ticketId: string, status: SupportTicket['status']) => {
+    setSupportTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status, updatedAt: new Date().toISOString() } : t))
+    );
+    logAuditAction('TICKET_STATUS_UPDATED', 'SupportTicket', ticketId, `Ticket status changed to ${status}`);
+  };
+
+  // Promotions Marketing Operations
+  const createPromotion = (promo: Omit<Promotion, 'id'>) => {
+    const id = `promo-${Date.now()}`;
+    const newPromo: Promotion = { id, ...promo };
+    setPromotions((prev) => [newPromo, ...prev]);
+    logAuditAction('PROMOTION_CREATED', 'Promotion', id, `Created promotion campaign: ${promo.title}`);
+  };
+
+  const updatePromotion = (id: string, updates: Partial<Promotion>) => {
+    setPromotions((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    logAuditAction('PROMOTION_UPDATED', 'Promotion', id, `Updated promotion campaign ${id}`);
+  };
+
+  const deletePromotion = (id: string) => {
+    setPromotions((prev) => prev.filter((p) => p.id !== id));
+    logAuditAction('PROMOTION_DELETED', 'Promotion', id, `Deleted promotion campaign ${id}`);
+  };
+
+  // Customer Returns & Admin Refunds Operations
+  const requestReturn = (
+    orderId: string,
+    subOrderId: string,
+    productId: string,
+    reason: string
+  ) => {
+    const order = orders.find((o) => o.id === orderId);
+    const subOrder = order?.sellerSubOrders.find((s) => s.id === subOrderId);
+    const item = subOrder?.items.find((i) => i.productId === productId);
+
+    if (!order || !subOrder || !item) {
+      return { success: false, message: 'Order item could not be located.' };
+    }
+
+    const returnId = `ret-${Date.now()}`;
+    const returnNumber = `RET-2026-${Math.floor(100 + Math.random() * 900)}`;
+    const newReturn: ReturnRequest = {
+      id: returnId,
+      returnNumber,
+      orderId,
+      orderNumber: order.orderNumber,
+      subOrderId,
+      customerId: order.customerId,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      sellerId: subOrder.sellerId,
+      sellerName: subOrder.sellerName,
+      productId: item.productId,
+      productName: item.productName,
+      productImage: item.productImage,
+      price: item.price * item.quantity,
+      reason,
+      status: 'pending_review',
+      createdAt: new Date().toISOString(),
+    };
+
+    setReturns((prev) => [newReturn, ...prev]);
+
+    // Update subOrder status to return_requested
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            status: 'return_requested' as OrderStatus,
+            sellerSubOrders: o.sellerSubOrders.map((so) =>
+              so.id === subOrderId ? { ...so, status: 'return_requested' as OrderStatus } : so
+            ),
+          };
+        }
+        return o;
+      })
+    );
+
+    logAuditAction(
+      'RETURN_REQUESTED',
+      'ReturnRequest',
+      returnNumber,
+      `Customer ${order.customerName} requested return for ${item.productName}. Reason: ${reason}`
+    );
+
+    return {
+      success: true,
+      message: `Return request ${returnNumber} submitted successfully. Compliance will review your request within 24 hours.`,
+    };
+  };
+
+  const updateReturnStatus = (returnId: string, status: ReturnRequest['status'], rejectionReason?: string) => {
+    setReturns((prev) =>
+      prev.map((r) =>
+        r.id === returnId
+          ? {
+              ...r,
+              status,
+              rejectionReason,
+              resolvedAt: status === 'refunded' || status === 'rejected' ? new Date().toISOString() : r.resolvedAt,
+            }
+          : r
+      )
+    );
+    logAuditAction('RETURN_STATUS_UPDATED', 'ReturnRequest', returnId, `Return status set to ${status}. ${rejectionReason || ''}`);
+  };
+
+  const processReturnRefund = (returnId: string) => {
+    const ret = returns.find((r) => r.id === returnId);
+    if (!ret) return;
+
+    // 1. Mark return as refunded
+    setReturns((prev) =>
+      prev.map((r) => (r.id === returnId ? { ...r, status: 'refunded' as const, resolvedAt: new Date().toISOString() } : r))
+    );
+
+    // 2. Mark master order and sub-order as refunded
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === ret.orderId) {
+          return {
+            ...o,
+            paymentStatus: 'refunded' as const,
+            status: 'refunded' as const,
+            sellerSubOrders: o.sellerSubOrders.map((so) =>
+              so.id === ret.subOrderId ? { ...so, status: 'refunded' as const } : so
+            ),
+          };
+        }
+        return o;
+      })
+    );
+
+    // 3. Post REFUND entry in Financial Ledger
+    const txnRef = `REFUND-MPESA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const ledgerEntry: FinancialLedgerEntry = {
+      id: `led-ref-${Date.now()}`,
+      transactionRef: txnRef,
+      type: 'REFUND',
+      orderNumber: ret.orderNumber,
+      sellerId: ret.sellerId,
+      sellerName: ret.sellerName,
+      debit: ret.price,
+      credit: 0,
+      balanceAfter: 0,
+      notes: `Reversal / Customer Refund for Order ${ret.orderNumber} (Return ${ret.returnNumber})`,
+      createdAt: new Date().toISOString(),
+    };
+    setLedger((prev) => [ledgerEntry, ...prev]);
+
+    logAuditAction(
+      'REFUND_PROCESSED',
+      'ReturnRequest',
+      ret.returnNumber,
+      `Refund of KSh ${ret.price.toLocaleString()} processed for customer ${ret.customerName}. Txn: ${txnRef}`
+    );
+  };
+
+  // Customer Delivery Addresses CRUD
+  const addAddress = (addr: DeliveryAddress) => {
+    const id = `addr-${Date.now()}`;
+    const newAddr: DeliveryAddress = { id, ...addr };
+    setAddresses((prev) => {
+      if (newAddr.isDefault) {
+        return [newAddr, ...prev.map((a) => ({ ...a, isDefault: false }))];
+      }
+      return [...prev, newAddr];
+    });
+  };
+
+  const updateAddress = (id: string, updates: Partial<DeliveryAddress>) => {
+    setAddresses((prev) =>
+      prev.map((a) => {
+        if (a.id === id) {
+          return { ...a, ...updates };
+        }
+        if (updates.isDefault) {
+          return { ...a, isDefault: false };
+        }
+        return a;
+      })
+    );
+  };
+
+  const deleteAddress = (id: string) => {
+    setAddresses((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const setDefaultAddress = (id: string) => {
+    setAddresses((prev) =>
+      prev.map((a) => ({
+        ...a,
+        isDefault: a.id === id,
+      }))
+    );
+  };
+
+  // Logistics Delivery Zones CRUD
+  const addDeliveryZone = (zone: DeliveryZone) => {
+    const id = `zone-${Date.now()}`;
+    setDeliveryZones((prev) => [...prev, { id, ...zone }]);
+    logAuditAction('ZONE_CREATED', 'DeliveryZone', zone.county, `Created delivery zone for ${zone.county}`);
+  };
+
+  const updateDeliveryZone = (county: string, updates: Partial<DeliveryZone>) => {
+    setDeliveryZones((prev) =>
+      prev.map((z) => (z.county === county ? { ...z, ...updates } : z))
+    );
+    logAuditAction('ZONE_UPDATED', 'DeliveryZone', county, `Updated delivery tariffs/parameters for ${county}`);
+  };
+
+  const deleteDeliveryZone = (county: string) => {
+    setDeliveryZones((prev) => prev.filter((z) => z.county !== county));
+    logAuditAction('ZONE_DELETED', 'DeliveryZone', county, `Deleted delivery zone for ${county}`);
+  };
+
+  // Direct manual audit log dispatch
+  const addAuditLog = (action: string, entity: string, entityId: string, details: string) => {
+    logAuditAction(action, entity, entityId, details);
+  };
+
   const addProductReview = (
     productId: string,
     rating: number,
@@ -1125,7 +1636,41 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         approvePayout,
         rejectPayout,
         createCoupon,
+        deleteCoupon,
         addProductReview,
+        settings,
+        updateSettings,
+        supportTickets,
+        createSupportTicket,
+        replySupportTicket,
+        updateTicketStatus,
+        promotions,
+        createPromotion,
+        updatePromotion,
+        deletePromotion,
+        returns,
+        requestReturn,
+        updateReturnStatus,
+        processReturnRefund,
+        addresses,
+        addAddress,
+        updateAddress,
+        deleteAddress,
+        setDefaultAddress,
+        deleteSellerProduct,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        addBrand,
+        updateBrand,
+        deleteBrand,
+        createUser,
+        suspendUser,
+        restoreUser,
+        addDeliveryZone,
+        updateDeliveryZone,
+        deleteDeliveryZone,
+        addAuditLog,
         formatKSh,
       }}
     >

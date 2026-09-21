@@ -10,6 +10,10 @@ import {
   DeliveryZone,
   Coupon,
   AuditLog,
+  SystemSettings,
+  SupportTicket,
+  Promotion,
+  ReturnRequest,
 } from '../types';
 
 export const INITIAL_CATEGORIES: Category[] = [
@@ -830,6 +834,177 @@ export const INITIAL_USERS: User[] = [
     permissions: ['products.approve', 'categories.manage', 'brands.manage'],
     status: 'active',
     createdAt: '2025-01-05T10:00:00Z',
+  },
+];
+
+export const INITIAL_SETTINGS: SystemSettings = {
+  general: {
+    marketplaceName: 'Allsales Kenya',
+    logoUrl: '/logo.png',
+    supportEmail: 'support@allsales.ke',
+    supportPhone: '+254 700 000 000',
+    defaultCurrency: 'KES',
+    timezone: 'Africa/Nairobi',
+    country: 'Kenya',
+    address: 'Allsales Logistics Center, Mombasa Road, Nairobi, Kenya',
+  },
+  commerce: {
+    defaultCommissionRate: 10,
+    minPayoutAmount: 1000,
+    returnPeriodDays: 7,
+    orderCancellationMinutes: 60,
+    vatRate: 16,
+    minOrderValue: 200,
+  },
+  payments: {
+    enableMpesa: true,
+    enableCard: true,
+    enableBankTransfer: true,
+    enableCod: true,
+    mpesaShortcode: '882910',
+    mpesaEnvironment: 'production',
+  },
+  delivery: {
+    defaultDeliveryFee: 150,
+    freeDeliveryThreshold: 10000,
+    enablePickupStations: true,
+    defaultDispatchWindowHours: 24,
+  },
+  notifications: {
+    emailNotificationsEnabled: true,
+    smsNotificationsEnabled: true,
+    orderConfirmationEmail: true,
+    sellerPayoutAlerts: true,
+    adminEscrowAlerts: true,
+  },
+  security: {
+    passwordMinLength: 8,
+    requireSpecialChar: true,
+    sessionTimeoutMinutes: 120,
+    twoFactorRequiredForAdmins: true,
+  },
+  seo: {
+    metaTitle: 'Allsales Kenya | Online Shopping for Electronics, Phones, Fashion & More',
+    metaDescription: 'Kenya’s premier multi-vendor marketplace with Lipa na M-Pesa, verified official brands, express nationwide delivery, and buyer protection.',
+    socialShareImage: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200',
+    indexingEnabled: true,
+  },
+  maintenance: {
+    isMaintenanceMode: false,
+    maintenanceMessage: 'Allsales is undergoing brief scheduled maintenance. We will be back shortly.',
+  },
+};
+
+export const INITIAL_SUPPORT_TICKETS: SupportTicket[] = [
+  {
+    id: 'ticket-101',
+    ticketNumber: 'TCK-2026-001',
+    userId: 'user-cust-1',
+    userName: 'John Kamau',
+    userEmail: 'customer@allsales.ke',
+    userRole: 'customer',
+    subject: 'Delayed dispatch for Anker Power Bank order',
+    category: 'orders',
+    status: 'in_progress',
+    priority: 'medium',
+    assignedAdminName: 'Grace Nduta',
+    orderNumber: 'JM-ORD-8829104',
+    createdAt: '2026-09-20T16:00:00Z',
+    updatedAt: '2026-09-21T02:30:00Z',
+    messages: [
+      {
+        id: 'msg-1',
+        senderId: 'user-cust-1',
+        senderName: 'John Kamau',
+        senderRole: 'customer',
+        message: 'Hello, I made payment via M-Pesa yesterday for the Anker 737 charger. When will the rider deliver to Kilimani?',
+        createdAt: '2026-09-20T16:00:00Z',
+      },
+      {
+        id: 'msg-2',
+        senderId: 'user-admin-support',
+        senderName: 'Grace Nduta',
+        senderRole: 'support_admin',
+        message: 'Hi John, Anker Direct has packed your package and it is currently at our Nairobi Sorting Hub. Expect delivery before 2 PM today.',
+        createdAt: '2026-09-21T02:30:00Z',
+      },
+    ],
+  },
+  {
+    id: 'ticket-102',
+    ticketNumber: 'TCK-2026-002',
+    userId: 'user-seller-1',
+    userName: 'Samson Kimani',
+    userEmail: 'seller1@allsales.ke',
+    userRole: 'seller',
+    subject: 'Inquiry regarding weekly payout cycle',
+    category: 'payments',
+    status: 'open',
+    priority: 'high',
+    assignedAdminName: 'Sarah Wambui',
+    createdAt: '2026-09-21T03:15:00Z',
+    updatedAt: '2026-09-21T03:15:00Z',
+    messages: [
+      {
+        id: 'msg-3',
+        senderId: 'user-seller-1',
+        senderName: 'Samson Kimani',
+        senderRole: 'seller',
+        message: 'Kindly assist with approving the pending payout of KSh 52,000 for Samsung Store East Africa. Our KRA eTIMS invoice was attached.',
+        createdAt: '2026-09-21T03:15:00Z',
+      },
+    ],
+  },
+];
+
+export const INITIAL_PROMOTIONS: Promotion[] = [
+  {
+    id: 'promo-1',
+    title: 'Super Tech Mega Deals',
+    subtitle: 'Up to 35% discount on Apple, Samsung, and Anker devices with Lipa na M-Pesa',
+    tag: 'LIMITED TECH DROP',
+    bannerImage: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=1000',
+    bgClass: 'from-amber-600 to-orange-600',
+    linkText: 'Shop Electronics',
+    targetCategory: 'cat-phones',
+    isActive: true,
+    startDate: '2026-09-01',
+    endDate: '2026-09-30',
+  },
+  {
+    id: 'promo-2',
+    title: 'Official Brand Assurance Week',
+    subtitle: '100% Authentic verified stock from East Africa authorized distributors',
+    tag: 'BUYER PROTECTION',
+    bannerImage: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=1000',
+    bgClass: 'from-blue-700 to-indigo-900',
+    linkText: 'Explore Official Hubs',
+    targetCategory: 'cat-electronics',
+    isActive: true,
+    startDate: '2026-09-10',
+    endDate: '2026-09-28',
+  },
+];
+
+export const INITIAL_RETURNS: ReturnRequest[] = [
+  {
+    id: 'ret-101',
+    returnNumber: 'RET-2026-001',
+    orderId: 'ord-10001',
+    orderNumber: 'JM-ORD-8829104',
+    subOrderId: 'sub-ord-2',
+    customerId: 'user-cust-1',
+    customerName: 'John Kamau',
+    customerPhone: '+254 711 222333',
+    sellerId: 'seller-2',
+    sellerName: 'Anker Direct Africa',
+    productId: 'prod-anker-737',
+    productName: 'Anker 737 Power Bank (PowerCore 24K) - 140W',
+    productImage: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=400&auto=format&fit=crop&q=80',
+    price: 14999,
+    reason: 'Ordered by mistake; customer required European plug model.',
+    status: 'pending_review',
+    createdAt: '2026-09-21T01:00:00Z',
   },
 ];
 

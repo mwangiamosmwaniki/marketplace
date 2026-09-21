@@ -142,6 +142,8 @@ export interface CartItem {
 }
 
 export interface DeliveryAddress {
+  id?: string;
+  isDefault?: boolean;
   fullName: string;
   phone: string;
   county: string;
@@ -280,4 +282,125 @@ export interface DeliveryZone {
   pickupStationFee: number;
   estimatedDays: string;
   pickupStations: string[];
+}
+
+export interface SystemSettings {
+  general: {
+    marketplaceName: string;
+    logoUrl: string;
+    supportEmail: string;
+    supportPhone: string;
+    defaultCurrency: string;
+    timezone: string;
+    country: string;
+    address: string;
+  };
+  commerce: {
+    defaultCommissionRate: number; // e.g. 10%
+    minPayoutAmount: number; // e.g. 1000 KSh
+    returnPeriodDays: number; // e.g. 7 days
+    orderCancellationMinutes: number; // e.g. 60 min
+    vatRate: number; // e.g. 16%
+    minOrderValue: number; // e.g. 500 KSh
+  };
+  payments: {
+    enableMpesa: boolean;
+    enableCard: boolean;
+    enableBankTransfer: boolean;
+    enableCod: boolean;
+    mpesaShortcode: string;
+    mpesaEnvironment: 'sandbox' | 'production';
+  };
+  delivery: {
+    defaultDeliveryFee: number;
+    freeDeliveryThreshold: number;
+    enablePickupStations: boolean;
+    defaultDispatchWindowHours: number;
+  };
+  notifications: {
+    emailNotificationsEnabled: boolean;
+    smsNotificationsEnabled: boolean;
+    orderConfirmationEmail: boolean;
+    sellerPayoutAlerts: boolean;
+    adminEscrowAlerts: boolean;
+  };
+  security: {
+    passwordMinLength: number;
+    requireSpecialChar: boolean;
+    sessionTimeoutMinutes: number;
+    twoFactorRequiredForAdmins: boolean;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+    socialShareImage: string;
+    indexingEnabled: boolean;
+  };
+  maintenance: {
+    isMaintenanceMode: boolean;
+    maintenanceMessage: string;
+  };
+}
+
+export interface SupportTicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: Role;
+  message: string;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: Role;
+  subject: string;
+  category: 'orders' | 'payments' | 'returns' | 'seller_onboarding' | 'technical' | 'general';
+  status: 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignedAdminName?: string;
+  orderNumber?: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportTicketMessage[];
+}
+
+export interface Promotion {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  bannerImage: string;
+  bgClass: string;
+  linkText: string;
+  targetCategory?: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ReturnRequest {
+  id: string;
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  subOrderId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  sellerId: string;
+  sellerName: string;
+  productId: string;
+  productName: string;
+  productImage: string;
+  price: number;
+  reason: string;
+  status: 'pending_review' | 'approved' | 'item_received' | 'refunded' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+  resolvedAt?: string;
 }
