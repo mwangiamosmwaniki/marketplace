@@ -391,36 +391,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                     Items you saved for later purchase ({wishlistProducts.length} items)
                   </p>
                 </div>
-                <button onClick={() => setShowAddressForm((value) => !value)} className="bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs px-3 py-2 rounded-lg">Add address</button>
               </div>
-
-              {showAddressForm && (
-                <form
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-amber-200 bg-amber-50/40 rounded-lg p-4 text-xs"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!newAddress.fullName.trim() || !newAddress.phone.trim() || !newAddress.streetAddress.trim()) return;
-                    addAddress({ ...newAddress, isDefault: addresses.length === 0 });
-                    setShowAddressForm(false);
-                    setNewAddress((current) => ({ ...current, streetAddress: '', deliveryInstructions: '' }));
-                  }}
-                >
-                  {(['fullName', 'phone', 'town', 'streetAddress', 'deliveryInstructions'] as const).map((field) => (
-                    <label key={field} className="font-semibold text-neutral-600">
-                      <span className="block mb-1 capitalize">{field === 'streetAddress' ? 'Street address' : field.replace(/([A-Z])/g, ' $1')}</span>
-                      <input required={field !== 'deliveryInstructions'} value={newAddress[field]} onChange={(event) => setNewAddress((current) => ({ ...current, [field]: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" />
-                    </label>
-                  ))}
-                  <label className="font-semibold text-neutral-600">
-                    <span className="block mb-1">County</span>
-                    <input value={newAddress.county} onChange={(event) => setNewAddress((current) => ({ ...current, county: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" />
-                  </label>
-                  <div className="sm:col-span-2 flex justify-end gap-2">
-                    <button type="button" onClick={() => setShowAddressForm(false)} className="px-3 py-2 text-neutral-600 font-bold">Cancel</button>
-                    <button type="submit" className="px-3 py-2 bg-neutral-900 text-white rounded font-bold">Save address</button>
-                  </div>
-                </form>
-              )}
 
               {wishlistProducts.length === 0 ? (
                 <div className="py-12 text-center">
@@ -495,7 +466,24 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                     Manage destination addresses for fast 1-click checkout
                   </p>
                 </div>
+                <button onClick={() => setShowAddressForm((value) => !value)} className="bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs px-3 py-2 rounded-lg">Add address</button>
               </div>
+
+              {showAddressForm && (
+                <form className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-amber-200 bg-amber-50/40 rounded-lg p-4 text-xs" onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!newAddress.fullName.trim() || !newAddress.phone.trim() || !newAddress.streetAddress.trim()) return;
+                  addAddress({ ...newAddress, isDefault: addresses.length === 0 });
+                  setShowAddressForm(false);
+                  setNewAddress((current) => ({ ...current, streetAddress: '', deliveryInstructions: '' }));
+                }}>
+                  {(['fullName', 'phone', 'town', 'streetAddress', 'deliveryInstructions'] as const).map((field) => (
+                    <label key={field} className="font-semibold text-neutral-600"><span className="block mb-1 capitalize">{field === 'streetAddress' ? 'Street address' : field.replace(/([A-Z])/g, ' $1')}</span><input required={field !== 'deliveryInstructions'} value={newAddress[field]} onChange={(event) => setNewAddress((current) => ({ ...current, [field]: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" /></label>
+                  ))}
+                  <label className="font-semibold text-neutral-600"><span className="block mb-1">County</span><input value={newAddress.county} onChange={(event) => setNewAddress((current) => ({ ...current, county: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" /></label>
+                  <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => setShowAddressForm(false)} className="px-3 py-2 text-neutral-600 font-bold">Cancel</button><button type="submit" className="px-3 py-2 bg-neutral-900 text-white rounded font-bold">Save address</button></div>
+                </form>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {addresses.map((addr) => (

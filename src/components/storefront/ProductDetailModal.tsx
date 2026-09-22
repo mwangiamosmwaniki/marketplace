@@ -185,7 +185,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div className="mt-3 pt-2 border-t border-neutral-200 flex items-center justify-between text-xs text-neutral-600">
                     <span className="flex items-center gap-1 text-emerald-700 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Verified Merchant
+                      Verified Seller
                     </span>
                     <span>{seller.totalSalesCount}+ successful orders</span>
                   </div>

@@ -18,10 +18,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                Fast Doorstep Delivery
+                Delivery Across Kenya
               </h4>
               <p className="text-[11px] text-neutral-400">
-                Next-day shipping across all 47 counties
+                Multiple delivery options available
               </p>
             </div>
           </div>
@@ -32,10 +32,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                100% Authentic Products
+                Verified Marketplace Sellers
               </h4>
               <p className="text-[11px] text-neutral-400">
-                Official manufacturers and verified sellers
+                Seller and product information is displayed clearly
               </p>
             </div>
           </div>
@@ -46,10 +46,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                Easy 15-Day Free Returns
+                Returns Made Clear
               </h4>
               <p className="text-[11px] text-neutral-400">
-                Instant refund via M-Pesa or bank transfer
+                Review the return policy before purchase
               </p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                24/7 Dedicated Support
+                Customer Support
               </h4>
               <p className="text-[11px] text-neutral-400">Helpline: +254 700 000 000</p>
             </div>
@@ -135,13 +135,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
           <div className="flex gap-4">
             <span>Kenya</span>
             <span>•</span>
-            <span>Nigeria</span>
-            <span>•</span>
-            <span>Egypt</span>
-            <span>•</span>
-            <span>Ghana</span>
-            <span>•</span>
-            <span>Uganda</span>
           </div>
         </div>
       </div>
