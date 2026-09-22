@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   MarketplaceProvider,
   useMarketplace,
@@ -73,6 +74,7 @@ interface DashboardShellProps {
     active?: boolean;
     badge?: number;
     group?: string;
+    path?: string;
   }>;
   rightHeaderLabel: string;
   onNavigate?: (label: string) => void;
@@ -92,6 +94,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   const [selectedNav, setSelectedNav] = useState<string>(
     navItems.find((item) => item.active)?.label || navItems[0]?.label || "",
   );
+  const router = useRouter();
   useEffect(() => {
     const activeLabel = navItems.find((item) => item.active)?.label;
     if (activeLabel && activeLabel !== selectedNav) setSelectedNav(activeLabel);
@@ -152,7 +155,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           </div>
 
           <nav className="p-3 space-y-1.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
-            {navItems.map(({ label, icon, badge, group }, index) => {
+            {navItems.map(({ label, icon, badge, group, path }, index) => {
               const isActive = selectedNav === label;
               const isGroupOpen =
                 !collapsibleGroups || sidebarCollapsed || !group || openGroups[group];
@@ -189,6 +192,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                       type="button"
                       onClick={() => {
                         setSelectedNav(label);
+                        if (path) router.push(path);
                         onNavigate?.(label);
                       }}
                       className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
@@ -244,7 +248,21 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   );
 };
 
-function MarketplaceApp() {
+type AppRouteProps = {
+  initialView?: NavigationState["activeView"];
+  initialAdminTab?: NavigationState["adminTab"];
+  initialSellerTab?: NavigationState["sellerTab"];
+  initialCustomerTab?: NavigationState["customerTab"];
+  initialFinanceSection?: NavigationState["financeSection"];
+};
+
+function MarketplaceApp({
+  initialView,
+  initialAdminTab,
+  initialSellerTab,
+  initialCustomerTab,
+  initialFinanceSection,
+}: AppRouteProps) {
   const { products, categories, brands, formatKSh, authUser } =
     useMarketplace();
 
@@ -266,7 +284,7 @@ function MarketplaceApp() {
         : authUser
           ? "customer"
           : "storefront";
-  const savedView = savedNavigation?.userId === authUser?.id
+  const savedView = !initialView && savedNavigation?.userId === authUser?.id
     ? savedNavigation?.activeView
     : undefined;
   const canRestoreView =
@@ -277,21 +295,21 @@ function MarketplaceApp() {
     (savedView === "admin" && isGeneralAdmin(authUser?.role));
   const [activeView, setActiveView] = useState<
     "storefront" | "seller" | "admin" | "finance" | "customer"
-  >(() => (canRestoreView ? savedView! : defaultView));
+  >(() => (initialView || (canRestoreView ? savedView! : defaultView)));
   const [financeSection, setFinanceSection] =
     useState<FinanceSection>(
       () =>
-        (savedNavigation?.userId === authUser?.id &&
+        (initialFinanceSection || (savedNavigation?.userId === authUser?.id &&
           savedNavigation?.financeSection) ||
-        "overview",
+        "overview"),
     );
   const [customerTab, setCustomerTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
   >(
     () =>
-      (savedNavigation?.userId === authUser?.id &&
+      (initialCustomerTab || (savedNavigation?.userId === authUser?.id &&
         savedNavigation?.customerTab) ||
-      "orders",
+      "orders"),
   );
   const [sellerTab, setSellerTab] = useState<
     | "dashboard"
@@ -303,6 +321,7 @@ function MarketplaceApp() {
     | "settings"
   >(
     () =>
+      initialSellerTab ||
       (savedNavigation?.userId === authUser?.id && savedNavigation?.sellerTab) ||
       "dashboard",
   );
@@ -321,6 +340,7 @@ function MarketplaceApp() {
     | "settings"
   >(
     () =>
+      initialAdminTab ||
       (savedNavigation?.userId === authUser?.id && savedNavigation?.adminTab) ||
       "analytics",
   );
@@ -782,10 +802,12 @@ function MarketplaceApp() {
               {
                 label: "Dashboard",
                 icon: <Home className="w-4 h-4" />,
+                path: "/customer",
               },
               {
                 label: "My Orders",
                 icon: <ShoppingBag className="w-4 h-4" />,
+                path: "/customer/orders",
                 active: customerTab === "orders",
                 badge: 2,
                 group: "Shopping",
@@ -793,24 +815,28 @@ function MarketplaceApp() {
               {
                 label: "Wishlist",
                 icon: <Sparkles className="w-4 h-4" />,
+                path: "/customer/wishlist",
                 active: customerTab === "wishlist",
                 group: "Shopping",
               },
               {
                 label: "Saved Addresses",
                 icon: <MapPinned className="w-4 h-4" />,
+                path: "/customer/addresses",
                 active: customerTab === "addresses",
                 group: "Account",
               },
               {
                 label: "Returns",
                 icon: <RotateCcw className="w-4 h-4" />,
+                path: "/customer/returns",
                 active: customerTab === "returns",
                 group: "Account",
               },
               {
                 label: "Settings",
                 icon: <Settings className="w-4 h-4" />,
+                path: "/customer/security",
                 active: customerTab === "security",
                 group: "Account",
               },
@@ -851,23 +877,27 @@ function MarketplaceApp() {
                 {
                   label: "Dashboard",
                   icon: <Home className="w-4 h-4" />,
+                  path: "/seller",
                     active: sellerTab === "dashboard",
                 },
                 {
                   label: "Products",
                   icon: <Boxes className="w-4 h-4" />,
+                  path: "/seller/products",
                     active: sellerTab === "products",
                   group: "Catalog",
                 },
                 {
                   label: "Inventory",
                   icon: <ShoppingBag className="w-4 h-4" />,
+                  path: "/seller/inventory",
                     active: sellerTab === "inventory",
                   group: "Catalog",
                 },
                 {
                   label: "Orders",
                   icon: <Package className="w-4 h-4" />,
+                  path: "/seller/orders",
                     active: sellerTab === "orders",
                   badge: 1,
                   group: "Sales",
@@ -875,18 +905,21 @@ function MarketplaceApp() {
                 {
                   label: "Payouts",
                   icon: <Wallet className="w-4 h-4" />,
+                  path: "/seller/payouts",
                     active: sellerTab === "payouts",
                   group: "Finance",
                 },
                 {
                   label: "Verification",
                   icon: <ShieldCheck className="w-4 h-4" />,
+                  path: "/seller/verification",
                     active: sellerTab === "verification",
                   group: "Account",
                 },
                 {
                   label: "Settings",
                   icon: <Settings className="w-4 h-4" />,
+                  path: "/seller/settings",
                     active: sellerTab === "settings",
                   group: "Account",
                 },
@@ -950,6 +983,7 @@ function MarketplaceApp() {
             rightHeaderLabel={authUser?.name || "Finance Admin"}
             navItems={FINANCE_NAV.map((item) => ({
               label: item.label,
+              path: item.section === "overview" ? "/finance" : `/finance/${item.section}`,
               group: item.section === "overview" ? undefined : item.group,
               active: item.section === financeSection,
               icon:
@@ -990,41 +1024,48 @@ function MarketplaceApp() {
               {
                 label: "Dashboard",
                 icon: <Home className="w-4 h-4" />,
+                path: "/admin",
                 active: adminTab === "analytics",
               },
               {
                 label: "Users",
                 icon: <Users className="w-4 h-4" />,
+                path: "/admin/users",
                 active: adminTab === "users",
                 group: "Users",
               },
               {
                 label: "Roles & Permissions",
                 icon: <ShieldCheck className="w-4 h-4" />,
+                path: "/admin/roles",
                 active: adminTab === "roles",
                 group: "Users",
               },
               {
                 label: "Security Center",
                 icon: <ShieldAlert className="w-4 h-4" />,
+                path: "/admin/security",
                 active: adminTab === "security",
                 group: "System",
               },
               {
                 label: "System Controls",
                 icon: <Settings className="w-4 h-4" />,
+                path: "/admin/system",
                 active: adminTab === "system",
                 group: "System",
               },
               {
                 label: "Audit Logs",
                 icon: <FileText className="w-4 h-4" />,
+                path: "/admin/audit",
                 active: adminTab === "audit",
                 group: "System",
               },
               {
                 label: "Sellers & KYC",
                 icon: <Users className="w-4 h-4" />,
+                path: "/admin/sellers",
                 active: adminTab === "sellers",
                 badge: 1,
                 group: "Sellers",
@@ -1032,18 +1073,21 @@ function MarketplaceApp() {
               {
                 label: "Catalog Moderation",
                 icon: <Boxes className="w-4 h-4" />,
+                path: "/admin/catalog",
                 active: adminTab === "catalog",
                 group: "Catalog",
               },
               {
                 label: "Master Orders",
                 icon: <ShoppingBag className="w-4 h-4" />,
+                path: "/admin/orders",
                 active: adminTab === "orders",
                 group: "Orders",
               },
               {
                 label: "Marketing Coupons",
                 icon: <Ticket className="w-4 h-4" />,
+                path: "/admin/marketing",
                 active: adminTab === "coupons",
                 badge: 3,
                 group: "Marketing",
@@ -1051,6 +1095,7 @@ function MarketplaceApp() {
               {
                 label: "Delivery Zones",
                 icon: <MapPinned className="w-4 h-4" />,
+                path: "/admin/logistics",
                 active: adminTab === "logistics",
                 badge: 47,
                 group: "Logistics",
@@ -1058,6 +1103,7 @@ function MarketplaceApp() {
               {
                 label: "System Settings",
                 icon: <Settings className="w-4 h-4" />,
+                path: "/admin/settings",
                 active: adminTab === "settings",
                 group: "System",
               },
@@ -1171,11 +1217,11 @@ function MarketplaceApp() {
   );
 }
 
-export default function App() {
+export default function App(props: AppRouteProps) {
   return (
     <MarketplaceProvider>
       <DialogProvider>
-        <MarketplaceApp />
+        <MarketplaceApp {...props} />
       </DialogProvider>
     </MarketplaceProvider>
   );
