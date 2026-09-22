@@ -1,20 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import {
-  Smartphone,
-  Tv,
-  Laptop,
-  Shirt,
-  Home,
-  Sparkles,
-  Zap,
-  ShieldCheck,
-  Truck,
-  RotateCcw,
-  ChevronRight,
-  ArrowRight,
-  Store,
-} from 'lucide-react';
+import { ShieldCheck, Truck, RotateCcw, ArrowRight, Store } from 'lucide-react';
 
 interface HeroSectionProps {
   onSelectCategory: (categoryId: string) => void;
@@ -25,56 +10,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectCategory,
   onOpenSellerPortal,
 }) => {
-  const { categories, promotions } = useMarketplace();
-
   // Slide index
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const activePromos = promotions.filter((p) => p.isActive);
-
-  const slides = activePromos.length > 0
-    ? activePromos.map((p) => ({
-        id: p.id,
-        title: p.title,
-        subtitle: p.subtitle,
-        tag: p.tag,
-        bgClass: p.bgClass || 'from-amber-600 to-orange-600',
-        image: p.bannerImage,
-        cta: p.linkText || 'Shop Deals Now',
-        targetCategory: p.targetCategory,
-      }))
-    : [
-        {
-          id: 'slide-1',
-          title: 'Mega Flash Sales — Up to 40% Off',
-          subtitle: 'Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery',
-          tag: 'LIMITED TIME DEALS',
-          bgClass: 'from-amber-600 to-orange-600',
-          image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80',
-          cta: 'Shop Deals Now',
-          targetCategory: undefined,
-        },
-        {
-          id: 'slide-2',
-          title: 'Official Samsung Brand Week',
-          subtitle: 'Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty',
-          tag: 'OFFICIAL STORE GUARANTEE',
-          bgClass: 'from-blue-700 to-indigo-900',
-          image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80',
-          cta: 'Explore Samsung',
-          targetCategory: undefined,
-        },
-        {
-          id: 'slide-3',
-          title: 'High Performance Computing',
-          subtitle: 'Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals',
-          tag: 'WORK & GAMING GEAR',
-          bgClass: 'from-neutral-900 to-neutral-800',
-          image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
-          cta: 'View Laptops',
-          targetCategory: undefined,
-        },
-      ];
+  const slides = [
+    {
+      id: 1,
+      title: 'Mega Flash Sales — Up to 40% Off',
+      subtitle: 'Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery',
+      tag: 'LIMITED TIME DEALS',
+      bgClass: 'from-amber-600 to-orange-600',
+      image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80',
+      cta: 'Shop Deals Now',
+    },
+    {
+      id: 2,
+      title: 'Official Samsung Brand Week',
+      subtitle: 'Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty',
+      tag: 'OFFICIAL STORE GUARANTEE',
+      bgClass: 'from-blue-700 to-indigo-900',
+      image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80',
+      cta: 'Explore Samsung',
+    },
+    {
+      id: 3,
+      title: 'High Performance Computing',
+      subtitle: 'Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals',
+      tag: 'WORK & GAMING GEAR',
+      bgClass: 'from-neutral-900 to-neutral-800',
+      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
+      cta: 'View Laptops',
+    },
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -83,57 +50,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     return () => clearInterval(timer);
   }, [slides.length]);
 
-  const getCategoryIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Smartphone':
-        return <Smartphone className="w-4 h-4 text-neutral-600" />;
-      case 'Tv':
-        return <Tv className="w-4 h-4 text-neutral-600" />;
-      case 'Laptop':
-        return <Laptop className="w-4 h-4 text-neutral-600" />;
-      case 'Shirt':
-        return <Shirt className="w-4 h-4 text-neutral-600" />;
-      case 'Home':
-        return <Home className="w-4 h-4 text-neutral-600" />;
-      case 'Sparkles':
-        return <Sparkles className="w-4 h-4 text-neutral-600" />;
-      default:
-        return <Zap className="w-4 h-4 text-neutral-600" />;
-    }
-  };
-
   return (
     <div id="hero-section" className="grid grid-cols-1 lg:grid-cols-12 gap-4 py-4">
-      {/* 1. Category Sidebar (3 cols on desktop) */}
-      <div className="hidden lg:block lg:col-span-3 bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-xs">
-        <div className="p-3 bg-neutral-50 border-b border-neutral-200 font-bold text-xs uppercase tracking-wider text-neutral-700 flex items-center justify-between">
-          <span>Categories</span>
-          <span className="text-[10px] text-amber-600 font-normal">All 6 Hubs</span>
-        </div>
-
-        <div className="divide-y divide-neutral-100 py-1">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => onSelectCategory(cat.id)}
-              className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-amber-50/50 hover:text-amber-700 transition-colors text-left group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="p-1 rounded bg-neutral-100 group-hover:bg-amber-100 transition-colors">
-                  {getCategoryIcon(cat.icon)}
-                </div>
-                <span className="text-xs font-medium text-neutral-800 group-hover:text-amber-700">
-                  {cat.name}
-                </span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-300 group-hover:text-amber-600" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 2. Hero Slider Banner (6 cols on desktop) */}
-      <div className="lg:col-span-6 relative rounded-lg overflow-hidden min-h-[340px] flex flex-col justify-between shadow-xs">
+      {/* 1. Hero Slider Banner */}
+      <div className="lg:col-span-9 relative rounded-lg overflow-hidden min-h-[340px] flex flex-col justify-between shadow-xs">
         {slides.map((slide, idx) => (
           <div
             key={slide.id}
@@ -167,7 +87,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => onSelectCategory(slide.targetCategory || 'cat-phones')}
+                onClick={() => onSelectCategory('cat-phones')}
                 className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-extrabold text-xs py-2.5 px-5 rounded-lg shadow flex items-center gap-1.5 transition-transform active:scale-95"
               >
                 <span>{slide.cta}</span>
@@ -191,7 +111,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
       </div>
 
-      {/* 3. Promotional Trust Cards (3 cols on desktop) */}
+      {/* 2. Promotional Trust Cards (3 cols on desktop) */}
       <div className="lg:col-span-3 flex flex-col gap-3">
         {/* Card 1: Become a Seller */}
         <div className="p-4 bg-white rounded-lg border border-neutral-200 flex-1 flex flex-col justify-between shadow-xs hover:border-amber-400 transition-colors">
@@ -199,7 +119,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-center gap-2 text-amber-600 mb-1">
               <Store className="w-5 h-5" />
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-900">
-                Sell on Allsales
+                Sell on KESALES
               </span>
             </div>
             <h4 className="text-xs font-bold text-neutral-800 mb-1">
@@ -224,7 +144,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-start gap-2">
               <Truck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-neutral-800">Allsales Express</span>
+                <span className="font-bold text-neutral-800">KESALES Express</span>
                 <p className="text-[11px] text-neutral-500">
                   Fast next-day delivery on thousands of products.
                 </p>

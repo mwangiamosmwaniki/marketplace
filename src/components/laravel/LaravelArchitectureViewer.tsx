@@ -67,7 +67,7 @@ class OrderSplittingService
                 $subOrder = SellerSubOrder::create([
                     'order_id' => $masterOrder->id,
                     'seller_id' => $seller->id,
-                    'sub_order_number' => 'JM-SUB-' . strtoupper(Str::random(8)),
+                    'sub_order_number' => 'KS-SUB-' . strtoupper(Str::random(8)),
                     'status' => 'processing',
                     'subtotal' => $sellerSubtotal,
                     'commission_total' => $commissionTotal,
@@ -174,7 +174,7 @@ class MpesaDarajaService
             'PhoneNumber' => $phoneNumber,
             'CallBackURL' => $this->callbackUrl,
             'AccountReference' => $order->order_number,
-            'TransactionDesc' => 'Payment for Allsales Order ' . $order->order_number,
+            'TransactionDesc' => 'Payment for KESALES Order ' . $order->order_number,
         ];
 
         $response = Http::withToken($token)

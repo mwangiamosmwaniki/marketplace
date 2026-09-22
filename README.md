@@ -1,4 +1,4 @@
-# Allsales Multi-Vendor Marketplace
+# KESALES Multi-Vendor Marketplace
 
 Kenya's premier production-ready, multi-vendor e-commerce marketplace platform built for scale, featuring Customer Storefront, Seller Center, Admin Control Hub, Safaricom Daraja M-Pesa integration, and automated multi-vendor order splitting.
 
@@ -15,7 +15,7 @@ Kenya's premier production-ready, multi-vendor e-commerce marketplace platform b
 ### 2. Multi-Vendor Order Splitting Engine
 When a customer places a master order containing items from multiple independent vendors:
 ```text
-Customer Master Order (e.g. JM-ORD-8829104)
+Customer Master Order (e.g. KS-ORD-8829104)
  ├── Seller Sub-Order A: Tech Point Kenya (Electronics)
  │    ├── Item 1: Samsung Galaxy S24 Ultra (Qty: 1)
  │    └── Item 2: Anker 737 Power Bank (Qty: 2)

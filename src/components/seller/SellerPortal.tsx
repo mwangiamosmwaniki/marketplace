@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import {
   LayoutDashboard,
@@ -20,16 +20,32 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
-import { Product, ProductVariant, OrderStatus } from '../../types';
+import { Product, ProductVariant, OrderStatus, SellerPerson, SellerType, SellerVerification, VerificationItemStatus } from '../../types';
 
-export const SellerPortal: React.FC = () => {
+interface SellerPortalProps {
+  requestedTab?: 'dashboard' | 'products' | 'inventory' | 'orders' | 'payouts' | 'verification' | 'settings';
+}
+
+const createVerificationDraft = (seller: NonNullable<ReturnType<typeof useMarketplace>['currentSeller']>): SellerVerification => seller.verification || {
+  sellerType: 'individual', natureOfBusiness: '', productCategories: [], expectedMonthlySalesVolume: '', numberOfEmployees: 0,
+  legalName: seller.ownerName, tradingName: seller.businessName, nationality: 'Kenyan', dateOfBirth: '', idOrPassportNumber: '', identitySelfieFileName: '',
+  emailVerified: true, phoneVerified: true, otpVerified: true, residentialAddress: '', physicalBusinessAddress: seller.address, buildingOrEstate: '', streetOrRoad: '', floorOrUnit: '', locationDescription: '', gpsCoordinates: '',
+  website: '', socialMedia: '', vatNumber: '', vatApplicable: false, mpesaNumber: seller.payoutMethod === 'mpesa' ? seller.payoutAccount : '', mpesaAccountHolderName: seller.ownerName,
+  bankName: '', bankAccountName: '', bankAccountNumber: '', bankBranch: '', partners: [], directors: [], beneficialOwners: [], documents: [], declarations: {},
+  applicationStatus: seller.status === 'approved' ? 'verified' : 'unverified', identityStatus: 'pending', businessStatus: 'pending', taxStatus: 'pending', payoutStatus: 'pending', categoryComplianceStatus: 'pending', riskFlags: [],
+};
+
+const parsePeople = (value: string): SellerPerson[] => value.split('\n').map((line, index) => {
+  const [fullName = '', idOrPassportNumber = '', kraPin = '', ownership = ''] = line.split('|').map((part) => part.trim());
+  return { id: `person-${index}-${fullName}`, fullName, idOrPassportNumber, kraPin, ownershipPercentage: Number(ownership) || 0 };
+}).filter((person) => person.fullName);
+
+const peopleToText = (people: SellerPerson[]) => people.map((person) => `${person.fullName} | ${person.idOrPassportNumber || ''} | ${person.kraPin || ''} | ${person.ownershipPercentage || ''}`).join('\n');
+
+export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
   const {
-    currentRole,
-    setCurrentRole,
     currentSeller,
-    currentSellerId,
     sellers,
-    setCurrentSellerId,
     products,
     orders,
     payouts,
@@ -38,15 +54,21 @@ export const SellerPortal: React.FC = () => {
     formatKSh,
     addSellerProduct,
     updateSellerProduct,
+    submitSellerProductForApproval,
     updateInventoryStock,
     updateSubOrderStatus,
     requestSellerPayout,
     updateSellerProfile,
+    updateSellerVerification,
   } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'products' | 'inventory' | 'orders' | 'payouts' | 'settings'
+    'dashboard' | 'products' | 'inventory' | 'orders' | 'payouts' | 'verification' | 'settings'
   >('dashboard');
+
+  useEffect(() => {
+    if (requestedTab) setActiveTab(requestedTab);
+  }, [requestedTab]);
 
   // Add product modal state
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -78,6 +100,11 @@ export const SellerPortal: React.FC = () => {
 
   // Tracking number dispatch input state
   const [dispatchTrackingInput, setDispatchTrackingInput] = useState<Record<string, string>>({});
+  const [verificationDraft, setVerificationDraft] = useState<SellerVerification | null>(null);
+
+  useEffect(() => {
+    if (currentSeller) setVerificationDraft(createVerificationDraft(currentSeller));
+  }, [currentSeller?.id]);
 
   if (!currentSeller) {
     return (
@@ -88,6 +115,23 @@ export const SellerPortal: React.FC = () => {
       </div>
     );
   }
+
+  const verification = verificationDraft || createVerificationDraft(currentSeller);
+  const updateVerification = (updates: Partial<SellerVerification>) => {
+    const next = { ...verification, ...updates };
+    setVerificationDraft(next);
+    updateSellerVerification(currentSeller.id, next);
+  };
+  const requiredDocuments = [
+    'National ID / Passport (front and back)', 'Selfie / identity verification', 'KRA PIN certificate',
+    ...(verification.sellerType !== 'individual' ? ['Business registration certificate'] : []),
+    ...(verification.sellerType === 'partnership' ? ['Partnership deed', 'Authorized representative proof'] : []),
+    ...(verification.sellerType === 'limited_company' ? ['Certificate of incorporation', 'Current company profile', 'Beneficial ownership information', 'Company bank account confirmation'] : []),
+    ...(verification.vatApplicable ? ['VAT certificate'] : []),
+    ...(verification.sellerType !== 'individual' ? ['County business permit'] : []),
+    ...(verification.productCategories.some((category) => /health|food|automotive/i.test(category)) ? ['Sector licence / regulatory certificate'] : []),
+  ];
+  const optionalDocuments = ['Proof of address', 'Lease agreement', 'Utility bill', 'Business premises photo', 'Product authorization', 'Manufacturer authorization', 'Import documentation', 'Brand authorization', 'Safety certification', 'Health-related certification'];
 
   // Tenant Isolated Data
   const sellerProducts = products.filter((p) => p.sellerId === currentSeller.id);
@@ -172,234 +216,8 @@ export const SellerPortal: React.FC = () => {
   };
 
   return (
-    <div id="seller-center-container" className="max-w-7xl mx-auto px-4 py-6">
-      {/* 1. Seller Tenant Header Banner */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-lg bg-amber-500 text-white font-black text-xl flex items-center justify-center shadow-xs overflow-hidden">
-            {currentSeller.logo ? (
-              <img
-                src={currentSeller.logo}
-                alt={currentSeller.businessName}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              currentSeller.businessName[0]
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-neutral-900">
-                {currentSeller.businessName}
-              </h1>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                  currentSeller.status === 'approved'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : currentSeller.status === 'under_review'
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-red-100 text-red-800'
-                }`}
-              >
-                {currentSeller.status.replace('_', ' ')}
-              </span>
-            </div>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              Seller ID: <span className="font-mono text-neutral-700">{currentSeller.id}</span> •
-              Commission Tier:{' '}
-              <span className="font-semibold text-neutral-800">{currentSeller.commissionRate}%</span> •
-              Rating: <span className="text-amber-600 font-bold">{currentSeller.rating} ★</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Quick Action & Tenant Switcher */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="text-left md:text-right text-xs">
-            <span className="text-neutral-400 block">Available Payout Funds</span>
-            <span className="text-base font-extrabold text-emerald-700">
-              {formatKSh(currentSeller.availableBalance)}
-            </span>
-          </div>
-
-          <button
-            onClick={() => {
-              setPayoutAccount(currentSeller.payoutAccount);
-              setShowPayoutModal(true);
-            }}
-            disabled={currentSeller.availableBalance < 2000}
-            className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs py-2 px-4 rounded-lg shadow-xs transition-colors disabled:opacity-40"
-          >
-            Request Payout
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Main Layout with Left Sidebar to prevent content overload */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Navigation (3 cols) */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Active Store Card */}
-          <div className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800 font-black text-sm flex-shrink-0">
-                {currentSeller.businessName.charAt(0)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-xs text-neutral-900 truncate">
-                  {currentSeller.businessName}
-                </div>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] text-emerald-700 font-semibold capitalize">
-                    {currentSeller.status} Partner
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-2.5 pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-500">
-              <span>Commission:</span>
-              <span className="font-bold text-neutral-800">{currentSeller.commissionRate}%</span>
-            </div>
-          </div>
-
-          {/* Sidebar Menu */}
-          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-            <div className="p-3 bg-neutral-50 border-b border-neutral-200 text-xs font-bold text-neutral-700 uppercase tracking-wider">
-              Seller Navigation
-            </div>
-
-            <nav className="p-2 space-y-1 text-xs font-semibold">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'dashboard'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <LayoutDashboard className="w-4 h-4 text-amber-600" />
-                  <span>Dashboard Overview</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('products')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'products'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Package className="w-4 h-4 text-blue-600" />
-                  <span>My Products</span>
-                </div>
-                <span className="text-[10px] bg-neutral-100 text-neutral-800 font-bold px-1.5 py-0.5 rounded-full">
-                  {sellerProducts.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('inventory')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'inventory'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Boxes className="w-4 h-4 text-purple-600" />
-                  <span>Inventory Stock</span>
-                </div>
-                {lowStockCount > 0 ? (
-                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded-full">
-                    {lowStockCount} Low
-                  </span>
-                ) : (
-                  <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">
-                    OK
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'orders'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="w-4 h-4 text-amber-600" />
-                  <span>Orders & Dispatch</span>
-                </div>
-                {pendingOrdersCount > 0 && (
-                  <span className="text-[10px] bg-amber-500 text-neutral-900 font-bold px-1.5 py-0.5 rounded-full">
-                    {pendingOrdersCount} New
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveTab('payouts')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'payouts'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <DollarSign className="w-4 h-4 text-emerald-600" />
-                  <span>Earnings & Payouts</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-bold">
-                  {sellerPayouts.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'settings'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Settings className="w-4 h-4 text-neutral-600" />
-                  <span>Store Profile & KYC</span>
-                </div>
-              </button>
-            </nav>
-          </div>
-
-          {/* Available Balance Quick Widget */}
-          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 shadow-xs text-xs">
-            <span className="text-emerald-800 text-[11px] font-medium block">
-              Available Escrow Settlement
-            </span>
-            <div className="text-lg font-extrabold text-emerald-950 mt-0.5">
-              {formatKSh(currentSeller.availableBalance)}
-            </div>
-            <button
-              onClick={() => {
-                setPayoutAccount(currentSeller.payoutAccount);
-                setShowPayoutModal(true);
-              }}
-              disabled={currentSeller.availableBalance < 2000}
-              className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-lg shadow-xs transition-colors disabled:opacity-40"
-            >
-              Request Disbursement
-            </button>
-          </div>
-        </div>
-
-        {/* Right Main Content (9 cols) */}
-        <div className="lg:col-span-9 space-y-6">
+    <div id="seller-center-container" className="px-4 py-6">
+      <div className="space-y-6">
 
       {/* 3. Tab Contents */}
 
@@ -602,17 +420,26 @@ export const SellerPortal: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <button
-                        onClick={() => {
-                          const newPrice = prompt('Enter new price in KSh:', p.price.toString());
-                          if (newPrice && !isNaN(Number(newPrice))) {
-                            updateSellerProduct(p.id, { price: Number(newPrice) });
-                          }
-                        }}
-                        className="text-amber-600 hover:text-amber-700 font-semibold text-xs mr-2"
-                      >
-                        Edit Price
-                      </button>
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            const newPrice = prompt('Enter new price in KSh:', p.price.toString());
+                            if (newPrice && !isNaN(Number(newPrice))) updateSellerProduct(p.id, { price: Number(newPrice) });
+                          }}
+                          className="text-amber-600 hover:text-amber-700 font-semibold text-xs"
+                        >
+                          Edit Price
+                        </button>
+                        {['draft', 'rejected', 'inactive'].includes(p.status) && (
+                          <button onClick={() => submitSellerProductForApproval(p.id)} className="text-blue-600 hover:text-blue-700 font-semibold text-xs">Submit for approval</button>
+                        )}
+                        {p.status === 'active' && (
+                          <button onClick={() => updateSellerProduct(p.id, { status: 'inactive' })} className="text-red-600 hover:text-red-700 font-semibold text-xs">Pause</button>
+                        )}
+                        {p.status === 'inactive' && (
+                          <button onClick={() => updateSellerProduct(p.id, { status: 'draft' })} className="text-emerald-600 hover:text-emerald-700 font-semibold text-xs">Resume</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -808,7 +635,7 @@ export const SellerPortal: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
-                          placeholder="Carrier Tracking # (e.g. TRK-JUM-991)"
+                          placeholder="Carrier Tracking # (e.g. TRK-KS-991)"
                           value={dispatchTrackingInput[sub.id] || ''}
                           onChange={(e) =>
                             setDispatchTrackingInput({
@@ -821,7 +648,7 @@ export const SellerPortal: React.FC = () => {
                         <button
                           onClick={() => {
                             const trk =
-                              dispatchTrackingInput[sub.id] || `TRK-JUM-${Math.floor(10000 + Math.random() * 90000)}`;
+                              dispatchTrackingInput[sub.id] || `TRK-KS-${Math.floor(10000 + Math.random() * 90000)}`;
                             updateSubOrderStatus(sub.id, 'dispatched', trk);
                           }}
                           className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded flex items-center gap-1"
@@ -980,6 +807,85 @@ export const SellerPortal: React.FC = () => {
         </div>
       )}
 
+      {/* SELLER VERIFICATION WORKSPACE */}
+      {activeTab === 'verification' && (
+        <div className="space-y-4 text-xs">
+          <div className="bg-neutral-900 text-white rounded-xl p-5 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-amber-400 font-bold uppercase tracking-wider text-[10px]">Seller verification</p>
+              <h2 className="text-xl font-black mt-1">Build your compliance profile</h2>
+              <p className="text-neutral-300 mt-1 max-w-xl">Capture the information KESALES needs for identity, KYB, tax, payout and category review. Requirements update with your seller type and categories.</p>
+            </div>
+            <div className="text-right"><span className="block text-2xl font-black">{verification.applicationStatus.replaceAll('_', ' ')}</span><span className="text-neutral-400">{verification.documents.filter((document) => document.status === 'verified').length} verified documents</span></div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {(['identityStatus', 'businessStatus', 'taxStatus', 'payoutStatus', 'categoryComplianceStatus'] as const).map((key, index) => {
+              const labels = ['Identity', 'Business', 'Tax', 'Payout', 'Category compliance'];
+              return <div key={key} className="bg-white border border-neutral-200 rounded-lg p-3"><span className="text-neutral-500 block">{labels[index]}</span><strong className="capitalize text-neutral-900">{verification[key].replaceAll('_', ' ')}</strong></div>;
+            })}
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-5">
+            <div><h3 className="font-bold text-sm text-neutral-900">1. Seller account information</h3><p className="text-neutral-500 mt-1">These fields establish the seller, store and expected operating profile.</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <label>Seller type<select value={verification.sellerType} onChange={(event) => updateVerification({ sellerType: event.target.value as SellerType })} className="form-input"><option value="individual">Individual</option><option value="sole_proprietor">Sole proprietor</option><option value="partnership">Partnership</option><option value="limited_company">Limited company</option><option value="other_organization">Other registered organization</option></select></label>
+              <label>Full legal name<input value={verification.legalName} onChange={(event) => updateVerification({ legalName: event.target.value })} className="form-input" /></label>
+              <label>Trading / store name<input value={verification.tradingName} onChange={(event) => updateVerification({ tradingName: event.target.value })} className="form-input" /></label>
+              <label>Email address<input type="email" value={currentSeller.email} readOnly className="form-input bg-neutral-50" /></label>
+              <label>Phone number<input value={currentSeller.phone} readOnly className="form-input bg-neutral-50" /></label>
+              <label>Nature of business<input value={verification.natureOfBusiness} onChange={(event) => updateVerification({ natureOfBusiness: event.target.value })} className="form-input" /></label>
+              <label>Expected monthly sales volume<input value={verification.expectedMonthlySalesVolume} onChange={(event) => updateVerification({ expectedMonthlySalesVolume: event.target.value })} placeholder="e.g. KSh 100,000 - 500,000" className="form-input" /></label>
+              <label>Number of employees<input type="number" min="0" value={verification.numberOfEmployees || 0} onChange={(event) => updateVerification({ numberOfEmployees: Number(event.target.value) })} className="form-input" /></label>
+              <label>Product categories<select multiple value={verification.productCategories} onChange={(event) => updateVerification({ productCategories: Array.from(event.target.selectedOptions, (option) => option.value) })} className="form-input h-20">{categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+            <div><h3 className="font-bold text-sm text-neutral-900">2. Identity, contact and location</h3><p className="text-neutral-500 mt-1">Collect enough information to verify the applicant and where the business operates.</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <label>Date of birth<input type="date" value={verification.dateOfBirth || ''} onChange={(event) => updateVerification({ dateOfBirth: event.target.value })} className="form-input" /></label>
+              <label>Nationality<input value={verification.nationality || ''} onChange={(event) => updateVerification({ nationality: event.target.value })} className="form-input" /></label>
+              <label>ID / passport number<input value={verification.idOrPassportNumber || ''} onChange={(event) => updateVerification({ idOrPassportNumber: event.target.value })} className="form-input" /></label>
+              <label>Residential address<input value={verification.residentialAddress} onChange={(event) => updateVerification({ residentialAddress: event.target.value })} className="form-input" /></label>
+              <label>Physical business address<input value={verification.physicalBusinessAddress} onChange={(event) => updateVerification({ physicalBusinessAddress: event.target.value })} className="form-input" /></label>
+              <label>County<input value={currentSeller.county} readOnly className="form-input bg-neutral-50" /></label>
+              <label>Town / city<input value={currentSeller.town} readOnly className="form-input bg-neutral-50" /></label>
+              <label>Building / estate<input value={verification.buildingOrEstate} onChange={(event) => updateVerification({ buildingOrEstate: event.target.value })} className="form-input" /></label>
+              <label>Street / road<input value={verification.streetOrRoad} onChange={(event) => updateVerification({ streetOrRoad: event.target.value })} className="form-input" /></label>
+              <label>Floor / unit<input value={verification.floorOrUnit} onChange={(event) => updateVerification({ floorOrUnit: event.target.value })} className="form-input" /></label>
+              <label>GPS coordinates<input value={verification.gpsCoordinates || ''} onChange={(event) => updateVerification({ gpsCoordinates: event.target.value })} className="form-input" /></label>
+              <label>Location description<textarea value={verification.locationDescription} onChange={(event) => updateVerification({ locationDescription: event.target.value })} className="form-input" /></label>
+            </div>
+            <div className="flex flex-wrap gap-4 border-t border-neutral-100 pt-3"><label className="check-label"><input type="checkbox" checked={verification.emailVerified} onChange={(event) => updateVerification({ emailVerified: event.target.checked })} /> Email verified</label><label className="check-label"><input type="checkbox" checked={verification.phoneVerified} onChange={(event) => updateVerification({ phoneVerified: event.target.checked })} /> Phone verified</label><label className="check-label"><input type="checkbox" checked={verification.otpVerified} onChange={(event) => updateVerification({ otpVerified: event.target.checked })} /> OTP verified</label></div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+            <div><h3 className="font-bold text-sm text-neutral-900">3. Business, ownership and tax</h3><p className="text-neutral-500 mt-1">Use one person per line: <span className="font-mono">Full name | ID/passport | KRA PIN | ownership %</span>.</p></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label>Partners<textarea value={peopleToText(verification.partners)} onChange={(event) => updateVerification({ partners: parsePeople(event.target.value) })} className="form-input h-24" placeholder="Required for partnerships" /></label>
+              <label>Directors<textarea value={peopleToText(verification.directors)} onChange={(event) => updateVerification({ directors: parsePeople(event.target.value) })} className="form-input h-24" placeholder="Required for limited companies" /></label>
+              <label>Beneficial owners<textarea value={peopleToText(verification.beneficialOwners)} onChange={(event) => updateVerification({ beneficialOwners: parsePeople(event.target.value) })} className="form-input h-24" placeholder="Include control details in review notes" /></label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><label>VAT applicable<select value={String(verification.vatApplicable)} onChange={(event) => updateVerification({ vatApplicable: event.target.value === 'true' })} className="form-input"><option value="false">No</option><option value="true">Yes</option></select></label><label>VAT number<input value={verification.vatNumber || ''} onChange={(event) => updateVerification({ vatNumber: event.target.value })} className="form-input" /></label><label>Review notes<textarea value={verification.reviewNotes || ''} onChange={(event) => updateVerification({ reviewNotes: event.target.value })} className="form-input" /></label></div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+            <div><h3 className="font-bold text-sm text-neutral-900">4. Payout identity</h3><p className="text-neutral-500 mt-1">KESALES compares the verified seller, business identity and payout destination.</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"><label>M-Pesa number<input value={verification.mpesaNumber || ''} onChange={(event) => updateVerification({ mpesaNumber: event.target.value })} className="form-input" /></label><label>M-Pesa account holder<input value={verification.mpesaAccountHolderName || ''} onChange={(event) => updateVerification({ mpesaAccountHolderName: event.target.value })} className="form-input" /></label><label>Bank name<input value={verification.bankName || ''} onChange={(event) => updateVerification({ bankName: event.target.value })} className="form-input" /></label><label>Bank account name<input value={verification.bankAccountName || ''} onChange={(event) => updateVerification({ bankAccountName: event.target.value })} className="form-input" /></label><label>Bank account number<input value={verification.bankAccountNumber || ''} onChange={(event) => updateVerification({ bankAccountNumber: event.target.value })} className="form-input" /></label><label>Branch<input value={verification.bankBranch || ''} onChange={(event) => updateVerification({ bankBranch: event.target.value })} className="form-input" /></label></div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
+            <div><h3 className="font-bold text-sm text-neutral-900">5. Documents and category compliance</h3><p className="text-neutral-500 mt-1">Upload only what applies. Every item keeps its own review status and rejection notes.</p></div>
+            <div className="space-y-2">{requiredDocuments.map((requiredDocument) => { const document = verification.documents.find((item) => item.documentType === requiredDocument); return <div key={requiredDocument} className="flex flex-wrap items-center gap-2 border border-neutral-200 rounded-lg p-3"><span className="font-semibold flex-1 min-w-48">{requiredDocument}</span>{document ? <><span className="text-neutral-500">{document.fileName || 'No file selected'}</span><select value={document.status} onChange={(event) => updateVerification({ documents: verification.documents.map((item) => item.id === document.id ? { ...item, status: event.target.value as VerificationItemStatus } : item) })} className="border border-neutral-300 rounded px-2 py-1"><option value="pending">Pending</option><option value="under_review">Under review</option><option value="verified">Verified</option><option value="rejected">Rejected</option><option value="expired">Expired</option><option value="re_upload_required">Re-upload required</option></select><input value={document.verificationNotes || ''} onChange={(event) => updateVerification({ documents: verification.documents.map((item) => item.id === document.id ? { ...item, verificationNotes: event.target.value } : item) })} placeholder="Review note" className="border border-neutral-300 rounded px-2 py-1" /></> : <input type="file" onChange={(event) => { const fileName = event.target.files?.[0]?.name; if (fileName) updateVerification({ documents: [...verification.documents, { id: `doc-${Date.now()}`, documentType: requiredDocument, fileName, status: 'pending', uploadedAt: new Date().toISOString() }] }); }} className="max-w-full" />}</div>; })}</div>
+            <div><p className="font-semibold text-neutral-700 mb-2">Optional supporting evidence and category documents</p><div className="grid grid-cols-1 md:grid-cols-2 gap-2">{optionalDocuments.map((optionalDocument) => { const document = verification.documents.find((item) => item.documentType === optionalDocument); return <label key={optionalDocument} className="border border-dashed border-neutral-300 rounded-lg p-3">{optionalDocument}{document ? <span className="block text-neutral-500 mt-1">{document.fileName}</span> : <input type="file" onChange={(event) => { const fileName = event.target.files?.[0]?.name; if (fileName) updateVerification({ documents: [...verification.documents, { id: `doc-${Date.now()}`, documentType: optionalDocument, fileName, status: 'pending', uploadedAt: new Date().toISOString() }] }); }} className="block mt-1 max-w-full" />}</label>; })}</div></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><label>Website<input value={verification.website || ''} onChange={(event) => updateVerification({ website: event.target.value })} className="form-input" /></label><label>Social media pages<input value={verification.socialMedia || ''} onChange={(event) => updateVerification({ socialMedia: event.target.value })} className="form-input" /></label><label>Selfie file<input type="file" onChange={(event) => updateVerification({ identitySelfieFileName: event.target.files?.[0]?.name || '' })} className="form-input" /></label></div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-3"><h3 className="font-bold text-sm text-neutral-900">6. Seller declarations</h3>{['Information provided is accurate', 'Authorized to sell listed products', 'Agrees to KESALES seller terms', 'Agrees to returns and refund policy', 'Agrees to prohibited-products policy', 'Agrees to shipping and fulfillment requirements', 'Agrees to payment and payout terms', 'Agrees to privacy and data-processing terms', 'Ownership and control information is accurate', 'Documents submitted are genuine'].map((declaration) => <label key={declaration} className="check-label block"><input type="checkbox" checked={Boolean(verification.declarations[declaration])} onChange={(event) => updateVerification({ declarations: { ...verification.declarations, [declaration]: event.target.checked } })} /> {declaration}</label>)}<div className="flex flex-wrap gap-2 pt-2"><button onClick={() => updateVerification({ applicationStatus: 'incomplete' })} className="button-secondary">Save draft</button><button onClick={() => updateVerification({ applicationStatus: 'pending_review', submittedAt: new Date().toISOString(), declarationAcceptedAt: new Date().toISOString(), termsVersion: '2026.09', privacyPolicyVersion: '2026.09' })} className="button-primary"><Send className="w-4 h-4" /> Submit for compliance review</button></div></div>
+        </div>
+      )}
+
       {/* STORE SETTINGS & KYC TAB */}
       {activeTab === 'settings' && (
         <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-xs max-w-2xl space-y-4 text-xs">
@@ -1060,7 +966,6 @@ export const SellerPortal: React.FC = () => {
         </div>
       )}
         </div>
-      </div>
 
       {/* Add Product Modal */}
       {showAddProductModal && (

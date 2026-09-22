@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import {
   Shield,
@@ -21,14 +21,46 @@ import {
   Percent,
   Lock,
   Plus,
+  Settings,
 } from 'lucide-react';
-import { Role, SellerStatus, PayoutStatus, Coupon } from '../../types';
+import { Role, SellerStatus, PayoutStatus, Coupon, SystemSettings, OrderStatus, DeliveryZone } from '../../types';
+import { AdminManagementPanel } from './AdminManagementPanel';
 
-export const AdminControlHub: React.FC = () => {
+const SettingsSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <section className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
+    <h3 className="text-sm font-extrabold text-neutral-900 border-b border-neutral-100 pb-2">{title}</h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
+  </section>
+);
+
+const SettingsInput: React.FC<{ label: string; value: string; onChange: (value: string) => void }> = ({ label, value, onChange }) => (
+  <label className="text-xs font-semibold text-neutral-600">
+    <span className="block mb-1">{label}</span>
+    <input value={value} onChange={(event) => onChange(event.target.value)} className="w-full border border-neutral-300 rounded-lg px-2.5 py-2 text-xs text-neutral-900" />
+  </label>
+);
+
+const SettingsNumber: React.FC<{ label: string; value: number; onChange: (value: number) => void }> = ({ label, value, onChange }) => (
+  <label className="text-xs font-semibold text-neutral-600">
+    <span className="block mb-1">{label}</span>
+    <input type="number" min="0" value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full border border-neutral-300 rounded-lg px-2.5 py-2 text-xs text-neutral-900" />
+  </label>
+);
+
+const SettingsToggle: React.FC<{ label: string; checked: boolean; onChange: (value: boolean) => void }> = ({ label, checked, onChange }) => (
+  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 py-2">
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="rounded text-amber-500" />
+    {label}
+  </label>
+);
+
+interface AdminControlHubProps {
+  requestedTab?: 'analytics' | 'users' | 'roles' | 'security' | 'audit' | 'system' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics' | 'settings';
+}
+
+export const AdminControlHub: React.FC<AdminControlHubProps> = ({ requestedTab }) => {
   const {
     authUser,
-    currentRole,
-    setCurrentRole,
     sellers,
     products,
     orders,
@@ -40,15 +72,38 @@ export const AdminControlHub: React.FC = () => {
     formatKSh,
     approveSeller,
     suspendSeller,
+    updateSellerVerification,
+    updateMasterOrder,
+    deleteMasterOrder,
     updateSellerCommission,
     approvePayout,
     rejectPayout,
     createCoupon,
+    updateProductStatus,
+    settings,
+    updateSettings,
+    addDeliveryZone,
+    updateDeliveryZone,
+    deleteDeliveryZone,
   } = useMarketplace();
 
   const [adminTab, setAdminTab] = useState<
-    'analytics' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics'
+    'analytics' | 'users' | 'roles' | 'security' | 'audit' | 'system' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics' | 'settings'
   >('analytics');
+
+  useEffect(() => {
+    if (requestedTab) setAdminTab(requestedTab);
+  }, [requestedTab]);
+  const [settingsDraft, setSettingsDraft] = useState<SystemSettings>(settings);
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [newZone, setNewZone] = useState<DeliveryZone>({ county: '', towns: [], homeDeliveryFee: 0, pickupStationFee: 0, estimatedDays: '2-3 days', pickupStations: [] });
+  const [showZoneForm, setShowZoneForm] = useState(false);
+  const role = authUser?.role;
+  const canViewSellers = role === 'super_admin' || role === 'seller_admin';
+  const canViewCatalog = role === 'super_admin' || role === 'product_admin';
+  const canViewFinance = role === 'super_admin' || role === 'finance_admin';
+  const canViewMarketing = role === 'super_admin' || role === 'marketing_admin';
+  const canViewLogistics = role === 'super_admin' || role === 'logistics_admin';
 
   // Coupon Creation State
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -70,6 +125,7 @@ export const AdminControlHub: React.FC = () => {
   const totalDeliveredOrders = orders.filter((o) => o.status === 'delivered').length;
   const pendingKYCSellers = sellers.filter((s) => s.status === 'under_review').length;
   const pendingPayoutsCount = payouts.filter((p) => p.status === 'pending').length;
+  const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
 
   const handleCreateCouponSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,196 +148,29 @@ export const AdminControlHub: React.FC = () => {
     setCouponCode('');
   };
 
+  const handleCreateZone = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newZone.county.trim()) return;
+    addDeliveryZone({ ...newZone, county: newZone.county.trim(), towns: newZone.towns.filter(Boolean), pickupStations: newZone.pickupStations.filter(Boolean) });
+    setNewZone({ county: '', towns: [], homeDeliveryFee: 0, pickupStationFee: 0, estimatedDays: '2-3 days', pickupStations: [] });
+    setShowZoneForm(false);
+  };
+
+  const editZone = (zone: DeliveryZone) => {
+    const homeFee = window.prompt('Home delivery fee (KSh):', String(zone.homeDeliveryFee));
+    const pickupFee = window.prompt('Pickup station fee (KSh):', String(zone.pickupStationFee));
+    const estimatedDays = window.prompt('Estimated delivery period:', zone.estimatedDays);
+    if (homeFee === null || pickupFee === null || estimatedDays === null) return;
+    updateDeliveryZone(zone.county, { homeDeliveryFee: Number(homeFee), pickupStationFee: Number(pickupFee), estimatedDays });
+  };
+
   return (
-    <div id="admin-control-hub-container" className="max-w-7xl mx-auto px-4 py-6">
-      {/* 1. Admin Top Bar & RBAC Switcher */}
-      <div className="bg-neutral-900 text-white rounded-xl p-5 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg border border-neutral-800">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-amber-500 text-neutral-900 flex items-center justify-center font-black">
-            <Shield className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white">Allsales Marketplace Admin Hub</h1>
-              <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded tracking-wide uppercase">
-                Enterprise
-              </span>
-            </div>
-            <p className="text-xs text-neutral-400">
-              Platform governance, seller KYC verification, multi-vendor commission accounting & logs
-            </p>
-          </div>
-        </div>
-      </div>
+    <div id="admin-control-hub-container" className="px-4 py-6">
+      <div className="space-y-6">
 
-      {/* 2. Main Layout with Left Sidebar to prevent content overload */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Navigation (3 cols) */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Admin Identity Card */}
-          <div className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-800 font-black text-sm flex-shrink-0">
-                <ShieldCheck className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-xs text-neutral-900 truncate">
-                  {authUser?.name || 'Administrator'}
-                </div>
-                <div className="text-[10px] text-purple-700 font-semibold capitalize mt-0.5">
-                  {currentRole.replace('_', ' ')}
-                </div>
-              </div>
-            </div>
-            <div className="mt-2.5 pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-500">
-              <span>Security Level:</span>
-              <span className="font-bold text-emerald-600">Enterprise RBAC</span>
-            </div>
-          </div>
-
-          {/* Sidebar Menu */}
-          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-            <div className="p-3 bg-neutral-50 border-b border-neutral-200 text-xs font-bold text-neutral-700 uppercase tracking-wider">
-              Governance Menu
-            </div>
-
-            <nav className="p-2 space-y-1 text-xs font-semibold">
-              <button
-                onClick={() => setAdminTab('analytics')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'analytics'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <BarChart3 className="w-4 h-4 text-amber-600" />
-                  <span>Platform Analytics</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('sellers')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'sellers'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Users className="w-4 h-4 text-blue-600" />
-                  <span>Sellers & KYC</span>
-                </div>
-                {pendingKYCSellers > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                    {pendingKYCSellers}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setAdminTab('catalog')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'catalog'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Package className="w-4 h-4 text-purple-600" />
-                  <span>Catalog Moderation</span>
-                </div>
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  {products.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('orders')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'orders'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="w-4 h-4 text-amber-600" />
-                  <span>Master Orders</span>
-                </div>
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  {orders.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('finance')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'finance'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <DollarSign className="w-4 h-4 text-emerald-600" />
-                  <span>Finance & Ledger</span>
-                </div>
-                {pendingPayoutsCount > 0 && (
-                  <span className="bg-amber-500 text-neutral-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                    {pendingPayoutsCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setAdminTab('coupons')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'coupons'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Ticket className="w-4 h-4 text-rose-600" />
-                  <span>Marketing Coupons</span>
-                </div>
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  {coupons.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('logistics')}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  adminTab === 'logistics'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <MapPin className="w-4 h-4 text-teal-600" />
-                  <span>Delivery Zones</span>
-                </div>
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  47
-                </span>
-              </button>
-            </nav>
-          </div>
-
-          {/* System Health Card */}
-          <div className="bg-neutral-900 text-white rounded-xl p-4 shadow-xs text-xs border border-neutral-800">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-bold text-white text-[11px]">System Status: Healthy</span>
-            </div>
-            <p className="text-neutral-400 text-[11px] leading-relaxed">
-              M-Pesa STK push gateway online. Double-entry financial ledger verified and balanced.
-            </p>
-          </div>
-        </div>
-
-        {/* Right Main Content (9 cols) */}
-        <div className="lg:col-span-9 space-y-6">
+      {(adminTab === 'users' || adminTab === 'roles' || adminTab === 'security' || adminTab === 'audit' || adminTab === 'system') && (
+        <AdminManagementPanel initialTab={adminTab} />
+      )}
 
       {/* 3. Tab Contents */}
 
@@ -311,7 +200,7 @@ export const AdminControlHub: React.FC = () => {
                 {formatKSh(totalCommissionsEarned)}
               </div>
               <p className="text-[11px] text-neutral-400 mt-1">
-                Net earned revenue retained by Allsales
+                Net earned revenue retained by KESALES
               </p>
             </div>
 
@@ -466,6 +355,7 @@ export const AdminControlHub: React.FC = () => {
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-2">
+                        <button onClick={() => setSelectedSellerId(s.id)} className="text-blue-700 font-semibold">Review application</button>
                         {s.status !== 'approved' && (
                           <button
                             onClick={() => approveSeller(s.id)}
@@ -489,6 +379,21 @@ export const AdminControlHub: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {selectedSeller && (
+            <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4 text-xs">
+              <div className="flex flex-wrap justify-between gap-3 border-b border-neutral-100 pb-3">
+                <div><h3 className="font-bold text-sm text-neutral-900">{selectedSeller.businessName} application</h3><p className="text-neutral-500">{selectedSeller.ownerName} • {selectedSeller.email} • submitted {selectedSeller.verification?.submittedAt ? new Date(selectedSeller.verification.submittedAt).toLocaleDateString() : 'not submitted'}</p></div>
+                <button onClick={() => setSelectedSellerId(null)} className="text-neutral-500">Close</button>
+              </div>
+              {selectedSeller.verification ? <>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">{[['Identity', selectedSeller.verification.identityStatus], ['Business', selectedSeller.verification.businessStatus], ['Tax', selectedSeller.verification.taxStatus], ['Payout', selectedSeller.verification.payoutStatus], ['Category', selectedSeller.verification.categoryComplianceStatus]].map(([label, status]) => <div key={label} className="bg-neutral-50 rounded p-2"><span className="block text-neutral-500">{label}</span><strong className="capitalize">{String(status).replace('_', ' ')}</strong></div>)}</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><div><strong className="block">Identity</strong><p>{selectedSeller.verification.legalName || selectedSeller.ownerName} • {selectedSeller.verification.idOrPassportNumber || 'ID not supplied'}</p><p>{selectedSeller.verification.nationality || 'Nationality not supplied'}</p></div><div><strong className="block">Business</strong><p>{selectedSeller.verification.tradingName || selectedSeller.businessName}</p><p>{selectedSeller.verification.physicalBusinessAddress || selectedSeller.address}</p></div><div><strong className="block">Financial</strong><p>{selectedSeller.verification.mpesaNumber || selectedSeller.verification.bankAccountNumber || 'Payout details not supplied'}</p><p>{selectedSeller.verification.mpesaAccountHolderName || selectedSeller.verification.bankAccountName || 'Account holder not supplied'}</p></div></div>
+                <div><strong className="block mb-2">Ownership and control</strong><p>Directors: {selectedSeller.verification.directors.map((person) => person.fullName).join(', ') || 'None recorded'}</p><p>Beneficial owners: {selectedSeller.verification.beneficialOwners.map((person) => `${person.fullName} (${person.ownershipPercentage || 0}%)`).join(', ') || 'None recorded'}</p><p>Partners: {selectedSeller.verification.partners.map((person) => person.fullName).join(', ') || 'None recorded'}</p></div>
+                <div><strong className="block mb-2">Documents</strong><div className="space-y-2">{selectedSeller.verification!.documents.map((document) => <div key={document.id} className="flex flex-wrap items-center gap-2 border border-neutral-200 rounded p-2"><span className="font-semibold flex-1">{document.documentType}</span><span className="text-neutral-500">{document.fileName || 'No filename'}</span><span className="capitalize">{document.status.replace('_', ' ')}</span><button onClick={() => updateSellerVerification(selectedSeller.id, { ...selectedSeller.verification!, documents: selectedSeller.verification!.documents.map((item) => item.id === document.id ? { ...item, status: 'verified', reviewedAt: new Date().toISOString() } : item) })} className="text-emerald-700 font-semibold">Verify</button><button onClick={() => updateSellerVerification(selectedSeller.id, { ...selectedSeller.verification!, documents: selectedSeller.verification!.documents.map((item) => item.id === document.id ? { ...item, status: 're_upload_required', reviewedAt: new Date().toISOString(), verificationNotes: 'Additional information required' } : item) })} className="text-red-700 font-semibold">Request re-upload</button></div>)}</div></div>
+                <div className="flex flex-wrap items-center gap-2"><span className="font-semibold">Risk flags:</span>{selectedSeller.verification.riskFlags.length ? selectedSeller.verification.riskFlags.map((flag) => <span key={flag} className="bg-red-100 text-red-800 px-2 py-1 rounded">{flag}</span>) : <span className="text-emerald-700">None recorded</span>}<button onClick={() => approveSeller(selectedSeller.id)} className="ml-auto bg-emerald-600 text-white px-3 py-1.5 rounded font-semibold">Approve application</button></div>
+              </> : <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-900">This seller has no verification application record yet. Ask them to complete the seller verification workspace.</div>}
+            </div>
+          )}
         </div>
       )}
 
@@ -516,6 +421,7 @@ export const AdminControlHub: React.FC = () => {
                   <th className="p-3">Inventory</th>
                   <th className="p-3">Flash Sale</th>
                   <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Workflow</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
@@ -557,6 +463,19 @@ export const AdminControlHub: React.FC = () => {
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
                           {p.status}
                         </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          {['pending_approval', 'draft', 'rejected'].includes(p.status) && (
+                            <button onClick={() => updateProductStatus(p.id, 'active')} className="text-emerald-700 font-semibold">Approve</button>
+                          )}
+                          {p.status === 'active' && (
+                            <button onClick={() => updateProductStatus(p.id, 'inactive')} className="text-red-600 font-semibold">Suspend</button>
+                          )}
+                          {p.status === 'inactive' && (
+                            <button onClick={() => updateProductStatus(p.id, 'active')} className="text-blue-600 font-semibold">Restore</button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -611,6 +530,10 @@ export const AdminControlHub: React.FC = () => {
                     <span className="font-extrabold text-neutral-900 text-sm">
                       {formatKSh(order.grandTotal)}
                     </span>
+                    <select value={order.status} onChange={(event) => updateMasterOrder(order.id, { status: event.target.value as OrderStatus })} className="border border-neutral-300 rounded px-2 py-1 text-[11px]">
+                      {['pending', 'confirmed', 'processing', 'ready_for_dispatch', 'dispatched', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'refunded'].map((status) => <option key={status} value={status}>{status.replace('_', ' ')}</option>)}
+                    </select>
+                    <button onClick={() => { if (window.confirm(`Delete order ${order.orderNumber}?`)) deleteMasterOrder(order.id); }} className="text-red-600 font-semibold">Delete</button>
                   </div>
                 </div>
 
@@ -850,6 +773,11 @@ export const AdminControlHub: React.FC = () => {
             </p>
           </div>
 
+          <div className="bg-white rounded-xl border border-neutral-200 p-4">
+            <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-sm">Delivery zone records</h3><button onClick={() => setShowZoneForm(!showZoneForm)} className="bg-amber-500 text-neutral-950 px-3 py-2 rounded-lg text-xs font-bold">{showZoneForm ? 'Close' : 'Add zone'}</button></div>
+            {showZoneForm && <form onSubmit={handleCreateZone} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2"><input required placeholder="County" value={newZone.county} onChange={(event) => setNewZone({ ...newZone, county: event.target.value })} className="border border-neutral-300 rounded px-2 py-2" /><input type="number" min="0" placeholder="Home fee" value={newZone.homeDeliveryFee} onChange={(event) => setNewZone({ ...newZone, homeDeliveryFee: Number(event.target.value) })} className="border border-neutral-300 rounded px-2 py-2" /><input type="number" min="0" placeholder="Pickup fee" value={newZone.pickupStationFee} onChange={(event) => setNewZone({ ...newZone, pickupStationFee: Number(event.target.value) })} className="border border-neutral-300 rounded px-2 py-2" /><input placeholder="Estimated days" value={newZone.estimatedDays} onChange={(event) => setNewZone({ ...newZone, estimatedDays: event.target.value })} className="border border-neutral-300 rounded px-2 py-2" /><input placeholder="Towns, comma separated" onChange={(event) => setNewZone({ ...newZone, towns: event.target.value.split(',').map((item) => item.trim()) })} className="border border-neutral-300 rounded px-2 py-2" /><input placeholder="Pickup stations, comma separated" onChange={(event) => setNewZone({ ...newZone, pickupStations: event.target.value.split(',').map((item) => item.trim()) })} className="border border-neutral-300 rounded px-2 py-2" /><button className="bg-neutral-900 text-white rounded px-3 py-2 font-bold lg:col-span-2">Create delivery zone</button></form>}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {deliveryZones.map((zone) => (
               <div
@@ -889,13 +817,71 @@ export const AdminControlHub: React.FC = () => {
                     {zone.pickupStations.join(', ')}
                   </div>
                 </div>
+                <div className="mt-3 pt-2 border-t border-neutral-100 flex justify-end gap-2"><button onClick={() => editZone(zone)} className="text-blue-700 font-semibold">Edit rates</button><button onClick={() => { if (window.confirm(`Delete ${zone.county} delivery zone?`)) deleteDeliveryZone(zone.county); }} className="text-red-600 font-semibold">Delete</button></div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* SYSTEM SETTINGS TAB */}
+      {adminTab === 'settings' && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-lg font-extrabold text-neutral-900">System Settings</h2>
+            <p className="text-xs text-neutral-500 mt-1">Manage KESALES configuration stored in the frontend demo state.</p>
+          </div>
+          <form
+            className="grid grid-cols-1 xl:grid-cols-2 gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              updateSettings(settingsDraft);
+            }}
+          >
+            <SettingsSection title="General">
+              <SettingsInput label="Marketplace Name" value={settingsDraft.general.marketplaceName} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, marketplaceName: value } }))} />
+              <SettingsInput label="Support Email" value={settingsDraft.general.supportEmail} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, supportEmail: value } }))} />
+              <SettingsInput label="Support Phone" value={settingsDraft.general.supportPhone} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, supportPhone: value } }))} />
+              <SettingsInput label="Address" value={settingsDraft.general.address} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, address: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Commerce">
+              <SettingsNumber label="Commission rate (%)" value={settingsDraft.commerce.defaultCommissionRate} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, defaultCommissionRate: value } }))} />
+              <SettingsNumber label="Minimum payout (KSh)" value={settingsDraft.commerce.minPayoutAmount} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, minPayoutAmount: value } }))} />
+              <SettingsNumber label="Return period (days)" value={settingsDraft.commerce.returnPeriodDays} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, returnPeriodDays: value } }))} />
+              <SettingsNumber label="VAT (%)" value={settingsDraft.commerce.vatRate} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, vatRate: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Payments">
+              <SettingsToggle label="M-Pesa" checked={settingsDraft.payments.enableMpesa} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableMpesa: value } }))} />
+              <SettingsToggle label="Cards" checked={settingsDraft.payments.enableCard} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableCard: value } }))} />
+              <SettingsToggle label="Bank transfer" checked={settingsDraft.payments.enableBankTransfer} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableBankTransfer: value } }))} />
+              <SettingsToggle label="Cash on delivery" checked={settingsDraft.payments.enableCod} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableCod: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Delivery & Notifications">
+              <SettingsNumber label="Delivery fee (KSh)" value={settingsDraft.delivery.defaultDeliveryFee} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, defaultDeliveryFee: value } }))} />
+              <SettingsNumber label="Free delivery threshold (KSh)" value={settingsDraft.delivery.freeDeliveryThreshold} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, freeDeliveryThreshold: value } }))} />
+              <SettingsToggle label="Pickup stations" checked={settingsDraft.delivery.enablePickupStations} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, enablePickupStations: value } }))} />
+              <SettingsToggle label="Email notifications" checked={settingsDraft.notifications.emailNotificationsEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, notifications: { ...prev.notifications, emailNotificationsEnabled: value } }))} />
+              <SettingsToggle label="SMS notifications" checked={settingsDraft.notifications.smsNotificationsEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, notifications: { ...prev.notifications, smsNotificationsEnabled: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Security & SEO">
+              <SettingsNumber label="Password minimum length" value={settingsDraft.security.passwordMinLength} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, passwordMinLength: value } }))} />
+              <SettingsNumber label="Session timeout (minutes)" value={settingsDraft.security.sessionTimeoutMinutes} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, sessionTimeoutMinutes: value } }))} />
+              <SettingsToggle label="Require admin 2FA" checked={settingsDraft.security.twoFactorRequiredForAdmins} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, twoFactorRequiredForAdmins: value } }))} />
+              <SettingsInput label="Meta title" value={settingsDraft.seo.metaTitle} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, seo: { ...prev.seo, metaTitle: value } }))} />
+              <SettingsToggle label="Search indexing" checked={settingsDraft.seo.indexingEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, seo: { ...prev.seo, indexingEnabled: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Maintenance">
+              <SettingsToggle label="Maintenance mode" checked={settingsDraft.maintenance.isMaintenanceMode} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, maintenance: { ...prev.maintenance, isMaintenanceMode: value } }))} />
+              <SettingsInput label="Maintenance message" value={settingsDraft.maintenance.maintenanceMessage} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, maintenance: { ...prev.maintenance, maintenanceMessage: value } }))} />
+            </SettingsSection>
+            <div className="xl:col-span-2 flex justify-end gap-2">
+              <button type="button" onClick={() => setSettingsDraft(settings)} className="px-4 py-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700">Cancel / Reset</button>
+              <button type="submit" className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-xs font-bold text-neutral-950">Save Settings</button>
+            </div>
+          </form>
         </div>
-      </div>
+      )}
+        </div>
 
       {/* Create Coupon Modal */}
       {showCouponModal && (
