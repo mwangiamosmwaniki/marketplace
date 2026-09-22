@@ -60,9 +60,34 @@ type NavigationState = {
   userId?: string;
   activeView: "storefront" | "seller" | "admin" | "finance" | "customer";
   financeSection: FinanceSection;
-  customerTab: "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security";
-  sellerTab: "dashboard" | "products" | "inventory" | "orders" | "payouts" | "verification" | "settings";
-  adminTab: "analytics" | "users" | "roles" | "security" | "audit" | "system" | "sellers" | "catalog" | "orders" | "coupons" | "logistics" | "settings";
+  customerTab:
+    | "orders"
+    | "wishlist"
+    | "addresses"
+    | "returns"
+    | "payments"
+    | "security";
+  sellerTab:
+    | "dashboard"
+    | "products"
+    | "inventory"
+    | "orders"
+    | "payouts"
+    | "verification"
+    | "settings";
+  adminTab:
+    | "analytics"
+    | "users"
+    | "roles"
+    | "security"
+    | "audit"
+    | "system"
+    | "sellers"
+    | "catalog"
+    | "orders"
+    | "coupons"
+    | "logistics"
+    | "settings";
 };
 
 interface DashboardShellProps {
@@ -158,7 +183,10 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             {navItems.map(({ label, icon, badge, group, path }, index) => {
               const isActive = selectedNav === label;
               const isGroupOpen =
-                !collapsibleGroups || sidebarCollapsed || !group || openGroups[group];
+                !collapsibleGroups ||
+                sidebarCollapsed ||
+                !group ||
+                openGroups[group];
 
               return (
                 <React.Fragment key={label}>
@@ -270,8 +298,7 @@ function MarketplaceApp({
     formatKSh,
     authUser,
     homepageSettings,
-  } =
-    useMarketplace();
+  } = useMarketplace();
   const supportedCategories = categories.filter(
     (category) => category.isSupported !== false,
   );
@@ -285,18 +312,20 @@ function MarketplaceApp({
       return null;
     }
   })();
-  const defaultView = authUser?.role === "seller"
-    ? "seller"
-    : isFinanceAdmin(authUser?.role)
-      ? "finance"
-      : isGeneralAdmin(authUser?.role)
-        ? "admin"
-        : authUser
-          ? "customer"
-          : "storefront";
-  const savedView = !initialView && savedNavigation?.userId === authUser?.id
-    ? savedNavigation?.activeView
-    : undefined;
+  const defaultView =
+    authUser?.role === "seller"
+      ? "seller"
+      : isFinanceAdmin(authUser?.role)
+        ? "finance"
+        : isGeneralAdmin(authUser?.role)
+          ? "admin"
+          : authUser
+            ? "customer"
+            : "storefront";
+  const savedView =
+    !initialView && savedNavigation?.userId === authUser?.id
+      ? savedNavigation?.activeView
+      : undefined;
   const canRestoreView =
     savedView === "storefront" ||
     (savedView === "customer" && Boolean(authUser)) ||
@@ -305,21 +334,22 @@ function MarketplaceApp({
     (savedView === "admin" && isGeneralAdmin(authUser?.role));
   const [activeView, setActiveView] = useState<
     "storefront" | "seller" | "admin" | "finance" | "customer"
-  >(() => (initialView || (canRestoreView ? savedView! : defaultView)));
-  const [financeSection, setFinanceSection] =
-    useState<FinanceSection>(
-      () =>
-        (initialFinanceSection || (savedNavigation?.userId === authUser?.id &&
-          savedNavigation?.financeSection) ||
-        "overview"),
-    );
+  >(() => initialView || (canRestoreView ? savedView! : defaultView));
+  const [financeSection, setFinanceSection] = useState<FinanceSection>(
+    () =>
+      initialFinanceSection ||
+      (savedNavigation?.userId === authUser?.id &&
+        savedNavigation?.financeSection) ||
+      "overview",
+  );
   const [customerTab, setCustomerTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
   >(
     () =>
-      (initialCustomerTab || (savedNavigation?.userId === authUser?.id &&
+      initialCustomerTab ||
+      (savedNavigation?.userId === authUser?.id &&
         savedNavigation?.customerTab) ||
-      "orders"),
+      "orders",
   );
   const [sellerTab, setSellerTab] = useState<
     | "dashboard"
@@ -332,7 +362,8 @@ function MarketplaceApp({
   >(
     () =>
       initialSellerTab ||
-      (savedNavigation?.userId === authUser?.id && savedNavigation?.sellerTab) ||
+      (savedNavigation?.userId === authUser?.id &&
+        savedNavigation?.sellerTab) ||
       "dashboard",
   );
   const [adminTab, setAdminTab] = useState<
@@ -902,27 +933,27 @@ function MarketplaceApp({
                   label: "Dashboard",
                   icon: <Home className="w-4 h-4" />,
                   path: "/seller",
-                    active: sellerTab === "dashboard",
+                  active: sellerTab === "dashboard",
                 },
                 {
                   label: "Products",
                   icon: <Boxes className="w-4 h-4" />,
                   path: "/seller/products",
-                    active: sellerTab === "products",
+                  active: sellerTab === "products",
                   group: "Catalog",
                 },
                 {
                   label: "Inventory",
                   icon: <ShoppingBag className="w-4 h-4" />,
                   path: "/seller/inventory",
-                    active: sellerTab === "inventory",
+                  active: sellerTab === "inventory",
                   group: "Catalog",
                 },
                 {
                   label: "Orders",
                   icon: <Package className="w-4 h-4" />,
                   path: "/seller/orders",
-                    active: sellerTab === "orders",
+                  active: sellerTab === "orders",
                   badge: 1,
                   group: "Sales",
                 },
@@ -930,21 +961,21 @@ function MarketplaceApp({
                   label: "Payouts",
                   icon: <Wallet className="w-4 h-4" />,
                   path: "/seller/payouts",
-                    active: sellerTab === "payouts",
+                  active: sellerTab === "payouts",
                   group: "Finance",
                 },
                 {
                   label: "Verification",
                   icon: <ShieldCheck className="w-4 h-4" />,
                   path: "/seller/verification",
-                    active: sellerTab === "verification",
+                  active: sellerTab === "verification",
                   group: "Account",
                 },
                 {
                   label: "Settings",
                   icon: <Settings className="w-4 h-4" />,
                   path: "/seller/settings",
-                    active: sellerTab === "settings",
+                  active: sellerTab === "settings",
                   group: "Account",
                 },
               ]}
@@ -1007,7 +1038,10 @@ function MarketplaceApp({
             rightHeaderLabel={authUser?.name || "Finance Admin"}
             navItems={FINANCE_NAV.map((item) => ({
               label: item.label,
-              path: item.section === "overview" ? "/finance" : `/finance/${item.section}`,
+              path:
+                item.section === "overview"
+                  ? "/finance"
+                  : `/finance/${item.section}`,
               group: item.section === "overview" ? undefined : item.group,
               active: item.section === financeSection,
               icon:
