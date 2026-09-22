@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import { Product, ProductVariant } from '../../types';
+import React, { useState } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
+import { Product, ProductVariant } from "../../types";
 import {
   X,
   Star,
@@ -15,13 +15,17 @@ import {
   Minus,
   MessageSquarePlus,
   Send,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface ProductDetailModalProps {
   product: Product | null;
   isOpen?: boolean;
   onClose: () => void;
-  onBuyNow?: (product: Product, variant?: ProductVariant, quantity?: number) => void;
+  onBuyNow?: (
+    product: Product,
+    variant?: ProductVariant,
+    quantity?: number,
+  ) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -45,22 +49,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const productReviews = reviews[product.id] || [];
 
   // Selected variant state
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(
-    product.variants && product.variants.length > 0 ? product.variants[0] : undefined
+  const [selectedVariant, setSelectedVariant] = useState<
+    ProductVariant | undefined
+  >(
+    product.variants && product.variants.length > 0
+      ? product.variants[0]
+      : undefined,
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
   // Delivery calculator state
-  const [selectedCounty, setSelectedCounty] = useState('Nairobi');
-  const activeZone = deliveryZones.find((z) => z.county === selectedCounty) || deliveryZones[0];
+  const [selectedCounty, setSelectedCounty] = useState("Nairobi");
+  const activeZone =
+    deliveryZones.find((z) => z.county === selectedCounty) || deliveryZones[0];
   const [selectedTown, setSelectedTown] = useState(activeZone.towns[0]);
 
   // Review form state
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [reviewerName, setReviewerName] = useState('');
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
 
   // Pricing calculations based on variant
   const currentPrice = selectedVariant
@@ -68,7 +77,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     : product.discountPrice || product.price;
 
   const originalPrice = selectedVariant ? selectedVariant.price : product.price;
-  const hasDiscount = (selectedVariant?.discountPrice ?? product.discountPrice) !== undefined;
+  const hasDiscount =
+    (selectedVariant?.discountPrice ?? product.discountPrice) !== undefined;
   const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
 
   const handleCountyChange = (countyName: string) => {
@@ -99,9 +109,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       product.id,
       reviewRating,
       reviewComment.trim(),
-      reviewerName.trim() || 'Verified Shopper'
+      reviewerName.trim() || "Verified Shopper",
     );
-    setReviewComment('');
+    setReviewComment("");
     setShowReviewForm(false);
   };
 
@@ -152,8 +162,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       onClick={() => setActiveImageIndex(idx)}
                       className={`w-16 h-16 rounded border-2 overflow-hidden flex-shrink-0 bg-neutral-50 transition-all ${
                         activeImageIndex === idx
-                          ? 'border-amber-500 ring-2 ring-amber-200'
-                          : 'border-neutral-200 hover:border-neutral-300'
+                          ? "border-amber-500 ring-2 ring-amber-200"
+                          : "border-neutral-200 hover:border-neutral-300"
                       }`}
                     >
                       <img
@@ -181,7 +191,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {seller.rating} ★
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-500 line-clamp-2">{seller.description}</p>
+                  <p className="text-xs text-neutral-500 line-clamp-2">
+                    {seller.description}
+                  </p>
                   <div className="mt-3 pt-2 border-t border-neutral-200 flex items-center justify-between text-xs text-neutral-600">
                     <span className="flex items-center gap-1 text-emerald-700 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -198,7 +210,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {/* Product Header */}
               <div className="border-b border-neutral-200 pb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
-                  <span>SKU: {selectedVariant ? selectedVariant.sku : product.sku}</span>
+                  <span>
+                    SKU: {selectedVariant ? selectedVariant.sku : product.sku}
+                  </span>
                   <span>•</span>
                   <span className="text-emerald-700">{product.condition}</span>
                 </div>
@@ -211,7 +225,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex items-center gap-1 text-amber-500">
                     <Star className="w-4 h-4 fill-current" />
-                    <span className="text-sm font-bold text-neutral-800">{product.rating}</span>
+                    <span className="text-sm font-bold text-neutral-800">
+                      {product.rating}
+                    </span>
                   </div>
                   <span className="text-xs text-neutral-500">
                     ({product.reviewsCount} verified customer ratings)
@@ -243,10 +259,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="mt-2 flex items-center gap-2 text-xs">
                   {currentStock > 0 ? (
                     <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> In Stock ({currentStock} available)
+                      <CheckCircle2 className="w-3.5 h-3.5" /> In Stock (
+                      {currentStock} available)
                     </span>
                   ) : (
-                    <span className="text-red-600 font-semibold">Out of Stock</span>
+                    <span className="text-red-600 font-semibold">
+                      Out of Stock
+                    </span>
                   )}
                 </div>
               </div>
@@ -262,7 +281,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       const isSelected = selectedVariant?.id === v.id;
                       const label = Object.entries(v.attributes)
                         .map(([key, val]) => `${key}: ${val}`)
-                        .join(' | ');
+                        .join(" | ");
 
                       return (
                         <button
@@ -273,8 +292,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           }}
                           className={`px-3 py-2 rounded-lg text-xs font-medium border text-left transition-all ${
                             isSelected
-                              ? 'border-amber-600 bg-amber-50 text-amber-900 ring-1 ring-amber-500 font-bold'
-                              : 'border-neutral-200 hover:border-neutral-300 text-neutral-700 bg-white'
+                              ? "border-amber-600 bg-amber-50 text-amber-900 ring-1 ring-amber-500 font-bold"
+                              : "border-neutral-200 hover:border-neutral-300 text-neutral-700 bg-white"
                           }`}
                         >
                           <div>{label}</div>
@@ -306,7 +325,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {quantity}
                     </span>
                     <button
-                      onClick={() => setQuantity((q) => Math.min(currentStock, q + 1))}
+                      onClick={() =>
+                        setQuantity((q) => Math.min(currentStock, q + 1))
+                      }
                       disabled={quantity >= currentStock}
                       className="p-2 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40"
                     >
@@ -348,7 +369,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {/* County and Town Selector */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
-                    <label className="block text-[11px] text-neutral-500 mb-1">County</label>
+                    <label className="block text-[11px] text-neutral-500 mb-1">
+                      County
+                    </label>
                     <select
                       value={selectedCounty}
                       onChange={(e) => handleCountyChange(e.target.value)}
@@ -362,7 +385,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] text-neutral-500 mb-1">Town / Area</label>
+                    <label className="block text-[11px] text-neutral-500 mb-1">
+                      Town / Area
+                    </label>
                     <select
                       value={selectedTown}
                       onChange={(e) => setSelectedTown(e.target.value)}
@@ -381,7 +406,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-2 text-xs bg-neutral-50 p-3 rounded-lg border border-neutral-200">
                   <div className="flex justify-between items-center">
                     <div>
-                      <span className="font-semibold text-neutral-800">Doorstep Delivery</span>
+                      <span className="font-semibold text-neutral-800">
+                        Doorstep Delivery
+                      </span>
                       <p className="text-[11px] text-neutral-500">
                         Estimated arrival: {activeZone.estimatedDays}
                       </p>
@@ -393,7 +420,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                   <div className="flex justify-between items-center pt-2 border-t border-neutral-200">
                     <div>
-                      <span className="font-semibold text-neutral-800">Pickup Station Hub</span>
+                      <span className="font-semibold text-neutral-800">
+                        Pickup Station Hub
+                      </span>
                       <p className="text-[11px] text-neutral-500">
                         {activeZone.pickupStations[0]}
                       </p>
@@ -420,7 +449,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* Product Description & Specifications */}
           <div className="mt-8 pt-6 border-t border-neutral-200">
-            <h3 className="text-base font-bold text-neutral-900 mb-3">Product Overview & Specs</h3>
+            <h3 className="text-base font-bold text-neutral-900 mb-3">
+              Product Overview & Specs
+            </h3>
             <p className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line mb-6">
               {product.description}
             </p>
@@ -431,16 +462,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </h4>
               <div className="grid grid-cols-2 gap-y-2 text-xs">
                 <span className="text-neutral-500">Condition:</span>
-                <span className="font-medium text-neutral-800">{product.condition}</span>
+                <span className="font-medium text-neutral-800">
+                  {product.condition}
+                </span>
 
                 <span className="text-neutral-500">Package Weight:</span>
-                <span className="font-medium text-neutral-800">{product.weightKg} kg</span>
+                <span className="font-medium text-neutral-800">
+                  {product.weightKg} kg
+                </span>
 
                 <span className="text-neutral-500">Warranty:</span>
-                <span className="font-medium text-neutral-800">{product.warranty}</span>
+                <span className="font-medium text-neutral-800">
+                  {product.warranty}
+                </span>
 
                 <span className="text-neutral-500">Return Window:</span>
-                <span className="font-medium text-neutral-800">{product.returnPolicy}</span>
+                <span className="font-medium text-neutral-800">
+                  {product.returnPolicy}
+                </span>
               </div>
             </div>
           </div>
@@ -477,7 +516,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-[11px] text-neutral-600 mb-1">Your Name</label>
+                    <label className="block text-[11px] text-neutral-600 mb-1">
+                      Your Name
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. David Mwangi"
@@ -487,7 +528,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-neutral-600 mb-1">Rating</label>
+                    <label className="block text-[11px] text-neutral-600 mb-1">
+                      Rating
+                    </label>
                     <select
                       value={reviewRating}
                       onChange={(e) => setReviewRating(Number(e.target.value))}
@@ -502,7 +545,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 </div>
                 <div className="mb-3">
-                  <label className="block text-[11px] text-neutral-600 mb-1">Review Comments</label>
+                  <label className="block text-[11px] text-neutral-600 mb-1">
+                    Review Comments
+                  </label>
                   <textarea
                     rows={3}
                     placeholder="Tell other shoppers about product quality, delivery, and performance..."
@@ -555,14 +600,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] text-neutral-400">{rev.date}</span>
+                      <span className="text-[11px] text-neutral-400">
+                        {rev.date}
+                      </span>
                     </div>
                     <div className="flex text-amber-400 mb-1">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={`w-3 h-3 ${
-                            i < rev.rating ? 'fill-current' : 'text-neutral-300'
+                            i < rev.rating ? "fill-current" : "text-neutral-300"
                           }`}
                         />
                       ))}

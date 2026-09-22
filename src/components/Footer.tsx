@@ -1,6 +1,6 @@
-import React from 'react';
-import { ShieldCheck, Truck, RotateCcw, Headphones, Mail } from 'lucide-react';
-import { PublicPageSlug } from './PublicInfoPage';
+import React from "react";
+import { ShieldCheck, Truck, RotateCcw, Headphones, Mail } from "lucide-react";
+import { PublicPageSlug } from "./PublicInfoPage";
 
 interface FooterProps {
   onOpenPage: (slug: PublicPageSlug) => void;
@@ -8,7 +8,10 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
   return (
-    <footer id="main-footer" className="bg-neutral-900 text-neutral-300 mt-16 border-t border-neutral-800">
+    <footer
+      id="main-footer"
+      className="bg-neutral-900 text-neutral-300 mt-16 border-t border-neutral-800"
+    >
       {/* 1. Value Proposition Banner */}
       <div className="border-b border-neutral-800 py-8 px-4">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -62,7 +65,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
                 Customer Support
               </h4>
-              <p className="text-[11px] text-neutral-400">Helpline: +254 700 000 000</p>
+              <p className="text-[11px] text-neutral-400">
+                Helpline: +254 700 000 000
+              </p>
             </div>
           </div>
         </div>
@@ -73,44 +78,151 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-xs">
           {/* Col 1: Customer Care */}
           <div>
-            <h5 className="text-white font-bold uppercase tracking-wider mb-3">Customer Care</h5>
+            <h5 className="text-white font-bold uppercase tracking-wider mb-3">
+              Customer Care
+            </h5>
             <ul className="space-y-2 text-neutral-400">
-              <li><button onClick={() => onOpenPage('help')} className="hover:text-amber-400 text-left">Help Center & FAQs</button></li>
-              <li><button onClick={() => onOpenPage('how-to-shop')} className="hover:text-amber-400 text-left">How to Shop on KESALES</button></li>
-              <li><button onClick={() => onOpenPage('delivery')} className="hover:text-amber-400 text-left">Delivery Timelines & Fees</button></li>
-              <li><button onClick={() => onOpenPage('disputes')} className="hover:text-amber-400 text-left">Dispute Resolution</button></li>
-              <li><button onClick={() => onOpenPage('returns')} className="hover:text-amber-400 text-left">Return & Refund Policy</button></li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("help")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Help Center & FAQs
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("how-to-shop")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  How to Shop on KESALES
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("delivery")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Delivery Timelines & Fees
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("disputes")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Dispute Resolution
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("returns")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Return & Refund Policy
+                </button>
+              </li>
             </ul>
           </div>
 
           {/* Col 2: About KESALES */}
           <div>
-            <h5 className="text-white font-bold uppercase tracking-wider mb-3">About KESALES</h5>
+            <h5 className="text-white font-bold uppercase tracking-wider mb-3">
+              About KESALES
+            </h5>
             <ul className="space-y-2 text-neutral-400">
-              <li><button onClick={() => onOpenPage('about')} className="hover:text-amber-400 text-left">About Us</button></li>
-              <li><button onClick={() => onOpenPage('express')} className="hover:text-amber-400 text-left">KESALES Express</button></li>
-              <li><button onClick={() => onOpenPage('terms')} className="hover:text-amber-400 text-left">Terms & Conditions</button></li>
-              <li><button onClick={() => onOpenPage('privacy')} className="hover:text-amber-400 text-left">Privacy Notice</button></li>
-              <li><button onClick={() => onOpenPage('careers')} className="hover:text-amber-400 text-left">Careers at KESALES</button></li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("about")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  About Us
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("express")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  KESALES Express
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("terms")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Terms & Conditions
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("privacy")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Privacy Notice
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("careers")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Careers at KESALES
+                </button>
+              </li>
             </ul>
           </div>
 
           {/* Col 3: Make Money With Us */}
           <div>
-            <h5 className="text-white font-bold uppercase tracking-wider mb-3">Make Money With Us</h5>
+            <h5 className="text-white font-bold uppercase tracking-wider mb-3">
+              Make Money With Us
+            </h5>
             <ul className="space-y-2 text-neutral-400">
-              <li><button onClick={() => onOpenPage('sell')} className="hover:text-amber-400 text-left">Sell on KESALES (Vendor Center)</button></li>
-              <li><button onClick={() => onOpenPage('logistics')} className="hover:text-amber-400 text-left">Become a Logistics Partner</button></li>
-              <li><button onClick={() => onOpenPage('pickup-station')} className="hover:text-amber-400 text-left">Open a KESALES Pickup Station</button></li>
-              <li><button onClick={() => onOpenPage('affiliate')} className="hover:text-amber-400 text-left">KESALES Affiliate Program</button></li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("sell")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Sell on KESALES (Vendor Center)
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("logistics")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Become a Logistics Partner
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("pickup-station")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  Open a KESALES Pickup Station
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onOpenPage("affiliate")}
+                  className="hover:text-amber-400 text-left"
+                >
+                  KESALES Affiliate Program
+                </button>
+              </li>
             </ul>
           </div>
 
           {/* Col 4: Payment Methods */}
           <div>
-            <h5 className="text-white font-bold uppercase tracking-wider mb-3">Payment Methods</h5>
+            <h5 className="text-white font-bold uppercase tracking-wider mb-3">
+              Payment Methods
+            </h5>
             <p className="text-[11px] text-neutral-400 mb-3">
-              We accept safe and secure payments via M-Pesa, debit/credit cards, and cash on delivery.
+              We accept safe and secure payments via M-Pesa, debit/credit cards,
+              and cash on delivery.
             </p>
             <div className="flex flex-wrap gap-2">
               <span className="bg-neutral-800 text-emerald-400 font-bold px-2 py-1 rounded text-[11px] border border-neutral-700">

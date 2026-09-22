@@ -160,10 +160,11 @@ interface MarketplaceContextType {
   updateProductStatus: (productId: string, status: ProductStatus) => void;
   processPayout: (
     payoutId: string,
-    action: "approve" | "reject",
+    action: "approve" | "process" | "reject",
     reason?: string,
   ) => void;
   approvePayout: (payoutId: string) => void;
+  processApprovedPayout: (payoutId: string) => void;
   rejectPayout: (payoutId: string, reason?: string) => void;
   createCoupon: (coupon: Coupon) => void;
 
@@ -1531,7 +1532,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const processPayout = (
     payoutId: string,
-    action: "approve" | "reject",
+    action: "approve" | "process" | "reject",
     reason?: string,
   ) => {
     if (!canGovernFinance) return;
@@ -1539,6 +1540,16 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!payout) return;
 
     if (action === "approve") {
+      setPayouts((prev) =>
+        prev.map((p) => p.id === payoutId ? { ...p, status: "approved" } : p),
+      );
+      logAuditAction(
+        "PAYOUT_APPROVED",
+        "Payout",
+        payout.payoutNumber,
+        `Approved KSh ${payout.amount.toLocaleString()} for processing for ${payout.sellerName}`,
+      );
+    } else if (action === "process") {
       const ref = `B2C-${payout.method.toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       setPayouts((prev) =>
@@ -1546,7 +1557,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
           p.id === payoutId
             ? {
                 ...p,
-                status: "approved",
+                status: "processed",
                 processedAt: new Date().toISOString(),
                 transactionRef: ref,
               }
@@ -1582,7 +1593,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         "PAYOUT_APPROVED",
         "Payout",
         payout.payoutNumber,
-        `Disbursed KSh ${payout.amount.toLocaleString()} to ${payout.sellerName}`,
+        `Processed KSh ${payout.amount.toLocaleString()} to ${payout.sellerName}`,
       );
     } else {
       // Rejection: restore available balance
@@ -1621,6 +1632,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     updateSellerStatus(sellerId, "suspended");
   const approvePayout = (payoutId: string) =>
     processPayout(payoutId, "approve");
+  const processApprovedPayout = (payoutId: string) =>
+    processPayout(payoutId, "process");
   const rejectPayout = (payoutId: string, reason?: string) =>
     processPayout(payoutId, "reject", reason);
   const createCoupon = (coupon: Coupon) => {
@@ -2391,6 +2404,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         updateProductStatus,
         processPayout,
         approvePayout,
+        processApprovedPayout,
         rejectPayout,
         createCoupon,
         deleteCoupon,

@@ -27,8 +27,8 @@ interface NavbarProps {
   onSelectCategory: (categoryId: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  activeView: 'storefront' | 'seller' | 'admin' | 'customer';
-  setActiveView: (view: 'storefront' | 'seller' | 'admin' | 'customer') => void;
+  activeView: 'storefront' | 'seller' | 'admin' | 'finance' | 'customer';
+  setActiveView: (view: 'storefront' | 'seller' | 'admin' | 'finance' | 'customer') => void;
   onOpenAuthModal: (tab?: 'login' | 'register_customer' | 'register_seller') => void;
   onBackToStorefront: () => void;
 }
@@ -73,9 +73,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Determine user context
   const isSellerUser = authUser?.role === 'seller';
+  const isFinanceUser = authUser?.role === 'finance_admin';
   const isAdminUser =
     authUser?.role === 'super_admin' ||
-    authUser?.role === 'finance_admin' ||
     authUser?.role === 'seller_admin' ||
     authUser?.role === 'logistics_admin' ||
     authUser?.role === 'product_admin' ||
@@ -215,6 +215,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  if (isFinanceUser) {
+    return (
+      <header id="finance-header" className="sticky top-0 z-40 bg-neutral-950 text-white border-b border-neutral-800 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+          <button onClick={() => setActiveView('finance')} className="flex items-center gap-3 text-left flex-shrink-0">
+            <span className="w-8 h-8 rounded-lg bg-amber-500 text-neutral-950 flex items-center justify-center font-black">★</span>
+            <span><strong className="block text-lg tracking-tight">KESALES<span className="text-amber-500">.</span></strong><span className="block text-[10px] uppercase tracking-widest text-amber-400">Finance</span></span>
+          </button>
+          <div className="flex-1 max-w-md hidden md:block relative">
+            <Search className="w-4 h-4 absolute left-3 top-2 text-neutral-500" />
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search payments, payouts, orders..." className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500" />
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            <button className="hidden sm:flex items-center gap-1.5 text-neutral-300 hover:text-white px-2 py-1.5 rounded-lg hover:bg-neutral-900"><HelpCircle className="w-4 h-4" /> Help</button>
+            <button className="relative p-2 text-neutral-300 hover:text-white" title="Notifications"><Bell className="w-4 h-4" /><span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" /></button>
+            <div className="relative" ref={accountMenuRef}>
+              <button onClick={() => setShowAccountDropdown((open) => !open)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-neutral-800 bg-neutral-900 hover:border-neutral-700">
+                <span className="w-6 h-6 rounded-full bg-amber-900 text-amber-200 flex items-center justify-center font-bold">{authUser?.name.charAt(0) || 'F'}</span>
+                <span className="hidden sm:block text-left"><strong className="block text-neutral-200">{authUser?.name}</strong><span className="text-[10px] text-neutral-400">Finance Admin</span></span><ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+              </button>
+              {showAccountDropdown && <div className="absolute right-0 mt-2 w-52 bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800 py-1 z-50"><div className="px-3 py-2 border-b border-neutral-800"><strong className="block text-white">{authUser?.name}</strong><span className="text-[11px] text-neutral-400">{authUser?.email}</span></div><button onClick={() => setShowAccountDropdown(false)} className="w-full text-left px-3 py-2 hover:bg-neutral-800 text-neutral-200 flex items-center gap-2"><UserIcon className="w-4 h-4 text-neutral-400" /> My Profile</button><button onClick={() => setShowAccountDropdown(false)} className="w-full text-left px-3 py-2 hover:bg-neutral-800 text-neutral-200 flex items-center gap-2"><Settings className="w-4 h-4 text-neutral-400" /> Preferences</button><div className="border-t border-neutral-800 my-1" /><button onClick={() => { logout(); setActiveView('storefront'); setShowAccountDropdown(false); }} className="w-full text-left px-3 py-2 hover:bg-red-950/50 text-red-400 flex items-center gap-2 font-semibold"><LogOut className="w-4 h-4" /> Sign Out</button></div>}
             </div>
           </div>
         </div>

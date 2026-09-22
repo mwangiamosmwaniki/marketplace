@@ -15,6 +15,8 @@ import { CustomerAccountModal } from "./components/storefront/CustomerAccountMod
 import { CustomerPortal } from "./components/customer/CustomerPortal";
 import { SellerPortal } from "./components/seller/SellerPortal";
 import { AdminControlHub } from "./components/admin/AdminControlHub";
+import { FinanceAdminPanel, FinanceSection } from "./components/admin/finance/FinanceAdminPanel";
+import { FINANCE_NAV } from "./config/permissions";
 import { AuthModal } from "./components/auth/AuthModal";
 import { Footer } from "./components/Footer";
 import { PublicInfoPage, PublicPageSlug } from "./components/PublicInfoPage";
@@ -44,6 +46,8 @@ import {
   ChevronRight,
   Package,
   FileText,
+  CreditCard,
+  BarChart3,
 } from "lucide-react";
 
 interface DashboardShellProps {
@@ -72,18 +76,28 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   const [selectedNav, setSelectedNav] = useState<string>(
     navItems.find((item) => item.active)?.label || navItems[0]?.label || "",
   );
-  const groups = Array.from(new Set(navItems.map((item) => item.group).filter(Boolean))) as string[];
-  const initialOpenGroups = groups.reduce<Record<string, boolean>>((open, group) => {
-    open[group] = navItems.some((item) => item.group === group && item.label === selectedNav);
-    return open;
-  }, {});
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(initialOpenGroups);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const groups = Array.from(
+    new Set(navItems.map((item) => item.group).filter(Boolean)),
+  ) as string[];
+  const initialOpenGroups = groups.reduce<Record<string, boolean>>(
+    (open, group) => {
+      open[group] = navItems.some(
+        (item) => item.group === group && item.label === selectedNav,
+      );
+      return open;
+    },
+    {},
+  );
+  const [openGroups, setOpenGroups] =
+    useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
     <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
-      <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] w-full h-[calc(100vh-72px)] overflow-hidden">
+      <div className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full h-[calc(100vh-72px)] overflow-hidden`}>
         <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full sticky top-0">
-          <div className="px-5 py-4 border-b border-neutral-800 flex items-center gap-3">
+          <div className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}>
+            {!sidebarCollapsed && <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center">
               K
             </div>
@@ -95,58 +109,76 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                 Admin hub
               </div>
             </div>
+            </div>}
+            <button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
+              <ChevronRight className={`w-4 h-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`} />
+            </button>
           </div>
 
           <nav className="p-3 space-y-1.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
             {navItems.map(({ label, icon, badge, group }, index) => {
               const isActive = selectedNav === label;
-              const isGroupOpen = !group || openGroups[group];
+              const isGroupOpen = sidebarCollapsed || !group || openGroups[group];
 
               return (
                 <React.Fragment key={label}>
-                  {group &&
+                  {!sidebarCollapsed && group &&
                     (index === 0 || navItems[index - 1]?.group !== group) && (
-                      <button type="button" onClick={() => setOpenGroups((current) => ({ ...current, [group]: !current[group] }))} className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 hover:text-neutral-300" aria-expanded={isGroupOpen}>
-                        <span>{group}</span>
-                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isGroupOpen ? "rotate-90" : ""}`} />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenGroups((current) => ({
+                            ...current,
+                            [group]: !current[group],
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 hover:text-neutral-300"
+                        aria-expanded={isGroupOpen}
+                      >
+                        {!sidebarCollapsed && <span>{group}</span>}
+                        <ChevronRight
+                          className={`w-3.5 h-3.5 transition-transform ${isGroupOpen ? "rotate-90" : ""}`}
+                        />
                       </button>
                     )}
-                  {isGroupOpen && <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedNav(label);
-                      onNavigate?.(label);
-                    }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
-                      isActive
-                        ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
-                        : "text-neutral-200 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span className="text-lg leading-none">{icon}</span>
-                      <span className="font-semibold text-sm">{label}</span>
-                    </span>
-                    {badge !== undefined && badge > 0 ? (
-                      <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                        {badge}
+                  {isGroupOpen && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedNav(label);
+                        onNavigate?.(label);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
+                          : "text-neutral-200 hover:bg-white/5"
+                      }`}
+                    >
+                      <span className={`flex items-center ${sidebarCollapsed ? "justify-center w-full" : "gap-3"}`} title={sidebarCollapsed ? label : undefined}>
+                        <span className="text-lg leading-none">{icon}</span>
+                        {!sidebarCollapsed && <span className="font-semibold text-sm">{label}</span>}
                       </span>
-                    ) : null}
-                  </button>}
+                      {badge !== undefined && badge > 0 ? (
+                        <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {badge}
+                        </span>
+                      ) : null}
+                    </button>
+                  )}
                 </React.Fragment>
               );
             })}
           </nav>
 
           <div className="mt-auto border-t border-neutral-800 p-4">
-            <div className="flex items-center gap-3 bg-[#101a27] border border-neutral-700 p-3">
+            <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-3`} title={sidebarCollapsed ? "System status: Operational" : undefined}>
               <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400" />
-              <div className="flex-1">
+              {!sidebarCollapsed && <div className="flex-1">
                 <div className="text-[12px] font-bold text-white">
                   System status
                 </div>
                 <div className="text-[11px] text-emerald-300">Healthy</div>
-              </div>
+              </div>}
             </div>
           </div>
         </aside>
@@ -163,8 +195,14 @@ function MarketplaceApp() {
 
   // Navigation & Modals View state
   const [activeView, setActiveView] = useState<
-    "storefront" | "seller" | "admin" | "customer"
-  >("storefront");
+    "storefront" | "seller" | "admin" | "finance" | "customer"
+  >(() => {
+    if (authUser?.role === "seller") return "seller";
+    if (authUser?.role === "finance_admin") return "finance";
+    if (authUser?.role && authUser.role.endsWith("_admin")) return "admin";
+    return authUser ? "customer" : "storefront";
+  });
+  const [financeSection, setFinanceSection] = useState<FinanceSection>("overview");
   const [customerTab, setCustomerTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
   >("orders");
@@ -234,8 +272,10 @@ function MarketplaceApp() {
         }
 
         // Category filter
-        if (selectedCategory !== "all" && p.categoryId !== selectedCategory) return false;
-        if (selectedBrand !== "all" && p.brandId !== selectedBrand) return false;
+        if (selectedCategory !== "all" && p.categoryId !== selectedCategory)
+          return false;
+        if (selectedBrand !== "all" && p.brandId !== selectedBrand)
+          return false;
         const productPrice = p.discountPrice || p.price;
         if (productPrice < minPrice || productPrice > maxPrice) return false;
         if (onlyExpress && !p.isExpress) return false;
@@ -779,10 +819,29 @@ function MarketplaceApp() {
             </div>
           ))}
 
+        {activeView === "finance" && authUser?.role === "finance_admin" && (
+          <DashboardShell
+            title="Finance Dashboard"
+            subtitle="Review payments, refunds, payouts, journal records, and reconciliation exceptions."
+            rightHeaderLabel={authUser.name}
+            navItems={FINANCE_NAV.map((item) => ({
+              label: item.label,
+              group: item.group,
+              active: item.section === financeSection,
+              icon: item.section === "overview" ? <Home className="w-4 h-4" /> : item.section === "orders" ? <ShoppingBag className="w-4 h-4" /> : item.section === "payments" ? <CreditCard className="w-4 h-4" /> : item.section === "refunds" ? <RotateCcw className="w-4 h-4" /> : item.section === "payouts" ? <Wallet className="w-4 h-4" /> : item.section === "reconciliation" ? <ArrowUpDown className="w-4 h-4" /> : item.section === "ledger" ? <FileText className="w-4 h-4" /> : <BarChart3 className="w-4 h-4" />,
+            }))}
+            onNavigate={(label) => {
+              const next = FINANCE_NAV.find((item) => item.label === label);
+              if (next) setFinanceSection(next.section);
+            }}
+          >
+            <FinanceAdminPanel section={financeSection} />
+          </DashboardShell>
+        )}
+
         {/* VIEW 4: ADMIN CONTROL HUB (RBAC Guarded) */}
         {activeView === "admin" &&
           (authUser?.role === "super_admin" ||
-          authUser?.role === "finance_admin" ||
           authUser?.role === "seller_admin" ||
           authUser?.role === "logistics_admin" ||
           authUser?.role === "product_admin" ||
@@ -925,8 +984,11 @@ function MarketplaceApp() {
           if (role === "seller") {
             setActiveView("seller");
           } else if (
+            role === "finance_admin"
+          ) {
+            setActiveView("finance");
+          } else if (
             role === "super_admin" ||
-            role === "finance_admin" ||
             role === "seller_admin" ||
             role === "logistics_admin" ||
             role === "product_admin" ||
