@@ -16,7 +16,5 @@ export default function CustomerModulePage() {
   const params = useParams<{ module: string }>();
   const tab = tabs[params.module as keyof typeof tabs];
 
-  return (
-    <App initialView="customer" initialCustomerTab={tab || "orders"} />
-  );
+  return <App initialView="customer" initialCustomerTab={tab || "orders"} />;
 }

@@ -24,10 +24,5 @@ export default function AdminModulePage() {
   const module = params.module as AdminModule;
   const tab = tabs[module];
 
-  return (
-    <App
-      initialView="admin"
-      initialAdminTab={tab || "analytics"}
-    />
-  );
+  return <App initialView="admin" initialAdminTab={tab || "analytics"} />;
 }

@@ -29,7 +29,9 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
 
   return (
     <div>
-      <label className="block text-neutral-600 font-semibold mb-1">{label}</label>
+      <label className="block text-neutral-600 font-semibold mb-1">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -37,21 +39,38 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       >
         {value ? (
           <span className="flex items-center gap-3">
-            <img src={value} alt="Selected preview" className="h-16 w-24 rounded object-cover border border-neutral-200" />
+            <img
+              src={value}
+              alt="Selected preview"
+              className="h-16 w-24 rounded object-cover border border-neutral-200"
+            />
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold text-neutral-800">Replace image</span>
-              <span className="block text-[11px] text-neutral-500">Click to choose another file</span>
+              <span className="block text-xs font-bold text-neutral-800">
+                Replace image
+              </span>
+              <span className="block text-[11px] text-neutral-500">
+                Click to choose another file
+              </span>
             </span>
           </span>
         ) : (
           <span className="flex items-center gap-2 text-xs text-neutral-600">
             <ImagePlus className="h-5 w-5 text-amber-600" />
-            <span><strong className="text-neutral-800">Upload image</strong><span className="block text-[11px] text-neutral-500">{helperText}</span></span>
+            <span>
+              <strong className="text-neutral-800">Upload image</strong>
+              <span className="block text-[11px] text-neutral-500">
+                {helperText}
+              </span>
+            </span>
           </span>
         )}
       </button>
       {value && (
-        <button type="button" onClick={() => onChange("")} className="mt-1 inline-flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700">
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="mt-1 inline-flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700"
+        >
           <X className="h-3 w-3" /> Remove image
         </button>
       )}

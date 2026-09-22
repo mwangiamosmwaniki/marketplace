@@ -218,13 +218,8 @@ interface MarketplaceContextType {
   updatePromotion: (id: string, updates: Partial<Promotion>) => void;
   deletePromotion: (id: string) => void;
   flashSales: FlashSaleCampaign[];
-  createFlashSale: (
-    sale: Omit<FlashSaleCampaign, "id" | "createdAt">,
-  ) => void;
-  updateFlashSale: (
-    id: string,
-    updates: Partial<FlashSaleCampaign>,
-  ) => void;
+  createFlashSale: (sale: Omit<FlashSaleCampaign, "id" | "createdAt">) => void;
+  updateFlashSale: (id: string, updates: Partial<FlashSaleCampaign>) => void;
   deleteFlashSale: (id: string) => void;
   homepageSettings: HomepageSettings;
   updateHomepageSettings: (settings: HomepageSettings) => void;
@@ -419,10 +414,12 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     const saved = localStorage.getItem("kesales_flash_sales");
     return saved ? JSON.parse(saved) : INITIAL_FLASH_SALES;
   });
-  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(() => {
-    const saved = localStorage.getItem("kesales_homepage_settings");
-    return saved ? JSON.parse(saved) : INITIAL_HOMEPAGE_SETTINGS;
-  });
+  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(
+    () => {
+      const saved = localStorage.getItem("kesales_homepage_settings");
+      return saved ? JSON.parse(saved) : INITIAL_HOMEPAGE_SETTINGS;
+    },
+  );
   const [returns, setReturns] = useState<ReturnRequest[]>(() => {
     const saved = localStorage.getItem("kesales_returns");
     return saved ? JSON.parse(saved) : INITIAL_RETURNS;
@@ -1741,12 +1738,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         coupon.code === code ? { ...coupon, ...updates } : coupon,
       ),
     );
-    logAuditAction(
-      "COUPON_UPDATED",
-      "Coupon",
-      code,
-      `Updated coupon ${code}`,
-    );
+    logAuditAction("COUPON_UPDATED", "Coupon", code, `Updated coupon ${code}`);
   };
 
   // System Settings Operations
@@ -2152,10 +2144,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
-  const updateFlashSale = (
-    id: string,
-    updates: Partial<FlashSaleCampaign>,
-  ) => {
+  const updateFlashSale = (id: string, updates: Partial<FlashSaleCampaign>) => {
     if (!canGovernMarketing) return;
     setFlashSales((prev) =>
       prev.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale)),

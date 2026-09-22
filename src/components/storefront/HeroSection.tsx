@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import { ShieldCheck, Truck, RotateCcw, ArrowRight, Store } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
+import { ShieldCheck, Truck, RotateCcw, ArrowRight, Store } from "lucide-react";
 
 interface HeroSectionProps {
   onSelectCategory: (categoryId: string) => void;
@@ -18,58 +18,61 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const fallbackSlides = [
     {
       id: 1,
-      title: 'Mega Flash Sales — Up to 40% Off',
-      subtitle: 'Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery',
-      tag: 'LIMITED TIME DEALS',
-      bgClass: 'from-amber-600 to-orange-600',
-      image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80',
-      cta: 'Shop Deals Now',
+      title: "Mega Flash Sales — Up to 40% Off",
+      subtitle:
+        "Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery",
+      tag: "LIMITED TIME DEALS",
+      bgClass: "from-amber-600 to-orange-600",
+      image:
+        "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80",
+      cta: "Shop Deals Now",
     },
     {
       id: 2,
-      title: 'Official Samsung Brand Week',
-      subtitle: 'Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty',
-      tag: 'OFFICIAL STORE GUARANTEE',
-      bgClass: 'from-blue-700 to-indigo-900',
-      image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80',
-      cta: 'Explore Samsung',
+      title: "Official Samsung Brand Week",
+      subtitle:
+        "Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty",
+      tag: "OFFICIAL STORE GUARANTEE",
+      bgClass: "from-blue-700 to-indigo-900",
+      image:
+        "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80",
+      cta: "Explore Samsung",
     },
     {
       id: 3,
-      title: 'High Performance Computing',
-      subtitle: 'Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals',
-      tag: 'WORK & GAMING GEAR',
-      bgClass: 'from-neutral-900 to-neutral-800',
-      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
-      cta: 'View Laptops',
+      title: "High Performance Computing",
+      subtitle:
+        "Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals",
+      tag: "WORK & GAMING GEAR",
+      bgClass: "from-neutral-900 to-neutral-800",
+      image:
+        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80",
+      cta: "View Laptops",
     },
   ];
-  const slides = useMemo(
-    () => {
-      const today = new Date();
-      const activePromotions = promotions
-        .filter(
-          (promotion) =>
-            promotion.isActive &&
-            new Date(promotion.startDate) <= today &&
-            new Date(promotion.endDate) >= today,
-        )
-        .sort((a, b) => a.startDate.localeCompare(b.startDate));
-      return activePromotions.length > 0
-        ? activePromotions.map((promotion) => ({
-            id: promotion.id,
-            title: promotion.title,
-            subtitle: promotion.subtitle,
-            tag: promotion.tag,
-            bgClass: promotion.bgClass,
-            image: promotion.bannerImage,
-            cta: promotion.linkText,
-            targetCategory: promotion.targetCategory,
-          }))
-        : fallbackSlides;
-    },
-    [promotions],
-  );
+  const slides = useMemo(() => {
+    const today = new Date();
+    const activePromotions = promotions
+      .filter(
+        (promotion) =>
+          promotion.isActive &&
+          new Date(promotion.startDate) <= today &&
+          new Date(promotion.endDate) >= today,
+      )
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return activePromotions.length > 0
+      ? activePromotions.map((promotion) => ({
+          id: promotion.id,
+          title: promotion.title,
+          subtitle: promotion.subtitle,
+          tag: promotion.tag,
+          bgClass: promotion.bgClass,
+          image: promotion.bannerImage,
+          cta: promotion.linkText,
+          targetCategory: promotion.targetCategory,
+        }))
+      : fallbackSlides;
+  }, [promotions]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -79,7 +82,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   }, [slides.length]);
 
   return (
-    <div id="hero-section" className="grid grid-cols-1 lg:grid-cols-12 gap-4 py-4">
+    <div
+      id="hero-section"
+      className="grid grid-cols-1 lg:grid-cols-12 gap-4 py-4"
+    >
       {/* 1. Hero Slider Banner */}
       <div className="lg:col-span-9 relative rounded-lg overflow-hidden min-h-[340px] flex flex-col justify-between shadow-xs">
         {slides.map((slide, idx) => (
@@ -88,7 +94,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             className={`absolute inset-0 bg-gradient-to-r ${
               slide.bgClass
             } text-white p-6 sm:p-8 flex flex-col justify-between transition-opacity duration-700 ${
-              currentSlide === idx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              currentSlide === idx ? "opacity-100 z-10" : "opacity-0 z-0"
             }`}
           >
             {/* Background ambient glow image */}
@@ -116,7 +122,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-center gap-4">
               <button
                 onClick={() =>
-                  onSelectCategory(slide.targetCategory || 'cat-phones')
+                  onSelectCategory(slide.targetCategory || "cat-phones")
                 }
                 className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-extrabold text-xs py-2.5 px-5 rounded-lg shadow flex items-center gap-1.5 transition-transform active:scale-95"
               >
@@ -134,7 +140,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               key={i}
               onClick={() => setCurrentSlide(i)}
               className={`w-2 h-2 rounded-full transition-all ${
-                currentSlide === i ? 'bg-amber-400 w-6' : 'bg-white/50'
+                currentSlide === i ? "bg-amber-400 w-6" : "bg-white/50"
               }`}
             />
           ))}
@@ -156,7 +162,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               Reach 5M+ Buyers Across Kenya
             </h4>
             <p className="text-[11px] text-neutral-500">
-              Open your vendor storefront, list products with multi-SKU variations, and receive direct M-Pesa payouts.
+              Open your vendor storefront, list products with multi-SKU
+              variations, and receive direct M-Pesa payouts.
             </p>
           </div>
           <button
@@ -174,7 +181,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-start gap-2">
               <Truck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-neutral-800">KESALES Express</span>
+                <span className="font-bold text-neutral-800">
+                  KESALES Express
+                </span>
                 <p className="text-[11px] text-neutral-500">
                   Fast next-day delivery on thousands of products.
                 </p>
@@ -184,7 +193,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-start gap-2">
               <RotateCcw className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-neutral-800">15-Day Free Returns</span>
+                <span className="font-bold text-neutral-800">
+                  15-Day Free Returns
+                </span>
                 <p className="text-[11px] text-neutral-500">
                   Full refund via M-Pesa or bank transfer.
                 </p>
@@ -194,7 +205,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-neutral-800">100% Authentic</span>
+                <span className="font-bold text-neutral-800">
+                  100% Authentic
+                </span>
                 <p className="text-[11px] text-neutral-500">
                   Official manufacturer warranty on all items.
                 </p>
