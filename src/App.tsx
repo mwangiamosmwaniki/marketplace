@@ -234,7 +234,15 @@ function MarketplaceApp() {
         }
 
         // Category filter
-          return false;
+        if (selectedCategory !== "all" && p.categoryId !== selectedCategory) return false;
+        if (selectedBrand !== "all" && p.brandId !== selectedBrand) return false;
+        const productPrice = p.discountPrice || p.price;
+        if (productPrice < minPrice || productPrice > maxPrice) return false;
+        if (onlyExpress && !p.isExpress) return false;
+        if (onlyOfficial) {
+          const brand = brands.find((item) => item.id === p.brandId);
+          if (!brand?.isOfficial) return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -431,7 +439,7 @@ function MarketplaceApp() {
                     onChange={(e) => setSortBy(e.target.value as any)}
                     className="p-1.5 border border-neutral-300 rounded bg-white font-medium text-neutral-800 focus:outline-none focus:border-amber-500"
                   >
-                    <option value="relevance">Popularity / Relevance</option>
+                    <option value="relevance">Relevance</option>
                     <option value="price_asc">Price: Lowest to Highest</option>
                     <option value="price_desc">Price: Highest to Lowest</option>
                     <option value="rating">Product Rating</option>
