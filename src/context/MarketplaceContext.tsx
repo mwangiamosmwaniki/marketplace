@@ -45,6 +45,7 @@ import {
   INITIAL_PROMOTIONS,
   INITIAL_RETURNS,
 } from "../data/initialData";
+import { hasPermission, isGeneralAdmin } from "../config/permissions";
 
 interface MarketplaceContextType {
   // Authentication & Real User State
@@ -241,6 +242,7 @@ interface MarketplaceContextType {
   // User Governance
   createUser: (userData: Omit<User, "id" | "createdAt">) => void;
   updateUser: (userId: string, updates: Partial<User>) => void;
+  deleteUser: (userId: string) => void;
   suspendUser: (userId: string) => void;
   restoreUser: (userId: string) => void;
   deactivateUser: (userId: string) => void;
@@ -276,12 +278,37 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   // Authentication & Real User State
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem("kesales_users");
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    try {
+      return saved ? (JSON.parse(saved) as User[]) : INITIAL_USERS;
+    } catch {
+      localStorage.removeItem("kesales_users");
+      return INITIAL_USERS;
+    }
   });
 
   const [authUser, setAuthUser] = useState<User | null>(() => {
     const saved = localStorage.getItem("kesales_auth_user");
-    return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Jane Wambui (Customer)
+    if (!saved) return INITIAL_USERS[0]; // Jane Wambui (Customer)
+    try {
+      const persistedUser = JSON.parse(saved) as User;
+      const currentUsers = localStorage.getItem("kesales_users");
+      const storedUsers = currentUsers
+        ? (JSON.parse(currentUsers) as User[])
+        : INITIAL_USERS;
+      const currentUser = storedUsers.find(
+        (user) => user.id === persistedUser.id,
+      );
+      if (!currentUser || currentUser.status === "suspended") {
+        localStorage.removeItem("kesales_auth_user");
+        localStorage.removeItem("kesales_navigation");
+        return null;
+      }
+      return currentUser;
+    } catch {
+      localStorage.removeItem("kesales_auth_user");
+      localStorage.removeItem("kesales_navigation");
+      return null;
+    }
   });
 
   // Current view state derived from authenticated user
@@ -289,16 +316,13 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const currentSellerId =
     authUser?.role === "seller" ? (authUser.sellerId ?? "") : "";
 
-  const isAdmin =
-    currentRole.endsWith("_admin") || currentRole === "super_admin";
+  const isAdmin = isGeneralAdmin(currentRole);
   const isSeller = currentRole === "seller";
   const isCustomer = currentRole === "customer";
   const canGovernSellers =
     currentRole === "super_admin" || currentRole === "seller_admin";
   const canGovernCatalog =
     currentRole === "super_admin" || currentRole === "product_admin";
-  const canGovernFinance =
-    currentRole === "super_admin" || currentRole === "finance_admin";
   const canGovernLogistics =
     currentRole === "super_admin" || currentRole === "logistics_admin";
   const canGovernMarketing =
@@ -1535,13 +1559,19 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     action: "approve" | "process" | "reject",
     reason?: string,
   ) => {
-    if (!canGovernFinance) return;
+    const requiredPermission =
+      action === "process"
+        ? "payouts.process"
+        : action === "approve"
+          ? "payouts.approve"
+          : "payouts.reject";
+    if (!hasPermission(currentRole, requiredPermission)) return;
     const payout = payouts.find((p) => p.id === payoutId);
     if (!payout) return;
 
     if (action === "approve") {
       setPayouts((prev) =>
-        prev.map((p) => p.id === payoutId ? { ...p, status: "approved" } : p),
+        prev.map((p) => (p.id === payoutId ? { ...p, status: "approved" } : p)),
       );
       logAuditAction(
         "PAYOUT_APPROVED",
@@ -1790,14 +1820,34 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateUser = (userId: string, updates: Partial<User>) => {
     if (!isAdmin) return;
+    const updatedUser = users.find((user) => user.id === userId);
+    if (!updatedUser) return;
+    const nextUser = { ...updatedUser, ...updates };
     setUsers((prev) =>
       prev.map((user) => (user.id === userId ? { ...user, ...updates } : user)),
     );
+    if (authUser?.id === userId) {
+      setAuthUser(nextUser);
+      localStorage.setItem("kesales_auth_user", JSON.stringify(nextUser));
+    }
     logAuditAction(
       "USER_UPDATED",
       "User",
       userId,
       `Updated account fields for ${userId}`,
+    );
+  };
+
+  const deleteUser = (userId: string) => {
+    if (!isAdmin || userId === authUser?.id) return;
+    const user = users.find((item) => item.id === userId);
+    if (!user || user.role === "super_admin") return;
+    setUsers((prev) => prev.filter((item) => item.id !== userId));
+    logAuditAction(
+      "USER_DELETED",
+      "User",
+      userId,
+      `Deleted user account ${user.email}`,
     );
   };
 
@@ -2144,7 +2194,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const processReturnRefund = (returnId: string) => {
-    if (!canGovernFinance) return;
+    if (!hasPermission(currentRole, "refunds.process")) return;
     const ret = returns.find((r) => r.id === returnId);
     if (!ret) return;
 
@@ -2438,6 +2488,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteBrand,
         createUser,
         updateUser,
+        deleteUser,
         suspendUser,
         restoreUser,
         deactivateUser,

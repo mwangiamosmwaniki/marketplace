@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   MarketplaceProvider,
   useMarketplace,
 } from "./context/MarketplaceContext";
+import { DialogProvider } from "./context/DialogContext";
 import { Navbar } from "./components/Navbar";
 import { HeroSection } from "./components/storefront/HeroSection";
 import { FlashSalesSection } from "./components/storefront/FlashSalesSection";
@@ -15,8 +16,12 @@ import { CustomerAccountModal } from "./components/storefront/CustomerAccountMod
 import { CustomerPortal } from "./components/customer/CustomerPortal";
 import { SellerPortal } from "./components/seller/SellerPortal";
 import { AdminControlHub } from "./components/admin/AdminControlHub";
-import { FinanceAdminPanel, FinanceSection } from "./components/admin/finance/FinanceAdminPanel";
+import {
+  FinanceAdminPanel,
+  FinanceSection,
+} from "./components/admin/finance/FinanceAdminPanel";
 import { FINANCE_NAV } from "./config/permissions";
+import { isFinanceAdmin, isGeneralAdmin } from "./config/permissions";
 import { AuthModal } from "./components/auth/AuthModal";
 import { Footer } from "./components/Footer";
 import { PublicInfoPage, PublicPageSlug } from "./components/PublicInfoPage";
@@ -50,6 +55,15 @@ import {
   BarChart3,
 } from "lucide-react";
 
+type NavigationState = {
+  userId?: string;
+  activeView: "storefront" | "seller" | "admin" | "finance" | "customer";
+  financeSection: FinanceSection;
+  customerTab: "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security";
+  sellerTab: "dashboard" | "products" | "inventory" | "orders" | "payouts" | "verification" | "settings";
+  adminTab: "analytics" | "users" | "roles" | "security" | "audit" | "system" | "sellers" | "catalog" | "orders" | "coupons" | "logistics" | "settings";
+};
+
 interface DashboardShellProps {
   title: string;
   subtitle: string;
@@ -62,6 +76,7 @@ interface DashboardShellProps {
   }>;
   rightHeaderLabel: string;
   onNavigate?: (label: string) => void;
+  collapsibleGroups?: boolean;
   children: React.ReactNode;
 }
 
@@ -71,11 +86,16 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   navItems,
   rightHeaderLabel,
   onNavigate,
+  collapsibleGroups = true,
   children,
 }) => {
   const [selectedNav, setSelectedNav] = useState<string>(
     navItems.find((item) => item.active)?.label || navItems[0]?.label || "",
   );
+  useEffect(() => {
+    const activeLabel = navItems.find((item) => item.active)?.label;
+    if (activeLabel && activeLabel !== selectedNav) setSelectedNav(activeLabel);
+  }, [navItems, selectedNav]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const groups = Array.from(
     new Set(navItems.map((item) => item.group).filter(Boolean)),
@@ -94,36 +114,55 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
 
   return (
     <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
-      <div className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full h-[calc(100vh-72px)] overflow-hidden`}>
+      <div
+        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full h-[calc(100vh-72px)] overflow-hidden`}
+      >
         <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full sticky top-0">
-          <div className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}>
-            {!sidebarCollapsed && <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center">
-              K
-            </div>
-            <div>
-              <div className="font-black tracking-tight text-xl">
-                KESALES<span className="text-amber-500">.</span>
+          <div
+            className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
+          >
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center">
+                  K
+                </div>
+                <div>
+                  <div className="font-black tracking-tight text-xl">
+                    KESALES<span className="text-amber-500">.</span>
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
+                    Admin hub
+                  </div>
+                </div>
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                Admin hub
-              </div>
-            </div>
-            </div>}
-            <button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
-              <ChevronRight className={`w-4 h-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`} />
+            )}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+              aria-label={
+                sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+              }
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`}
+              />
             </button>
           </div>
 
           <nav className="p-3 space-y-1.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
             {navItems.map(({ label, icon, badge, group }, index) => {
               const isActive = selectedNav === label;
-              const isGroupOpen = sidebarCollapsed || !group || openGroups[group];
+              const isGroupOpen =
+                !collapsibleGroups || sidebarCollapsed || !group || openGroups[group];
 
               return (
                 <React.Fragment key={label}>
-                  {!sidebarCollapsed && group &&
-                    (index === 0 || navItems[index - 1]?.group !== group) && (
+                  {!sidebarCollapsed &&
+                    group &&
+                    (index === 0 || navItems[index - 1]?.group !== group) &&
+                    (collapsibleGroups ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -135,12 +174,16 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                         className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 hover:text-neutral-300"
                         aria-expanded={isGroupOpen}
                       >
-                        {!sidebarCollapsed && <span>{group}</span>}
+                        <span>{group}</span>
                         <ChevronRight
                           className={`w-3.5 h-3.5 transition-transform ${isGroupOpen ? "rotate-90" : ""}`}
                         />
                       </button>
-                    )}
+                    ) : (
+                      <div className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                        {group}
+                      </div>
+                    ))}
                   {isGroupOpen && (
                     <button
                       type="button"
@@ -154,9 +197,14 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                           : "text-neutral-200 hover:bg-white/5"
                       }`}
                     >
-                      <span className={`flex items-center ${sidebarCollapsed ? "justify-center w-full" : "gap-3"}`} title={sidebarCollapsed ? label : undefined}>
+                      <span
+                        className={`flex items-center ${sidebarCollapsed ? "justify-center w-full" : "gap-3"}`}
+                        title={sidebarCollapsed ? label : undefined}
+                      >
                         <span className="text-lg leading-none">{icon}</span>
-                        {!sidebarCollapsed && <span className="font-semibold text-sm">{label}</span>}
+                        {!sidebarCollapsed && (
+                          <span className="font-semibold text-sm">{label}</span>
+                        )}
                       </span>
                       {badge !== undefined && badge > 0 ? (
                         <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -171,14 +219,21 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           </nav>
 
           <div className="mt-auto border-t border-neutral-800 p-4">
-            <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-3`} title={sidebarCollapsed ? "System status: Operational" : undefined}>
+            <div
+              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-3`}
+              title={
+                sidebarCollapsed ? "System status: Operational" : undefined
+              }
+            >
               <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400" />
-              {!sidebarCollapsed && <div className="flex-1">
-                <div className="text-[12px] font-bold text-white">
-                  System status
+              {!sidebarCollapsed && (
+                <div className="flex-1">
+                  <div className="text-[12px] font-bold text-white">
+                    System status
+                  </div>
+                  <div className="text-[11px] text-emerald-300">Healthy</div>
                 </div>
-                <div className="text-[11px] text-emerald-300">Healthy</div>
-              </div>}
+              )}
             </div>
           </div>
         </aside>
@@ -194,18 +249,50 @@ function MarketplaceApp() {
     useMarketplace();
 
   // Navigation & Modals View state
+  const savedNavigation = (() => {
+    try {
+      const saved = localStorage.getItem("kesales_navigation");
+      return saved ? (JSON.parse(saved) as Partial<NavigationState>) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const defaultView = authUser?.role === "seller"
+    ? "seller"
+    : isFinanceAdmin(authUser?.role)
+      ? "finance"
+      : isGeneralAdmin(authUser?.role)
+        ? "admin"
+        : authUser
+          ? "customer"
+          : "storefront";
+  const savedView = savedNavigation?.userId === authUser?.id
+    ? savedNavigation?.activeView
+    : undefined;
+  const canRestoreView =
+    savedView === "storefront" ||
+    (savedView === "customer" && Boolean(authUser)) ||
+    (savedView === "seller" && authUser?.role === "seller") ||
+    (savedView === "finance" && isFinanceAdmin(authUser?.role)) ||
+    (savedView === "admin" && isGeneralAdmin(authUser?.role));
   const [activeView, setActiveView] = useState<
     "storefront" | "seller" | "admin" | "finance" | "customer"
-  >(() => {
-    if (authUser?.role === "seller") return "seller";
-    if (authUser?.role === "finance_admin") return "finance";
-    if (authUser?.role && authUser.role.endsWith("_admin")) return "admin";
-    return authUser ? "customer" : "storefront";
-  });
-  const [financeSection, setFinanceSection] = useState<FinanceSection>("overview");
+  >(() => (canRestoreView ? savedView! : defaultView));
+  const [financeSection, setFinanceSection] =
+    useState<FinanceSection>(
+      () =>
+        (savedNavigation?.userId === authUser?.id &&
+          savedNavigation?.financeSection) ||
+        "overview",
+    );
   const [customerTab, setCustomerTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
-  >("orders");
+  >(
+    () =>
+      (savedNavigation?.userId === authUser?.id &&
+        savedNavigation?.customerTab) ||
+      "orders",
+  );
   const [sellerTab, setSellerTab] = useState<
     | "dashboard"
     | "products"
@@ -214,7 +301,11 @@ function MarketplaceApp() {
     | "payouts"
     | "verification"
     | "settings"
-  >("dashboard");
+  >(
+    () =>
+      (savedNavigation?.userId === authUser?.id && savedNavigation?.sellerTab) ||
+      "dashboard",
+  );
   const [adminTab, setAdminTab] = useState<
     | "analytics"
     | "users"
@@ -225,11 +316,35 @@ function MarketplaceApp() {
     | "sellers"
     | "catalog"
     | "orders"
-    | "finance"
     | "coupons"
     | "logistics"
     | "settings"
-  >("analytics");
+  >(
+    () =>
+      (savedNavigation?.userId === authUser?.id && savedNavigation?.adminTab) ||
+      "analytics",
+  );
+
+  useEffect(() => {
+    localStorage.setItem(
+      "kesales_navigation",
+      JSON.stringify({
+        userId: authUser?.id,
+        activeView,
+        financeSection,
+        customerTab,
+        sellerTab,
+        adminTab,
+      }),
+    );
+  }, [
+    authUser?.id,
+    activeView,
+    financeSection,
+    customerTab,
+    sellerTab,
+    adminTab,
+  ]);
   const [publicPage, setPublicPage] = useState<PublicPageSlug | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -662,37 +777,41 @@ function MarketplaceApp() {
             title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
             subtitle="Here’s what’s happening with your marketplace today."
             rightHeaderLabel={authUser?.name || "Robert Otieno"}
+            collapsibleGroups={false}
             navItems={[
               {
                 label: "Dashboard",
                 icon: <Home className="w-4 h-4" />,
-                active: true,
-                group: "Overview",
               },
               {
                 label: "My Orders",
                 icon: <ShoppingBag className="w-4 h-4" />,
+                active: customerTab === "orders",
                 badge: 2,
                 group: "Shopping",
               },
               {
                 label: "Wishlist",
                 icon: <Sparkles className="w-4 h-4" />,
+                active: customerTab === "wishlist",
                 group: "Shopping",
               },
               {
                 label: "Saved Addresses",
                 icon: <MapPinned className="w-4 h-4" />,
+                active: customerTab === "addresses",
                 group: "Account",
               },
               {
                 label: "Returns",
                 icon: <RotateCcw className="w-4 h-4" />,
+                active: customerTab === "returns",
                 group: "Account",
               },
               {
                 label: "Settings",
                 icon: <Settings className="w-4 h-4" />,
+                active: customerTab === "security",
                 group: "Account",
               },
             ]}
@@ -732,38 +851,43 @@ function MarketplaceApp() {
                 {
                   label: "Dashboard",
                   icon: <Home className="w-4 h-4" />,
-                  active: true,
-                  group: "Overview",
+                    active: sellerTab === "dashboard",
                 },
                 {
                   label: "Products",
                   icon: <Boxes className="w-4 h-4" />,
+                    active: sellerTab === "products",
                   group: "Catalog",
                 },
                 {
                   label: "Inventory",
                   icon: <ShoppingBag className="w-4 h-4" />,
+                    active: sellerTab === "inventory",
                   group: "Catalog",
                 },
                 {
                   label: "Orders",
                   icon: <Package className="w-4 h-4" />,
+                    active: sellerTab === "orders",
                   badge: 1,
                   group: "Sales",
                 },
                 {
                   label: "Payouts",
                   icon: <Wallet className="w-4 h-4" />,
+                    active: sellerTab === "payouts",
                   group: "Finance",
                 },
                 {
                   label: "Verification",
                   icon: <ShieldCheck className="w-4 h-4" />,
+                    active: sellerTab === "verification",
                   group: "Account",
                 },
                 {
                   label: "Settings",
                   icon: <Settings className="w-4 h-4" />,
+                    active: sellerTab === "settings",
                   group: "Account",
                 },
               ]}
@@ -819,16 +943,33 @@ function MarketplaceApp() {
             </div>
           ))}
 
-        {activeView === "finance" && authUser?.role === "finance_admin" && (
+        {activeView === "finance" && isFinanceAdmin(authUser?.role) && (
           <DashboardShell
             title="Finance Dashboard"
             subtitle="Review payments, refunds, payouts, journal records, and reconciliation exceptions."
-            rightHeaderLabel={authUser.name}
+            rightHeaderLabel={authUser?.name || "Finance Admin"}
             navItems={FINANCE_NAV.map((item) => ({
               label: item.label,
-              group: item.group,
+              group: item.section === "overview" ? undefined : item.group,
               active: item.section === financeSection,
-              icon: item.section === "overview" ? <Home className="w-4 h-4" /> : item.section === "orders" ? <ShoppingBag className="w-4 h-4" /> : item.section === "payments" ? <CreditCard className="w-4 h-4" /> : item.section === "refunds" ? <RotateCcw className="w-4 h-4" /> : item.section === "payouts" ? <Wallet className="w-4 h-4" /> : item.section === "reconciliation" ? <ArrowUpDown className="w-4 h-4" /> : item.section === "ledger" ? <FileText className="w-4 h-4" /> : <BarChart3 className="w-4 h-4" />,
+              icon:
+                item.section === "overview" ? (
+                  <Home className="w-4 h-4" />
+                ) : item.section === "orders" ? (
+                  <ShoppingBag className="w-4 h-4" />
+                ) : item.section === "payments" ? (
+                  <CreditCard className="w-4 h-4" />
+                ) : item.section === "refunds" ? (
+                  <RotateCcw className="w-4 h-4" />
+                ) : item.section === "payouts" ? (
+                  <Wallet className="w-4 h-4" />
+                ) : item.section === "reconciliation" ? (
+                  <ArrowUpDown className="w-4 h-4" />
+                ) : item.section === "ledger" ? (
+                  <FileText className="w-4 h-4" />
+                ) : (
+                  <BarChart3 className="w-4 h-4" />
+                ),
             }))}
             onNavigate={(label) => {
               const next = FINANCE_NAV.find((item) => item.label === label);
@@ -840,134 +981,131 @@ function MarketplaceApp() {
         )}
 
         {/* VIEW 4: ADMIN CONTROL HUB (RBAC Guarded) */}
-        {activeView === "admin" &&
-          (authUser?.role === "super_admin" ||
-          authUser?.role === "seller_admin" ||
-          authUser?.role === "logistics_admin" ||
-          authUser?.role === "product_admin" ||
-          authUser?.role === "support_admin" ||
-          authUser?.role === "marketing_admin" ? (
-            <DashboardShell
-              title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
-              subtitle="Here’s what’s happening with your marketplace today."
-              rightHeaderLabel={authUser?.name || "Robert Otieno"}
-              navItems={[
-                {
-                  label: "Dashboard",
-                  icon: <Home className="w-4 h-4" />,
-                  active: true,
-                  group: "Overview",
-                },
-                {
-                  label: "Users",
-                  icon: <Users className="w-4 h-4" />,
-                  group: "Users",
-                },
-                {
-                  label: "Roles & Permissions",
-                  icon: <ShieldCheck className="w-4 h-4" />,
-                  group: "Users",
-                },
-                {
-                  label: "Security Center",
-                  icon: <ShieldAlert className="w-4 h-4" />,
-                  group: "System",
-                },
-                {
-                  label: "System Controls",
-                  icon: <Settings className="w-4 h-4" />,
-                  group: "System",
-                },
-                {
-                  label: "Audit Logs",
-                  icon: <FileText className="w-4 h-4" />,
-                  group: "System",
-                },
-                {
-                  label: "Sellers & KYC",
-                  icon: <Users className="w-4 h-4" />,
-                  badge: 1,
-                  group: "Sellers",
-                },
-                {
-                  label: "Catalog Moderation",
-                  icon: <Boxes className="w-4 h-4" />,
-                  group: "Catalog",
-                },
-                {
-                  label: "Master Orders",
-                  icon: <ShoppingBag className="w-4 h-4" />,
-                  group: "Orders",
-                },
-                {
-                  label: "Finance & Ledger",
-                  icon: <Wallet className="w-4 h-4" />,
-                  group: "Finance",
-                },
-                {
-                  label: "Marketing Coupons",
-                  icon: <Ticket className="w-4 h-4" />,
-                  badge: 3,
-                  group: "Marketing",
-                },
-                {
-                  label: "Delivery Zones",
-                  icon: <MapPinned className="w-4 h-4" />,
-                  badge: 47,
-                  group: "Logistics",
-                },
-                {
-                  label: "System Settings",
-                  icon: <Settings className="w-4 h-4" />,
-                  group: "System",
-                },
-              ]}
-              onNavigate={(label) => {
-                const tabMap: Record<string, typeof adminTab> = {
-                  Dashboard: "analytics",
-                  Users: "users",
-                  "Roles & Permissions": "roles",
-                  "Security Center": "security",
-                  "System Controls": "system",
-                  "Audit Logs": "audit",
-                  "Sellers & KYC": "sellers",
-                  "Catalog Moderation": "catalog",
-                  "Master Orders": "orders",
-                  "Finance & Ledger": "finance",
-                  "Marketing Coupons": "coupons",
-                  "Delivery Zones": "logistics",
-                  "System Settings": "settings",
-                };
-                const nextTab = tabMap[label];
-                if (nextTab) setAdminTab(nextTab);
-              }}
-            >
-              <AdminControlHub requestedTab={adminTab} />
-            </DashboardShell>
-          ) : (
-            <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
-              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 border border-purple-200">
-                <ShieldAlert className="w-7 h-7" />
-              </div>
-              <h2 className="text-lg font-black text-neutral-900 mb-1">
-                Restricted Governance Area
-              </h2>
-              <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                This console is reserved exclusively for authenticated KESALES
-                administrative staff (Finance, KYC Compliance, Super Admin).
-              </p>
-              <button
-                onClick={() => {
-                  setAuthModalTab("login");
-                  setIsAuthModalOpen(true);
-                }}
-                className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-xs transition-colors inline-flex items-center gap-2"
-              >
-                <Lock className="w-4 h-4" />
-                <span>Sign In with Staff Credentials</span>
-              </button>
+        {activeView === "admin" && isGeneralAdmin(authUser?.role) ? (
+          <DashboardShell
+            title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
+            subtitle="Here’s what’s happening with your marketplace today."
+            rightHeaderLabel={authUser?.name || "Robert Otieno"}
+            navItems={[
+              {
+                label: "Dashboard",
+                icon: <Home className="w-4 h-4" />,
+                active: adminTab === "analytics",
+              },
+              {
+                label: "Users",
+                icon: <Users className="w-4 h-4" />,
+                active: adminTab === "users",
+                group: "Users",
+              },
+              {
+                label: "Roles & Permissions",
+                icon: <ShieldCheck className="w-4 h-4" />,
+                active: adminTab === "roles",
+                group: "Users",
+              },
+              {
+                label: "Security Center",
+                icon: <ShieldAlert className="w-4 h-4" />,
+                active: adminTab === "security",
+                group: "System",
+              },
+              {
+                label: "System Controls",
+                icon: <Settings className="w-4 h-4" />,
+                active: adminTab === "system",
+                group: "System",
+              },
+              {
+                label: "Audit Logs",
+                icon: <FileText className="w-4 h-4" />,
+                active: adminTab === "audit",
+                group: "System",
+              },
+              {
+                label: "Sellers & KYC",
+                icon: <Users className="w-4 h-4" />,
+                active: adminTab === "sellers",
+                badge: 1,
+                group: "Sellers",
+              },
+              {
+                label: "Catalog Moderation",
+                icon: <Boxes className="w-4 h-4" />,
+                active: adminTab === "catalog",
+                group: "Catalog",
+              },
+              {
+                label: "Master Orders",
+                icon: <ShoppingBag className="w-4 h-4" />,
+                active: adminTab === "orders",
+                group: "Orders",
+              },
+              {
+                label: "Marketing Coupons",
+                icon: <Ticket className="w-4 h-4" />,
+                active: adminTab === "coupons",
+                badge: 3,
+                group: "Marketing",
+              },
+              {
+                label: "Delivery Zones",
+                icon: <MapPinned className="w-4 h-4" />,
+                active: adminTab === "logistics",
+                badge: 47,
+                group: "Logistics",
+              },
+              {
+                label: "System Settings",
+                icon: <Settings className="w-4 h-4" />,
+                active: adminTab === "settings",
+                group: "System",
+              },
+            ]}
+            onNavigate={(label) => {
+              const tabMap: Record<string, typeof adminTab> = {
+                Dashboard: "analytics",
+                Users: "users",
+                "Roles & Permissions": "roles",
+                "Security Center": "security",
+                "System Controls": "system",
+                "Audit Logs": "audit",
+                "Sellers & KYC": "sellers",
+                "Catalog Moderation": "catalog",
+                "Master Orders": "orders",
+                "Marketing Coupons": "coupons",
+                "Delivery Zones": "logistics",
+                "System Settings": "settings",
+              };
+              const nextTab = tabMap[label];
+              if (nextTab) setAdminTab(nextTab);
+            }}
+          >
+            <AdminControlHub requestedTab={adminTab} />
+          </DashboardShell>
+        ) : (
+          <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
+            <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 border border-purple-200">
+              <ShieldAlert className="w-7 h-7" />
             </div>
-          ))}
+            <h2 className="text-lg font-black text-neutral-900 mb-1">
+              Restricted Governance Area
+            </h2>
+            <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
+              This console is reserved for general KESALES administrative staff.
+            </p>
+            <button
+              onClick={() => {
+                setAuthModalTab("login");
+                setIsAuthModalOpen(true);
+              }}
+              className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-xs transition-colors inline-flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              <span>Sign In with Staff Credentials</span>
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Public storefront footer */}
@@ -983,18 +1121,9 @@ function MarketplaceApp() {
         onSuccess={(role) => {
           if (role === "seller") {
             setActiveView("seller");
-          } else if (
-            role === "finance_admin"
-          ) {
+          } else if (isFinanceAdmin(role)) {
             setActiveView("finance");
-          } else if (
-            role === "super_admin" ||
-            role === "seller_admin" ||
-            role === "logistics_admin" ||
-            role === "product_admin" ||
-            role === "support_admin" ||
-            role === "marketing_admin"
-          ) {
+          } else if (isGeneralAdmin(role)) {
             setActiveView("admin");
           } else {
             setActiveView("storefront");
@@ -1045,7 +1174,9 @@ function MarketplaceApp() {
 export default function App() {
   return (
     <MarketplaceProvider>
-      <MarketplaceApp />
+      <DialogProvider>
+        <MarketplaceApp />
+      </DialogProvider>
     </MarketplaceProvider>
   );
 }

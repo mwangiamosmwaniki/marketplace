@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
+import { useDialog } from "../../context/DialogContext";
 import {
   Shield,
   ShieldCheck,
@@ -33,7 +34,6 @@ import {
   DeliveryZone,
 } from "../../types";
 import { AdminManagementPanel } from "./AdminManagementPanel";
-import { FinanceAdminPanel } from "./finance/FinanceAdminPanel";
 
 const SettingsSection: React.FC<{
   title: string;
@@ -106,7 +106,6 @@ interface AdminControlHubProps {
     | "sellers"
     | "catalog"
     | "orders"
-    | "finance"
     | "coupons"
     | "logistics"
     | "settings";
@@ -115,6 +114,7 @@ interface AdminControlHubProps {
 export const AdminControlHub: React.FC<AdminControlHubProps> = ({
   requestedTab,
 }) => {
+  const { confirm, prompt: dialogPrompt } = useDialog();
   const {
     authUser,
     sellers,
@@ -176,7 +176,6 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
   const role = authUser?.role;
   const canViewSellers = role === "super_admin" || role === "seller_admin";
   const canViewCatalog = role === "super_admin" || role === "product_admin";
-  const canViewFinance = role === "super_admin" || role === "finance_admin";
   const canViewMarketing = role === "super_admin" || role === "marketing_admin";
   const canViewLogistics = role === "super_admin" || role === "logistics_admin";
 
@@ -253,18 +252,23 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
     setShowZoneForm(false);
   };
 
-  const editZone = (zone: DeliveryZone) => {
-    const homeFee = window.prompt(
+  const editZone = async (zone: DeliveryZone) => {
+    const homeFee = await dialogPrompt(
       "Home delivery fee (KSh):",
       String(zone.homeDeliveryFee),
+      "Edit delivery zone",
     );
-    const pickupFee = window.prompt(
+    if (homeFee === null) return;
+    const pickupFee = await dialogPrompt(
       "Pickup station fee (KSh):",
       String(zone.pickupStationFee),
+      "Edit delivery zone",
     );
-    const estimatedDays = window.prompt(
+    if (pickupFee === null) return;
+    const estimatedDays = await dialogPrompt(
       "Estimated delivery period:",
       zone.estimatedDays,
+      "Edit delivery zone",
     );
     if (homeFee === null || pickupFee === null || estimatedDays === null)
       return;
@@ -287,8 +291,6 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
         )}
 
         {/* 3. Tab Contents */}
-
-        {adminTab === "finance" && <FinanceAdminPanel />}
 
         {/* ANALYTICS TAB */}
         {adminTab === "analytics" && (
@@ -384,9 +386,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                 </h3>
                 <div className="space-y-3 text-xs">
                   <div className="flex justify-between items-center p-2.5 rounded bg-emerald-50 text-emerald-800">
-                    <span className="font-bold">
-                      Payment records
-                    </span>
+                    <span className="font-bold">Payment records</span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-emerald-200 rounded">
                       Demo dataset
                     </span>
@@ -400,9 +400,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                   </div>
 
                   <div className="flex justify-between items-center p-2.5 rounded bg-neutral-50 text-neutral-800">
-                    <span className="font-bold">
-                      Journal entries
-                    </span>
+                    <span className="font-bold">Journal entries</span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-neutral-200 rounded">
                       {ledger.length} demo records
                     </span>
@@ -461,10 +459,11 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                             {s.commissionRate}%
                           </span>
                           <button
-                            onClick={() => {
-                              const newRate = prompt(
+                            onClick={async () => {
+                              const newRate = await dialogPrompt(
                                 "Enter new commission %:",
                                 s.commissionRate.toString(),
+                                "Edit commission rate",
                               );
                               if (newRate && !isNaN(Number(newRate))) {
                                 updateSellerCommission(s.id, Number(newRate));
@@ -938,10 +937,8 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                         ))}
                       </select>
                       <button
-                        onClick={() => {
-                          if (
-                            window.confirm(`Delete order ${order.orderNumber}?`)
-                          )
+                        onClick={async () => {
+                          if (await confirm(`Delete order ${order.orderNumber}?`))
                             deleteMasterOrder(order.id);
                         }}
                         className="text-red-600 font-semibold"
@@ -998,7 +995,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
         )}
 
         {/* FINANCE & LEDGER TAB */}
-        {false && adminTab === "finance" && (
+        {false && (
           <div className="space-y-6">
             {/* Payout Approval Section */}
             <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
@@ -1352,10 +1349,8 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                       Edit rates
                     </button>
                     <button
-                      onClick={() => {
-                        if (
-                          window.confirm(`Delete ${zone.county} delivery zone?`)
-                        )
+                      onClick={async () => {
+                        if (await confirm(`Delete ${zone.county} delivery zone?`))
                           deleteDeliveryZone(zone.county);
                       }}
                       className="text-red-600 font-semibold"

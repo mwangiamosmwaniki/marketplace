@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
-import { Layers, FileCode, CheckCircle2, Copy, Terminal, Shield, Database } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Layers,
+  FileCode,
+  CheckCircle2,
+  Copy,
+  Terminal,
+  Shield,
+  Database,
+} from "lucide-react";
 
 export const LaravelArchitectureViewer: React.FC = () => {
-  const [activeFile, setActiveFile] = useState<string>('OrderSplittingService.php');
+  const [activeFile, setActiveFile] = useState<string>(
+    "OrderSplittingService.php",
+  );
   const [copied, setCopied] = useState(false);
 
   const fileTree = [
     {
-      category: 'Core Domain Services (app/Services/)',
+      category: "Core Domain Services (app/Services/)",
       files: [
         {
-          name: 'OrderSplittingService.php',
-          desc: 'Atomic order decomposition into seller sub-orders with commission & stock reservation',
+          name: "OrderSplittingService.php",
+          desc: "Atomic order decomposition into seller sub-orders with commission & stock reservation",
           code: `<?php
 
 namespace App\\Services;
@@ -115,8 +125,8 @@ class OrderSplittingService
 }`,
         },
         {
-          name: 'MpesaDarajaService.php',
-          desc: 'Safaricom Daraja STK Push generation, token authorization, and callback webhook processor',
+          name: "MpesaDarajaService.php",
+          desc: "Safaricom Daraja STK Push generation, token authorization, and callback webhook processor",
           code: `<?php
 
 namespace App\\Services;
@@ -210,11 +220,11 @@ class MpesaDarajaService
       ],
     },
     {
-      category: 'Eloquent Database Models (app/Models/)',
+      category: "Eloquent Database Models (app/Models/)",
       files: [
         {
-          name: 'Seller.php',
-          desc: 'Seller tenant model with isolation scopes, commissions, and KYC relations',
+          name: "Seller.php",
+          desc: "Seller tenant model with isolation scopes, commissions, and KYC relations",
           code: `<?php
 
 namespace App\\Models;
@@ -274,8 +284,8 @@ class Seller extends Model
 }`,
         },
         {
-          name: 'SellerSubOrder.php',
-          desc: 'Individual seller package decomposed from the Master Order',
+          name: "SellerSubOrder.php",
+          desc: "Individual seller package decomposed from the Master Order",
           code: `<?php
 
 namespace App\\Models;
@@ -319,11 +329,11 @@ class SellerSubOrder extends Model
       ],
     },
     {
-      category: 'Database Schema Migrations (database/migrations/)',
+      category: "Database Schema Migrations (database/migrations/)",
       files: [
         {
-          name: '2026_01_01_000003_create_sellers_and_orders_tables.php',
-          desc: 'PostgreSQL/MySQL schema migrations for sellers, orders, and sub-orders',
+          name: "2026_01_01_000003_create_sellers_and_orders_tables.php",
+          desc: "PostgreSQL/MySQL schema migrations for sellers, orders, and sub-orders",
           code: `<?php
 
 use Illuminate\\Database\\Migrations\\Migration;
@@ -402,7 +412,9 @@ return new class extends Migration
     },
   ];
 
-  const currentFileObj = fileTree.flatMap((g) => g.files).find((f) => f.name === activeFile);
+  const currentFileObj = fileTree
+    .flatMap((g) => g.files)
+    .find((f) => f.name === activeFile);
 
   const handleCopyCode = () => {
     if (currentFileObj) {
@@ -413,17 +425,22 @@ return new class extends Migration
   };
 
   return (
-    <div id="laravel-architecture-viewer" className="max-w-7xl mx-auto px-4 py-6">
+    <div
+      id="laravel-architecture-viewer"
+      className="max-w-7xl mx-auto px-4 py-6"
+    >
       {/* Header Banner */}
       <div className="bg-red-950 text-white rounded-xl p-5 mb-6 flex items-center justify-between border border-red-900 shadow-md">
         <div>
           <div className="flex items-center gap-2">
             <Layers className="w-6 h-6 text-red-400" />
-            <h2 className="text-lg font-bold">Laravel 11 Production Codebase & Architecture</h2>
+            <h2 className="text-lg font-bold">
+              Planned Laravel 11 Backend Architecture
+            </h2>
           </div>
           <p className="text-xs text-red-200 mt-1">
-            Enterprise backend architecture: Service Layer, Atomic Transactions, Daraja STK Push,
-            Eloquent ORM & Double-Entry Financial Accounting.
+            Enterprise backend architecture: Service Layer, Atomic Transactions,
+            Daraja STK Push, Eloquent ORM & Double-Entry Financial Accounting.
           </p>
         </div>
       </div>
@@ -448,18 +465,22 @@ return new class extends Migration
                       key={file.name}
                       onClick={() => setActiveFile(file.name)}
                       className={`p-3 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-red-50/70 border-l-4 border-red-600' : 'hover:bg-neutral-50'
+                        isSelected
+                          ? "bg-red-50/70 border-l-4 border-red-600"
+                          : "hover:bg-neutral-50"
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <FileCode
-                          className={`w-4 h-4 ${isSelected ? 'text-red-600' : 'text-neutral-400'}`}
+                          className={`w-4 h-4 ${isSelected ? "text-red-600" : "text-neutral-400"}`}
                         />
                         <span className="font-mono text-xs font-bold text-neutral-900">
                           {file.name}
                         </span>
                       </div>
-                      <p className="text-[11px] text-neutral-500">{file.desc}</p>
+                      <p className="text-[11px] text-neutral-500">
+                        {file.desc}
+                      </p>
                     </div>
                   );
                 })}
