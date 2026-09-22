@@ -13,6 +13,8 @@ import {
   SystemSettings,
   SupportTicket,
   Promotion,
+  FlashSaleCampaign,
+  HomepageSettings,
   ReturnRequest,
 } from "../types";
 
@@ -1129,6 +1131,34 @@ export const INITIAL_PROMOTIONS: Promotion[] = [
     endDate: "2026-09-28",
   },
 ];
+
+export const INITIAL_FLASH_SALES: FlashSaleCampaign[] = [
+  {
+    id: "flash-weekend-tech",
+    name: "Weekend Tech Deals",
+    productIds: [
+      "prod-s24-ultra",
+      "prod-anker-737",
+      "prod-samsung-qled",
+      "prod-nike-airmax-90",
+    ],
+    discountPercentage: 20,
+    startDate: "2026-09-22T00:00:00Z",
+    endDate: "2026-09-25T23:59:59Z",
+    displayOrder: 1,
+    isActive: true,
+    createdAt: "2026-09-20T10:00:00Z",
+  },
+];
+
+export const INITIAL_HOMEPAGE_SETTINGS: HomepageSettings = {
+  sections: ["hero", "flash_sales", "official_stores"],
+  visibility: {
+    hero: true,
+    flash_sales: true,
+    official_stores: true,
+  },
+};
 
 export const INITIAL_RETURNS: ReturnRequest[] = [
   {

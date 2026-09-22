@@ -263,8 +263,18 @@ function MarketplaceApp({
   initialCustomerTab,
   initialFinanceSection,
 }: AppRouteProps) {
-  const { products, categories, brands, formatKSh, authUser } =
+  const {
+    products,
+    categories,
+    brands,
+    formatKSh,
+    authUser,
+    homepageSettings,
+  } =
     useMarketplace();
+  const supportedCategories = categories.filter(
+    (category) => category.isSupported !== false,
+  );
 
   // Navigation & Modals View state
   const savedNavigation = (() => {
@@ -492,6 +502,32 @@ function MarketplaceApp({
     onlyExpress ||
     onlyOfficial;
 
+  const homepageSections = {
+    hero: (
+      <HeroSection
+        onSelectCategory={(catId) => setSelectedCategory(catId)}
+        onOpenSellerPortal={() => {
+          if (authUser?.role === "seller") {
+            setActiveView("seller");
+          } else {
+            setAuthModalTab("register_seller");
+            setIsAuthModalOpen(true);
+          }
+        }}
+      />
+    ),
+    flash_sales: (
+      <FlashSalesSection
+        onViewProduct={(product) => setSelectedProductForDetail(product)}
+      />
+    ),
+    official_stores: (
+      <OfficialStoresSection
+        onSelectBrand={(brandId) => setSelectedBrand(brandId)}
+      />
+    ),
+  };
+
   const handleCheckoutInitiated = () => {
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
@@ -551,25 +587,13 @@ function MarketplaceApp({
             {/* Show Hero & Promos only when browsing top-level without search */}
             {!hasActiveFilters && (
               <>
-                <HeroSection
-                  onSelectCategory={(catId) => setSelectedCategory(catId)}
-                  onOpenSellerPortal={() => {
-                    if (authUser?.role === "seller") {
-                      setActiveView("seller");
-                    } else {
-                      setAuthModalTab("register_seller");
-                      setIsAuthModalOpen(true);
-                    }
-                  }}
-                />
-                <FlashSalesSection
-                  onViewProduct={(product) =>
-                    setSelectedProductForDetail(product)
-                  }
-                />
-                <OfficialStoresSection
-                  onSelectBrand={(brandId) => setSelectedBrand(brandId)}
-                />
+                {homepageSettings.sections.map((section) =>
+                  homepageSettings.visibility[section] ? (
+                    <React.Fragment key={section}>
+                      {homepageSections[section]}
+                    </React.Fragment>
+                  ) : null,
+                )}
               </>
             )}
 
@@ -659,7 +683,7 @@ function MarketplaceApp({
                         >
                           All Categories
                         </div>
-                        {categories.map((c) => (
+                        {supportedCategories.map((c) => (
                           <div
                             key={c.id}
                             onClick={() => setSelectedCategory(c.id)}
@@ -1085,7 +1109,7 @@ function MarketplaceApp({
                 group: "Orders",
               },
               {
-                label: "Marketing Coupons",
+                label: "Marketing & Campaigns",
                 icon: <Ticket className="w-4 h-4" />,
                 path: "/admin/marketing",
                 active: adminTab === "coupons",
@@ -1119,7 +1143,7 @@ function MarketplaceApp({
                 "Sellers & KYC": "sellers",
                 "Catalog Moderation": "catalog",
                 "Master Orders": "orders",
-                "Marketing Coupons": "coupons",
+                "Marketing & Campaigns": "coupons",
                 "Delivery Zones": "logistics",
                 "System Settings": "settings",
               };

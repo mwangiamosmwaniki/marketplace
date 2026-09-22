@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useMarketplace } from '../../context/MarketplaceContext';
 import { ShieldCheck, Truck, RotateCcw, ArrowRight, Store } from 'lucide-react';
 
 interface HeroSectionProps {
@@ -10,10 +11,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectCategory,
   onOpenSellerPortal,
 }) => {
+  const { promotions } = useMarketplace();
   // Slide index
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
+  const fallbackSlides = [
     {
       id: 1,
       title: 'Mega Flash Sales — Up to 40% Off',
@@ -42,6 +44,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       cta: 'View Laptops',
     },
   ];
+  const slides = useMemo(
+    () => {
+      const today = new Date();
+      const activePromotions = promotions
+        .filter(
+          (promotion) =>
+            promotion.isActive &&
+            new Date(promotion.startDate) <= today &&
+            new Date(promotion.endDate) >= today,
+        )
+        .sort((a, b) => a.startDate.localeCompare(b.startDate));
+      return activePromotions.length > 0
+        ? activePromotions.map((promotion) => ({
+            id: promotion.id,
+            title: promotion.title,
+            subtitle: promotion.subtitle,
+            tag: promotion.tag,
+            bgClass: promotion.bgClass,
+            image: promotion.bannerImage,
+            cta: promotion.linkText,
+            targetCategory: promotion.targetCategory,
+          }))
+        : fallbackSlides;
+    },
+    [promotions],
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -87,7 +115,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => onSelectCategory('cat-phones')}
+                onClick={() =>
+                  onSelectCategory(slide.targetCategory || 'cat-phones')
+                }
                 className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-extrabold text-xs py-2.5 px-5 rounded-lg shadow flex items-center gap-1.5 transition-transform active:scale-95"
               >
                 <span>{slide.cta}</span>

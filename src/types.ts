@@ -229,6 +229,7 @@ export interface Category {
   description?: string;
   featured?: boolean;
   commissionRate?: number;
+  isSupported?: boolean;
 }
 
 export interface Brand {
@@ -548,6 +549,23 @@ export interface Promotion {
   isActive: boolean;
   startDate: string;
   endDate: string;
+}
+
+export interface FlashSaleCampaign {
+  id: string;
+  name: string;
+  productIds: string[];
+  discountPercentage: number;
+  startDate: string;
+  endDate: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface HomepageSettings {
+  sections: Array<"hero" | "flash_sales" | "official_stores">;
+  visibility: Record<"hero" | "flash_sales" | "official_stores", boolean>;
 }
 
 export interface ReturnRequest {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
 import { useDialog } from "../../context/DialogContext";
+import { ImageUploadField } from "../ImageUploadField";
 import {
   LayoutDashboard,
   Package,
@@ -139,6 +140,9 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
     updateSellerProfile,
     updateSellerVerification,
   } = useMarketplace();
+  const supportedCategories = categories.filter(
+    (category) => category.isSupported !== false,
+  );
 
   const [activeTab, setActiveTab] = useState<
     | "dashboard"
@@ -159,7 +163,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
   const [newProdName, setNewProdName] = useState("");
   const [newProdSku, setNewProdSku] = useState("");
   const [newProdCategory, setNewProdCategory] = useState(
-    categories[0]?.id || "cat-phones",
+    supportedCategories[0]?.id || "cat-phones",
   );
   const [newProdBrand, setNewProdBrand] = useState(
     brands[0]?.id || "brand-samsung",
@@ -1221,7 +1225,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                     }
                     className="form-input h-20"
                   >
-                    {categories.map((category) => (
+                    {supportedCategories.map((category) => (
                       <option key={category.id} value={category.name}>
                         {category.name}
                       </option>
@@ -1986,7 +1990,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                     onChange={(e) => setNewProdCategory(e.target.value)}
                     className="w-full p-2 border border-neutral-300 rounded"
                   >
-                    {categories.map((c) => (
+                    {supportedCategories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
@@ -2070,17 +2074,12 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-neutral-600 font-semibold mb-1">
-                  Image URL
-                </label>
-                <input
-                  type="url"
-                  value={newProdImage}
-                  onChange={(e) => setNewProdImage(e.target.value)}
-                  className="w-full p-2 border border-neutral-300 rounded"
-                />
-              </div>
+              <ImageUploadField
+                label="Product image"
+                value={newProdImage}
+                onChange={setNewProdImage}
+                required
+              />
 
               <div>
                 <label className="block text-neutral-600 font-semibold mb-1">

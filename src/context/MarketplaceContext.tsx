@@ -25,6 +25,8 @@ import {
   SystemSettings,
   SupportTicket,
   Promotion,
+  FlashSaleCampaign,
+  HomepageSettings,
   ReturnRequest,
   SellerVerification,
 } from "../types";
@@ -43,6 +45,8 @@ import {
   INITIAL_SETTINGS,
   INITIAL_SUPPORT_TICKETS,
   INITIAL_PROMOTIONS,
+  INITIAL_FLASH_SALES,
+  INITIAL_HOMEPAGE_SETTINGS,
   INITIAL_RETURNS,
 } from "../data/initialData";
 import { hasPermission, isGeneralAdmin } from "../config/permissions";
@@ -179,6 +183,7 @@ interface MarketplaceContextType {
   processApprovedPayout: (payoutId: string) => void;
   rejectPayout: (payoutId: string, reason?: string) => void;
   createCoupon: (coupon: Coupon) => void;
+  updateCoupon: (code: string, updates: Partial<Coupon>) => void;
 
   // Reviews
   addProductReview: (
@@ -212,6 +217,17 @@ interface MarketplaceContextType {
   createPromotion: (promo: Omit<Promotion, "id">) => void;
   updatePromotion: (id: string, updates: Partial<Promotion>) => void;
   deletePromotion: (id: string) => void;
+  flashSales: FlashSaleCampaign[];
+  createFlashSale: (
+    sale: Omit<FlashSaleCampaign, "id" | "createdAt">,
+  ) => void;
+  updateFlashSale: (
+    id: string,
+    updates: Partial<FlashSaleCampaign>,
+  ) => void;
+  deleteFlashSale: (id: string) => void;
+  homepageSettings: HomepageSettings;
+  updateHomepageSettings: (settings: HomepageSettings) => void;
 
   // Customer Returns & Admin Refunds
   returns: ReturnRequest[];
@@ -398,6 +414,14 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const [promotions, setPromotions] = useState<Promotion[]>(() => {
     const saved = localStorage.getItem("kesales_promotions");
     return saved ? JSON.parse(saved) : INITIAL_PROMOTIONS;
+  });
+  const [flashSales, setFlashSales] = useState<FlashSaleCampaign[]>(() => {
+    const saved = localStorage.getItem("kesales_flash_sales");
+    return saved ? JSON.parse(saved) : INITIAL_FLASH_SALES;
+  });
+  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(() => {
+    const saved = localStorage.getItem("kesales_homepage_settings");
+    return saved ? JSON.parse(saved) : INITIAL_HOMEPAGE_SETTINGS;
   });
   const [returns, setReturns] = useState<ReturnRequest[]>(() => {
     const saved = localStorage.getItem("kesales_returns");
@@ -674,6 +698,17 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     localStorage.setItem("kesales_promotions", JSON.stringify(promotions));
   }, [promotions]);
+
+  useEffect(() => {
+    localStorage.setItem("kesales_flash_sales", JSON.stringify(flashSales));
+  }, [flashSales]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "kesales_homepage_settings",
+      JSON.stringify(homepageSettings),
+    );
+  }, [homepageSettings]);
 
   useEffect(() => {
     localStorage.setItem("kesales_returns", JSON.stringify(returns));
@@ -1699,6 +1734,21 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const updateCoupon = (code: string, updates: Partial<Coupon>) => {
+    if (!canGovernMarketing) return;
+    setCoupons((prev) =>
+      prev.map((coupon) =>
+        coupon.code === code ? { ...coupon, ...updates } : coupon,
+      ),
+    );
+    logAuditAction(
+      "COUPON_UPDATED",
+      "Coupon",
+      code,
+      `Updated coupon ${code}`,
+    );
+  };
+
   // System Settings Operations
   const updateSettings = (newSettings: SystemSettings) => {
     if (currentRole !== "super_admin") return;
@@ -2066,6 +2116,91 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       "Promotion",
       id,
       `Deleted promotion campaign ${id}`,
+    );
+  };
+
+  const createFlashSale = (
+    sale: Omit<FlashSaleCampaign, "id" | "createdAt">,
+  ) => {
+    if (!canGovernMarketing) return;
+    const id = `flash-${Date.now()}`;
+    const newSale: FlashSaleCampaign = {
+      id,
+      createdAt: new Date().toISOString(),
+      ...sale,
+    };
+    setFlashSales((prev) => [newSale, ...prev]);
+    setProducts((prev) =>
+      prev.map((product) => {
+        if (!sale.productIds.includes(product.id)) return product;
+        const discountPrice = Math.round(
+          product.price * (1 - sale.discountPercentage / 100),
+        );
+        return {
+          ...product,
+          discountPrice,
+          isFlashSale: true,
+          flashSaleEndsAt: sale.endDate,
+        };
+      }),
+    );
+    logAuditAction(
+      "FLASH_SALE_CREATED",
+      "FlashSaleCampaign",
+      id,
+      `Created flash sale campaign: ${sale.name}`,
+    );
+  };
+
+  const updateFlashSale = (
+    id: string,
+    updates: Partial<FlashSaleCampaign>,
+  ) => {
+    if (!canGovernMarketing) return;
+    setFlashSales((prev) =>
+      prev.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale)),
+    );
+    logAuditAction(
+      "FLASH_SALE_UPDATED",
+      "FlashSaleCampaign",
+      id,
+      `Updated flash sale campaign ${id}`,
+    );
+  };
+
+  const deleteFlashSale = (id: string) => {
+    if (!canGovernMarketing) return;
+    const sale = flashSales.find((item) => item.id === id);
+    setFlashSales((prev) => prev.filter((item) => item.id !== id));
+    if (sale) {
+      setProducts((prev) =>
+        prev.map((product) =>
+          sale.productIds.includes(product.id)
+            ? {
+                ...product,
+                isFlashSale: false,
+                flashSaleEndsAt: undefined,
+              }
+            : product,
+        ),
+      );
+    }
+    logAuditAction(
+      "FLASH_SALE_DELETED",
+      "FlashSaleCampaign",
+      id,
+      `Deleted flash sale campaign ${id}`,
+    );
+  };
+
+  const updateHomepageSettings = (nextSettings: HomepageSettings) => {
+    if (!canGovernMarketing) return;
+    setHomepageSettings(nextSettings);
+    logAuditAction(
+      "HOMEPAGE_SETTINGS_UPDATED",
+      "Homepage",
+      "homepage",
+      "Updated homepage section visibility or ordering",
     );
   };
 
@@ -2468,6 +2603,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         processApprovedPayout,
         rejectPayout,
         createCoupon,
+        updateCoupon,
         deleteCoupon,
         addProductReview,
         settings,
@@ -2480,6 +2616,12 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         createPromotion,
         updatePromotion,
         deletePromotion,
+        flashSales,
+        createFlashSale,
+        updateFlashSale,
+        deleteFlashSale,
+        homepageSettings,
+        updateHomepageSettings,
         returns,
         requestReturn,
         updateReturnStatus,
