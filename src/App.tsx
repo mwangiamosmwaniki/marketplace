@@ -141,11 +141,11 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
-    <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
+    <div className="min-h-[calc(100dvh-52px)] w-full bg-[#eef0f2]">
       <div
-        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full h-[calc(100vh-72px)] overflow-hidden`}
+        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full min-h-[calc(100dvh-52px)] h-[calc(100dvh-52px)] overflow-hidden`}
       >
-        <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full sticky top-0">
+        <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full min-h-full sticky top-0">
           <div
             className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
           >
@@ -1163,7 +1163,6 @@ function MarketplaceApp({
                 icon: <Settings className="w-4 h-4" />,
                 path: "/admin/settings",
                 active: adminTab === "settings",
-                group: "System",
               },
             ]}
             onNavigate={(label) => {

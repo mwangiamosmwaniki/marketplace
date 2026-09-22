@@ -1611,6 +1611,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                     <table className="w-full text-left text-xs">
                       <thead className="bg-neutral-50 border-b border-neutral-200 uppercase text-[10px] text-neutral-500">
                         <tr>
+                          <th className="p-3">Banner</th>
                           <th className="p-3">Hero banner</th>
                           <th className="p-3">Schedule</th>
                           <th className="p-3">Status</th>
@@ -1620,6 +1621,20 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                       <tbody className="divide-y divide-neutral-100">
                         {promotions.map((promotion) => (
                           <tr key={promotion.id}>
+                            <td className="p-3">
+                              {promotion.bannerImage ? (
+                                <img
+                                  src={promotion.bannerImage}
+                                  alt=""
+                                  className="h-10 w-16 rounded-md border border-neutral-200 object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-16 items-center justify-center rounded-md border border-dashed border-neutral-300 bg-neutral-50 text-[10px] text-neutral-400">
+                                  No image
+                                </div>
+                              )}
+                            </td>
                             <td className="p-3">
                               <strong>{promotion.title}</strong>
                               <span className="block text-neutral-500">
