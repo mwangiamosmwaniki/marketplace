@@ -33,6 +33,7 @@ import {
   DeliveryZone,
 } from "../../types";
 import { AdminManagementPanel } from "./AdminManagementPanel";
+import { FinanceAdminPanel } from "./finance/FinanceAdminPanel";
 
 const SettingsSection: React.FC<{
   title: string;
@@ -287,6 +288,8 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
 
         {/* 3. Tab Contents */}
 
+        {adminTab === "finance" && <FinanceAdminPanel />}
+
         {/* ANALYTICS TAB */}
         {adminTab === "analytics" && (
           <div className="space-y-6">
@@ -377,31 +380,31 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
 
               <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs">
                 <h3 className="font-bold text-sm text-neutral-900 mb-3">
-                  System Health & Daraja M-Pesa API Status
+                  Finance Data Status
                 </h3>
                 <div className="space-y-3 text-xs">
                   <div className="flex justify-between items-center p-2.5 rounded bg-emerald-50 text-emerald-800">
                     <span className="font-bold">
-                      Safaricom Daraja API Gateway
+                      Payment records
                     </span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-emerald-200 rounded">
-                      OPERATIONAL (99.98%)
+                      Demo dataset
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center p-2.5 rounded bg-blue-50 text-blue-800">
-                    <span className="font-bold">Order Splitting Engine</span>
+                    <span className="font-bold">Pending reconciliation</span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-blue-200 rounded">
-                      ACTIVE (0 latencies)
+                      Review queue
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center p-2.5 rounded bg-neutral-50 text-neutral-800">
                     <span className="font-bold">
-                      Financial Double-Entry Ledger
+                      Journal entries
                     </span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-neutral-200 rounded">
-                      {ledger.length} immutable entries
+                      {ledger.length} demo records
                     </span>
                   </div>
                 </div>
@@ -995,7 +998,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
         )}
 
         {/* FINANCE & LEDGER TAB */}
-        {adminTab === "finance" && (
+        {false && adminTab === "finance" && (
           <div className="space-y-6">
             {/* Payout Approval Section */}
             <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">

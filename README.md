@@ -1,6 +1,6 @@
 # KESALES Multi-Vendor Marketplace
 
-Kenya's premier production-ready, multi-vendor e-commerce marketplace platform built for scale, featuring Customer Storefront, Seller Center, Admin Control Hub, Safaricom Daraja M-Pesa integration, and automated multi-vendor order splitting.
+Kenya-focused multi-vendor e-commerce marketplace frontend prototype featuring a customer storefront, Seller Center, Admin Control Hub, mock payment and payout workflows, and multi-vendor order splitting. Financial balances, provider integrations, and verification decisions remain demo/context-backed until the backend is implemented.
 
 ---
 
@@ -24,7 +24,7 @@ Customer Master Order (e.g. KS-ORD-8829104)
 ```
 - Atomic database transactions ensure stock is verified and reserved.
 - Automated platform commission deduction (8% - 15% based on product category).
-- Immutable double-entry financial ledger records created for each sub-order.
+- Finance-oriented journal records are displayed for frontend planning; authoritative double-entry accounting will be calculated by the future backend.
 
 ### 3. Customer Portal
 - Dedicated sidebar navigation for:
@@ -43,11 +43,11 @@ Customer Master Order (e.g. KS-ORD-8829104)
 
 ### 5. Admin Control Hub
 - Granular Role-Based Access Control (RBAC):
-  - `super_admin`: Full governance, financial audit logs, and system settings.
+  - `super_admin`: Full governance, audit logs, and system settings.
   - `finance_admin`: Double-entry ledger audit, payout batch approvals, and escrow releases.
   - `seller_admin`: Vendor KYC verification, business tax PIN audit, and store sanctions.
   - `logistics_admin`: Kenya 47 counties delivery zones tariffs and pickup station management.
-- Live platform metrics: Gross Merchandise Value (GMV), net retained commissions, merchant counts, and fulfillment SLAs.
+- Demo platform metrics: GMV, commissions, merchant counts, and fulfillment indicators.
 
 ---
 
@@ -59,12 +59,12 @@ Customer Master Order (e.g. KS-ORD-8829104)
 - `Product` & `ProductVariant`: SKU, attributes, pricing, discounts, and inventory stocks.
 - `MasterOrder`: Customer checkout record, payment reference, and delivery instructions.
 - `SellerSubOrder`: Isolated vendor sub-order with independent fulfillment lifecycle.
-- `LedgerEntry`: Immutable double-entry accounting records (`order_payment`, `seller_payable`, `platform_commission`, `delivery_fee`, `payout_disbursed`).
+- `LedgerEntry`: Frontend journal records that will map to backend double-entry accounting (`order_payment`, `seller_payable`, `platform_commission`, `delivery_fee`, `payout_disbursed`).
 - `DeliveryZone`: County-specific home delivery fees, pickup station rates, and transit estimates.
 
 ---
 
-## 🛠️ REST API Specification
+## 🛠️ Planned REST API Contract
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -74,7 +74,7 @@ Customer Master Order (e.g. KS-ORD-8829104)
 | `POST` | `/api/v1/payments/mpesa/callback` | Idempotent webhook callback processing |
 | `GET` | `/api/v1/seller/orders` | Seller-scoped sub-orders and fulfillment actions |
 | `POST` | `/api/v1/seller/payouts` | Payout withdrawal request from available escrow |
-| `GET` | `/api/v1/admin/ledger` | Double-entry platform financial audit trail |
+| `GET` | `/api/v1/admin/ledger` | Planned backend journal and accounting audit trail |
 
 ---
 
