@@ -78,7 +78,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     authUser?.role === 'finance_admin' ||
     authUser?.role === 'seller_admin' ||
     authUser?.role === 'logistics_admin' ||
-    authUser?.role === 'product_admin';
+    authUser?.role === 'product_admin' ||
+    authUser?.role === 'support_admin' ||
+    authUser?.role === 'marketing_admin';
 
   /* -------------------------------------------------------------
    * 1. SELLER HEADER: Dedicated, compact & role-aware
@@ -233,7 +235,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         ? 'Seller Compliance Admin'
         : authUser?.role === 'logistics_admin'
         ? 'Logistics & Delivery Admin'
-        : 'Product Catalog Admin';
+        : authUser?.role === 'product_admin'
+        ? 'Product Catalog Admin'
+        : authUser?.role === 'support_admin'
+        ? 'Customer Support Admin'
+        : 'Marketing Admin';
 
     return (
       <header id="admin-header" className="sticky top-0 z-40 bg-neutral-950 text-white border-b border-neutral-800 shadow-md">

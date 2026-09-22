@@ -534,7 +534,7 @@ export const INITIAL_ORDERS: MasterOrder[] = [
   {
     id: 'ord-10001',
     orderNumber: 'KS-ORD-8829104',
-    customerId: 'cust-demo-1',
+    customerId: 'user-customer-1',
     customerName: 'Mary Wanjiku',
     customerEmail: 'mary.wanjiku@gmail.com',
     customerPhone: '+254711223344',
@@ -1000,7 +1000,7 @@ export const INITIAL_RETURNS: ReturnRequest[] = [
     orderId: 'ord-10001',
     orderNumber: 'KS-ORD-8829104',
     subOrderId: 'sub-ord-2',
-    customerId: 'user-cust-1',
+    customerId: 'user-customer-1',
     customerName: 'John Kamau',
     customerPhone: '+254 711 222333',
     sellerId: 'seller-2',

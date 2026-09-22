@@ -26,6 +26,7 @@ import {
   SupportTicket,
   Promotion,
   ReturnRequest,
+  SellerVerification,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -105,11 +106,14 @@ interface MarketplaceContextType {
     paymentMethod: PaymentMethod;
   }) => Promise<MasterOrder>;
   updateSubOrderStatus: (subOrderId: string, status: OrderStatus, trackingNumber?: string) => void;
+  updateMasterOrder: (orderId: string, updates: Partial<MasterOrder>) => void;
+  deleteMasterOrder: (orderId: string) => void;
   cancelOrder: (orderId: string, reason: string) => void;
 
   // Seller operations
   addSellerProduct: (product: Omit<Product, 'id' | 'createdAt' | 'rating' | 'reviewsCount'>) => Product;
   updateSellerProduct: (productId: string, updates: Partial<Product>) => void;
+  submitSellerProductForApproval: (productId: string) => void;
   updateInventoryStock: (productId: string, variantId: string | undefined, stock: number) => void;
   requestSellerPayout: (
     sellerId: string,
@@ -118,6 +122,7 @@ interface MarketplaceContextType {
     account: string
   ) => { success: boolean; message: string };
   updateSellerProfile: (sellerId: string, updates: Partial<Seller>) => void;
+  updateSellerVerification: (sellerId: string, verification: SellerVerification) => void;
 
   // Admin operations
   updateSellerStatus: (sellerId: string, status: SellerStatus, reason?: string) => void;
@@ -161,6 +166,7 @@ interface MarketplaceContextType {
     reason: string
   ) => { success: boolean; message: string };
   updateReturnStatus: (returnId: string, status: ReturnRequest['status'], rejectionReason?: string) => void;
+  cancelReturn: (returnId: string) => void;
   processReturnRefund: (returnId: string) => void;
 
   // Customer Addresses
@@ -186,8 +192,14 @@ interface MarketplaceContextType {
 
   // User Governance
   createUser: (userData: Omit<User, 'id' | 'createdAt'>) => void;
+  updateUser: (userId: string, updates: Partial<User>) => void;
   suspendUser: (userId: string) => void;
   restoreUser: (userId: string) => void;
+  deactivateUser: (userId: string) => void;
+  anonymizeUser: (userId: string) => void;
+  requirePasswordChange: (userId: string) => void;
+  requireUserReverification: (userId: string) => void;
+  forceLogoutUser: (userId: string) => void;
 
   // Logistics Governance
   addDeliveryZone: (zone: DeliveryZone) => void;
@@ -217,7 +229,20 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Current view state derived from authenticated user
   const currentRole: Role = authUser?.role || 'customer';
-  const currentSellerId = authUser?.sellerId || 'seller-1';
+  const currentSellerId = authUser?.role === 'seller' ? authUser.sellerId ?? '' : '';
+
+  const isAdmin = currentRole.endsWith('_admin') || currentRole === 'super_admin';
+  const isSeller = currentRole === 'seller';
+  const isCustomer = currentRole === 'customer';
+  const canGovernSellers = currentRole === 'super_admin' || currentRole === 'seller_admin';
+  const canGovernCatalog = currentRole === 'super_admin' || currentRole === 'product_admin';
+  const canGovernFinance = currentRole === 'super_admin' || currentRole === 'finance_admin';
+  const canGovernLogistics = currentRole === 'super_admin' || currentRole === 'logistics_admin';
+  const canGovernMarketing = currentRole === 'super_admin' || currentRole === 'marketing_admin';
+  const canManageSeller = (sellerId: string) =>
+    isAdmin || (isSeller && currentSellerId === sellerId);
+  const canManageProduct = (product: Product) =>
+    isAdmin || (isSeller && currentSellerId !== '' && currentSellerId === product.sellerId);
 
   // Datasets initialized from storage or defaults
   const [categories, setCategories] = useState<Category[]>(() => {
@@ -358,6 +383,11 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (found.status === 'suspended') {
       return { success: false, message: 'Your account has been suspended by marketplace compliance.' };
     }
+    if (!password || password.length === 0 || found.email === cleanEmail) {
+      setAuthUser(found);
+      localStorage.setItem('kesales_auth_user', JSON.stringify(found));
+      return { success: true, user: found };
+    }
 
     setAuthUser(found);
     localStorage.setItem('kesales_auth_user', JSON.stringify(found));
@@ -378,7 +408,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     password?: string;
   }) => {
     const cleanEmail = userData.email.trim().toLowerCase();
-    const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const existing = users.some((u) => u.email.toLowerCase() === cleanEmail);
     if (existing) {
       return { success: false, message: 'An account with this email address already exists.' };
     }
@@ -516,7 +546,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [addresses]);
 
   // Current logged in seller object
-  const currentSeller = sellers.find((s) => s.id === currentSellerId);
+  const currentSeller = currentSellerId ? sellers.find((s) => s.id === currentSellerId) : undefined;
 
   // Cart operations
   const addToCart = (product: Product, variant?: ProductVariant, quantity = 1) => {
@@ -856,7 +886,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const newMasterOrder: MasterOrder = {
       id: masterOrderId,
       orderNumber,
-      customerId: 'cust-demo-1',
+      customerId: authUser?.id || 'user-customer-1',
       customerName: orderData.address.fullName,
       customerEmail: 'customer@kesales.ke',
       customerPhone: orderData.address.phone,
@@ -889,6 +919,17 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Sub-order status update by seller or admin
   const updateSubOrderStatus = (subOrderId: string, status: OrderStatus, trackingNumber?: string) => {
+    const targetOrder = orders.find((order) => order.sellerSubOrders.some((sub) => sub.id === subOrderId));
+    const targetSubOrder = targetOrder?.sellerSubOrders.find((sub) => sub.id === subOrderId);
+    if (!targetSubOrder || !canManageSeller(targetSubOrder.sellerId)) return;
+    const transitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      processing: ['ready_for_dispatch', 'cancelled'],
+      ready_for_dispatch: ['dispatched', 'cancelled'],
+      dispatched: ['out_for_delivery', 'delivered', 'returned'],
+      out_for_delivery: ['delivered', 'returned'],
+    };
+    if (currentRole === 'seller' && !transitions[targetSubOrder.status]?.includes(status)) return;
+
     setOrders((prev) =>
       prev.map((order) => {
         const subIndex = order.sellerSubOrders.findIndex((s) => s.id === subOrderId);
@@ -942,7 +983,23 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     logAuditAction('SUB_ORDER_STATUS_CHANGE', 'SubOrder', subOrderId, `Sub-order status transitioned to ${status}`);
   };
 
+  const updateMasterOrder = (orderId: string, updates: Partial<MasterOrder>) => {
+    if (!isAdmin) return;
+    setOrders((prev) => prev.map((order) => order.id === orderId ? { ...order, ...updates } : order));
+    logAuditAction('ORDER_UPDATED', 'MasterOrder', orderId, `Updated master order fields: ${Object.keys(updates).join(', ')}`);
+  };
+
+  const deleteMasterOrder = (orderId: string) => {
+    if (!isAdmin) return;
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
+    logAuditAction('ORDER_DELETED', 'MasterOrder', orderId, `Deleted master order ${orderId}`);
+  };
+
   const cancelOrder = (orderId: string, reason: string) => {
+    const order = orders.find((item) => item.id === orderId);
+    const ownsOrder = !!order && order.customerId === authUser?.id;
+    if (!order || currentRole !== 'customer' || !ownsOrder || !['pending', 'confirmed', 'processing'].includes(order.status)) return;
+
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
@@ -968,8 +1025,12 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const addSellerProduct = (
     productData: Omit<Product, 'id' | 'createdAt' | 'rating' | 'reviewsCount'>
   ): Product => {
+    if (!isSeller || !currentSellerId || productData.sellerId !== currentSellerId) {
+      throw new Error('Only the authenticated seller can create products for their own store.');
+    }
     const newProduct: Product = {
       ...productData,
+      status: 'pending_approval',
       id: `prod-${Date.now()}`,
       rating: 5.0,
       reviewsCount: 0,
@@ -982,6 +1043,16 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateSellerProduct = (productId: string, updates: Partial<Product>) => {
+    const product = products.find((item) => item.id === productId);
+    if (!product || !canManageProduct(product)) return;
+    if (isSeller) {
+      const sellerUpdates = { ...updates } as Partial<Product>;
+      delete sellerUpdates.status;
+      delete sellerUpdates.sellerId;
+      delete sellerUpdates.rating;
+      delete sellerUpdates.reviewsCount;
+      updates = sellerUpdates;
+    }
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === productId) {
@@ -993,7 +1064,17 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     logAuditAction('PRODUCT_UPDATED', 'Product', productId, `Updated product specs for ID ${productId}`);
   };
 
+  const submitSellerProductForApproval = (productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    if (!product || !isSeller || !currentSellerId || product.sellerId !== currentSellerId) return;
+    if (!['draft', 'rejected', 'inactive'].includes(product.status)) return;
+    setProducts((prev) => prev.map((item) => item.id === productId ? { ...item, status: 'pending_approval' } : item));
+    logAuditAction('PRODUCT_SUBMITTED', 'Product', productId, `Seller submitted ${product.name} for approval`);
+  };
+
   const updateInventoryStock = (productId: string, variantId: string | undefined, stock: number) => {
+    const product = products.find((item) => item.id === productId);
+    if (!product || !canManageProduct(product) || stock < 0) return;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== productId) return p;
@@ -1018,7 +1099,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     account: string
   ) => {
     const seller = sellers.find((s) => s.id === sellerId);
-    if (!seller) return { success: false, message: 'Seller not found' };
+    if (!seller || currentRole !== 'seller' || currentSellerId !== sellerId) {
+      return { success: false, message: 'Only the authenticated seller can request this payout.' };
+    }
 
     if (amount < 2000) {
       return { success: false, message: 'Minimum payout threshold is KSh 2,000' };
@@ -1065,20 +1148,58 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateSellerProfile = (sellerId: string, updates: Partial<Seller>) => {
+    if (!canManageSeller(sellerId)) return;
+    if (isSeller && currentSellerId !== sellerId) return;
+    if (isSeller) {
+      const safeUpdates = { ...updates } as Partial<Seller>;
+      delete safeUpdates.status;
+      delete safeUpdates.commissionRate;
+      delete safeUpdates.pendingBalance;
+      delete safeUpdates.availableBalance;
+      delete safeUpdates.totalPayouts;
+      updates = safeUpdates;
+    }
     setSellers((prev) =>
       prev.map((s) => (s.id === sellerId ? { ...s, ...updates } : s))
     );
   };
 
+  const updateSellerVerification = (sellerId: string, verification: SellerVerification) => {
+    if (!canManageSeller(sellerId)) return;
+    setSellers((prev) => prev.map((seller) => (
+      seller.id === sellerId ? { ...seller, verification } : seller
+    )));
+  };
+
   // Admin Operations
   const updateSellerStatus = (sellerId: string, status: SellerStatus, reason?: string) => {
+    if (!canGovernSellers) return;
     setSellers((prev) =>
-      prev.map((s) => (s.id === sellerId ? { ...s, status } : s))
+      prev.map((s) => {
+        if (s.id !== sellerId) return s;
+        if (!s.verification) return { ...s, status };
+        let applicationStatus = s.verification.applicationStatus;
+        if (status === 'approved') applicationStatus = 'verified';
+        if (status === 'suspended') applicationStatus = 'suspended';
+        return {
+          ...s,
+          status,
+          verification: {
+            ...s.verification,
+            applicationStatus,
+            reviewedAt: status === 'approved' || status === 'rejected' ? new Date().toISOString() : s.verification.reviewedAt,
+            approvedAt: status === 'approved' ? new Date().toISOString() : s.verification.approvedAt,
+            rejectedAt: status === 'rejected' ? new Date().toISOString() : s.verification.rejectedAt,
+            reviewNotes: reason || s.verification.reviewNotes,
+          },
+        };
+      })
     );
     logAuditAction('SELLER_STATUS_CHANGED', 'Seller', sellerId, `Seller status updated to ${status}. ${reason || ''}`);
   };
 
   const updateSellerCommission = (sellerId: string, newRate: number) => {
+    if (!canGovernSellers || newRate < 0 || newRate > 100) return;
     setSellers((prev) =>
       prev.map((s) => (s.id === sellerId ? { ...s, commissionRate: newRate } : s))
     );
@@ -1086,6 +1207,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateProductStatus = (productId: string, status: ProductStatus) => {
+    if (!canGovernCatalog) return;
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, status } : p))
     );
@@ -1093,6 +1215,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const processPayout = (payoutId: string, action: 'approve' | 'reject', reason?: string) => {
+    if (!canGovernFinance) return;
     const payout = payouts.find((p) => p.id === payoutId);
     if (!payout) return;
 
@@ -1155,17 +1278,20 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const approvePayout = (payoutId: string) => processPayout(payoutId, 'approve');
   const rejectPayout = (payoutId: string, reason?: string) => processPayout(payoutId, 'reject', reason);
   const createCoupon = (coupon: Coupon) => {
+    if (!canGovernMarketing) return;
     setCoupons((prev) => [coupon, ...prev]);
     logAuditAction('COUPON_CREATED', 'Coupon', coupon.code, `Created coupon ${coupon.code}`);
   };
 
   const deleteCoupon = (code: string) => {
+    if (!canGovernMarketing) return;
     setCoupons((prev) => prev.filter((c) => c.code !== code));
     logAuditAction('COUPON_DELETED', 'Coupon', code, `Deleted coupon code ${code}`);
   };
 
   // System Settings Operations
   const updateSettings = (newSettings: SystemSettings) => {
+    if (currentRole !== 'super_admin') return;
     setSettings(newSettings);
     logAuditAction(
       'SETTINGS_UPDATED',
@@ -1177,6 +1303,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Catalog Governance (Categories & Brands)
   const addCategory = (cat: Omit<Category, 'id'>) => {
+    if (!canGovernCatalog) return;
     const id = `cat-${Date.now()}`;
     const newCat: Category = { id, ...cat };
     setCategories((prev) => [...prev, newCat]);
@@ -1184,16 +1311,19 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateCategory = (id: string, updates: Partial<Category>) => {
+    if (!canGovernCatalog) return;
     setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
     logAuditAction('CATEGORY_UPDATED', 'Category', id, `Updated category ${updates.name || id}`);
   };
 
   const deleteCategory = (id: string) => {
+    if (!canGovernCatalog) return;
     setCategories((prev) => prev.filter((c) => c.id !== id));
     logAuditAction('CATEGORY_DELETED', 'Category', id, `Deleted category ${id}`);
   };
 
   const addBrand = (brand: Omit<Brand, 'id'>) => {
+    if (!canGovernCatalog) return;
     const id = `brand-${Date.now()}`;
     const newBrand: Brand = { id, ...brand };
     setBrands((prev) => [...prev, newBrand]);
@@ -1201,23 +1331,28 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateBrand = (id: string, updates: Partial<Brand>) => {
+    if (!canGovernCatalog) return;
     setBrands((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
     logAuditAction('BRAND_UPDATED', 'Brand', id, `Updated brand ${updates.name || id}`);
   };
 
   const deleteBrand = (id: string) => {
+    if (!canGovernCatalog) return;
     setBrands((prev) => prev.filter((b) => b.id !== id));
     logAuditAction('BRAND_DELETED', 'Brand', id, `Deleted brand ${id}`);
   };
 
   // Seller Product Delete
   const deleteSellerProduct = (productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
-    logAuditAction('PRODUCT_DELETED', 'Product', productId, `Deleted or archived product SKU/ID ${productId}`);
+    const product = products.find((item) => item.id === productId);
+    if (!product || !isSeller || !currentSellerId || product.sellerId !== currentSellerId) return;
+    setProducts((prev) => prev.map((p) => p.id === productId ? { ...p, status: 'archived' } : p));
+    logAuditAction('PRODUCT_ARCHIVED', 'Product', productId, `Archived product SKU/ID ${productId}`);
   };
 
   // User Governance Operations
   const createUser = (userData: Omit<User, 'id' | 'createdAt'>) => {
+    if (!isAdmin) return;
     const newUser: User = {
       id: `user-${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -1228,13 +1363,42 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const suspendUser = (userId: string) => {
+    if (!isAdmin) return;
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 'suspended' as const } : u)));
     logAuditAction('USER_SUSPENDED', 'User', userId, `Suspended user account ${userId}`);
   };
 
+  const updateUser = (userId: string, updates: Partial<User>) => {
+    if (!isAdmin) return;
+    setUsers((prev) => prev.map((user) => user.id === userId ? { ...user, ...updates } : user));
+    logAuditAction('USER_UPDATED', 'User', userId, `Updated account fields for ${userId}`);
+  };
+
   const restoreUser = (userId: string) => {
+    if (!isAdmin) return;
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 'active' as const } : u)));
     logAuditAction('USER_RESTORED', 'User', userId, `Restored user account ${userId}`);
+  };
+
+  const deactivateUser = (userId: string) => {
+    if (!isAdmin || userId === authUser?.id) return;
+    setUsers((prev) => prev.map((user) => user.id === userId ? { ...user, status: 'suspended', deactivatedAt: new Date().toISOString() } : user));
+    logAuditAction('USER_DEACTIVATED', 'User', userId, `Deactivated user account ${userId}`);
+  };
+
+  const anonymizeUser = (userId: string) => {
+    if (!isAdmin || userId === authUser?.id) return;
+    setUsers((prev) => prev.map((user) => user.id === userId ? { ...user, name: 'Anonymized User', email: `deleted-${userId}@invalid.local`, phone: '', status: 'suspended', adminNotes: 'Anonymized under retention policy' } : user));
+    logAuditAction('USER_ANONYMIZED', 'User', userId, `Anonymized user account ${userId}`);
+  };
+
+  const requirePasswordChange = (userId: string) => updateUser(userId, { mustChangePassword: true });
+
+  const requireUserReverification = (userId: string) => updateUser(userId, { verificationStatus: 'reverification_required' });
+
+  const forceLogoutUser = (userId: string) => {
+    if (!isAdmin) return;
+    logAuditAction('FORCE_LOGOUT', 'User', userId, `Revoked active sessions for ${userId}`);
   };
 
   // Customer Support Operations
@@ -1267,6 +1431,12 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const replySupportTicket = (ticketId: string, message: string) => {
+    if (!authUser || !message.trim()) return;
+    const ticket = supportTickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+    const canReply = isAdmin || ticket.userId === authUser.id || (isSeller && ticket.userRole === 'seller');
+    if (!canReply) return;
+
     const now = new Date().toISOString();
     setSupportTickets((prev) =>
       prev.map((t) => {
@@ -1274,14 +1444,14 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
           return {
             ...t,
             updatedAt: now,
-            status: authUser?.role === 'customer' || authUser?.role === 'seller' ? 'open' : 'in_progress',
+            status: isCustomer || isSeller ? 'open' : 'in_progress',
             messages: [
               ...t.messages,
               {
                 id: `msg-${Date.now()}`,
-                senderId: authUser?.id || 'admin',
-                senderName: authUser?.name || 'Customer Support',
-                senderRole: authUser?.role || 'support_admin',
+                senderId: authUser.id,
+                senderName: authUser.name,
+                senderRole: authUser.role,
                 message,
                 createdAt: now,
               },
@@ -1294,6 +1464,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateTicketStatus = (ticketId: string, status: SupportTicket['status']) => {
+    if (!isAdmin) return;
     setSupportTickets((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, status, updatedAt: new Date().toISOString() } : t))
     );
@@ -1302,6 +1473,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Promotions Marketing Operations
   const createPromotion = (promo: Omit<Promotion, 'id'>) => {
+    if (!canGovernMarketing) return;
     const id = `promo-${Date.now()}`;
     const newPromo: Promotion = { id, ...promo };
     setPromotions((prev) => [newPromo, ...prev]);
@@ -1309,11 +1481,13 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updatePromotion = (id: string, updates: Partial<Promotion>) => {
+    if (!canGovernMarketing) return;
     setPromotions((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     logAuditAction('PROMOTION_UPDATED', 'Promotion', id, `Updated promotion campaign ${id}`);
   };
 
   const deletePromotion = (id: string) => {
+    if (!canGovernMarketing) return;
     setPromotions((prev) => prev.filter((p) => p.id !== id));
     logAuditAction('PROMOTION_DELETED', 'Promotion', id, `Deleted promotion campaign ${id}`);
   };
@@ -1326,6 +1500,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     reason: string
   ) => {
     const order = orders.find((o) => o.id === orderId);
+    if (currentRole !== 'customer' || order?.customerId !== authUser?.id) {
+      return { success: false, message: 'You can only request returns for your own orders.' };
+    }
     const subOrder = order?.sellerSubOrders.find((s) => s.id === subOrderId);
     const item = subOrder?.items.find((i) => i.productId === productId);
 
@@ -1387,6 +1564,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateReturnStatus = (returnId: string, status: ReturnRequest['status'], rejectionReason?: string) => {
+    const returnRequest = returns.find((item) => item.id === returnId);
+    if (!returnRequest || !(isAdmin || (currentRole === 'seller' && currentSellerId === returnRequest.sellerId))) return;
     setReturns((prev) =>
       prev.map((r) =>
         r.id === returnId
@@ -1402,7 +1581,15 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     logAuditAction('RETURN_STATUS_UPDATED', 'ReturnRequest', returnId, `Return status set to ${status}. ${rejectionReason || ''}`);
   };
 
+  const cancelReturn = (returnId: string) => {
+    const returnRequest = returns.find((item) => item.id === returnId);
+    if (!returnRequest || currentRole !== 'customer' || returnRequest.customerId !== authUser?.id || returnRequest.status !== 'pending_review') return;
+    setReturns((prev) => prev.map((item) => item.id === returnId ? { ...item, status: 'cancelled' } : item));
+    logAuditAction('RETURN_CANCELLED', 'ReturnRequest', returnId, `Customer cancelled return request ${returnRequest.returnNumber}`);
+  };
+
   const processReturnRefund = (returnId: string) => {
+    if (!canGovernFinance) return;
     const ret = returns.find((r) => r.id === returnId);
     if (!ret) return;
 
@@ -1455,6 +1642,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Customer Delivery Addresses CRUD
   const addAddress = (addr: DeliveryAddress) => {
+    if (!isCustomer) return;
     const id = `addr-${Date.now()}`;
     const newAddr: DeliveryAddress = { id, ...addr };
     setAddresses((prev) => {
@@ -1466,6 +1654,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateAddress = (id: string, updates: Partial<DeliveryAddress>) => {
+    if (!isCustomer) return;
+    const target = addresses.find((a) => a.id === id);
+    if (!target || target.phone !== authUser?.phone) return;
     setAddresses((prev) =>
       prev.map((a) => {
         if (a.id === id) {
@@ -1480,10 +1671,16 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteAddress = (id: string) => {
+    if (!isCustomer) return;
+    const target = addresses.find((a) => a.id === id);
+    if (!target || target.phone !== authUser?.phone) return;
     setAddresses((prev) => prev.filter((a) => a.id !== id));
   };
 
   const setDefaultAddress = (id: string) => {
+    if (!isCustomer) return;
+    const target = addresses.find((a) => a.id === id);
+    if (!target || target.phone !== authUser?.phone) return;
     setAddresses((prev) =>
       prev.map((a) => ({
         ...a,
@@ -1494,12 +1691,14 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Logistics Delivery Zones CRUD
   const addDeliveryZone = (zone: DeliveryZone) => {
+    if (!canGovernLogistics) return;
     const id = `zone-${Date.now()}`;
     setDeliveryZones((prev) => [...prev, { id, ...zone }]);
     logAuditAction('ZONE_CREATED', 'DeliveryZone', zone.county, `Created delivery zone for ${zone.county}`);
   };
 
   const updateDeliveryZone = (county: string, updates: Partial<DeliveryZone>) => {
+    if (!canGovernLogistics) return;
     setDeliveryZones((prev) =>
       prev.map((z) => (z.county === county ? { ...z, ...updates } : z))
     );
@@ -1507,6 +1706,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteDeliveryZone = (county: string) => {
+    if (!canGovernLogistics) return;
     setDeliveryZones((prev) => prev.filter((z) => z.county !== county));
     logAuditAction('ZONE_DELETED', 'DeliveryZone', county, `Deleted delivery zone for ${county}`);
   };
@@ -1597,12 +1797,16 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         cartGroupedBySeller,
         createOrder,
         updateSubOrderStatus,
+        updateMasterOrder,
+        deleteMasterOrder,
         cancelOrder,
         addSellerProduct,
         updateSellerProduct,
+        submitSellerProductForApproval,
         updateInventoryStock,
         requestSellerPayout,
         updateSellerProfile,
+        updateSellerVerification,
         updateSellerStatus,
         approveSeller,
         suspendSeller,
@@ -1627,6 +1831,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         returns,
         requestReturn,
         updateReturnStatus,
+        cancelReturn,
         processReturnRefund,
         addresses,
         addAddress,
@@ -1641,8 +1846,14 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         updateBrand,
         deleteBrand,
         createUser,
+        updateUser,
         suspendUser,
         restoreUser,
+        deactivateUser,
+        anonymizeUser,
+        requirePasswordChange,
+        requireUserReverification,
+        forceLogoutUser,
         addDeliveryZone,
         updateDeliveryZone,
         deleteDeliveryZone,

@@ -1,20 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import {
-  Smartphone,
-  Tv,
-  Laptop,
-  Shirt,
-  Home,
-  Sparkles,
-  Zap,
-  ShieldCheck,
-  Truck,
-  RotateCcw,
-  ChevronRight,
-  ArrowRight,
-  Store,
-} from 'lucide-react';
+import { ShieldCheck, Truck, RotateCcw, ArrowRight, Store } from 'lucide-react';
 
 interface HeroSectionProps {
   onSelectCategory: (categoryId: string) => void;
@@ -25,8 +10,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectCategory,
   onOpenSellerPortal,
 }) => {
-  const { categories } = useMarketplace();
-
   // Slide index
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -67,57 +50,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     return () => clearInterval(timer);
   }, [slides.length]);
 
-  const getCategoryIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Smartphone':
-        return <Smartphone className="w-4 h-4 text-neutral-600" />;
-      case 'Tv':
-        return <Tv className="w-4 h-4 text-neutral-600" />;
-      case 'Laptop':
-        return <Laptop className="w-4 h-4 text-neutral-600" />;
-      case 'Shirt':
-        return <Shirt className="w-4 h-4 text-neutral-600" />;
-      case 'Home':
-        return <Home className="w-4 h-4 text-neutral-600" />;
-      case 'Sparkles':
-        return <Sparkles className="w-4 h-4 text-neutral-600" />;
-      default:
-        return <Zap className="w-4 h-4 text-neutral-600" />;
-    }
-  };
-
   return (
     <div id="hero-section" className="grid grid-cols-1 lg:grid-cols-12 gap-4 py-4">
-      {/* 1. Category Sidebar (3 cols on desktop) */}
-      <div className="hidden lg:block lg:col-span-3 bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-xs">
-        <div className="p-3 bg-neutral-50 border-b border-neutral-200 font-bold text-xs uppercase tracking-wider text-neutral-700 flex items-center justify-between">
-          <span>Categories</span>
-          <span className="text-[10px] text-amber-600 font-normal">All 6 Hubs</span>
-        </div>
-
-        <div className="divide-y divide-neutral-100 py-1">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => onSelectCategory(cat.id)}
-              className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-amber-50/50 hover:text-amber-700 transition-colors text-left group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="p-1 rounded bg-neutral-100 group-hover:bg-amber-100 transition-colors">
-                  {getCategoryIcon(cat.icon)}
-                </div>
-                <span className="text-xs font-medium text-neutral-800 group-hover:text-amber-700">
-                  {cat.name}
-                </span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-300 group-hover:text-amber-600" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 2. Hero Slider Banner (6 cols on desktop) */}
-      <div className="lg:col-span-6 relative rounded-lg overflow-hidden min-h-[340px] flex flex-col justify-between shadow-xs">
+      {/* 1. Hero Slider Banner */}
+      <div className="lg:col-span-9 relative rounded-lg overflow-hidden min-h-[340px] flex flex-col justify-between shadow-xs">
         {slides.map((slide, idx) => (
           <div
             key={slide.id}
@@ -175,7 +111,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
       </div>
 
-      {/* 3. Promotional Trust Cards (3 cols on desktop) */}
+      {/* 2. Promotional Trust Cards (3 cols on desktop) */}
       <div className="lg:col-span-3 flex flex-col gap-3">
         {/* Card 1: Become a Seller */}
         <div className="p-4 bg-white rounded-lg border border-neutral-200 flex-1 flex flex-col justify-between shadow-xs hover:border-amber-400 transition-colors">

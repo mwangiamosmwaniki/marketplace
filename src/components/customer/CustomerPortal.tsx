@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMarketplace } from '../../context/MarketplaceContext';
 import {
   Package,
@@ -26,11 +26,13 @@ import { MasterOrder, OrderStatus } from '../../types';
 interface CustomerPortalProps {
   onViewProduct?: (productId: string) => void;
   onContinueShopping?: () => void;
+  requestedTab?: 'orders' | 'wishlist' | 'addresses' | 'returns' | 'payments' | 'security';
 }
 
 export const CustomerPortal: React.FC<CustomerPortalProps> = ({
   onViewProduct,
   onContinueShopping,
+  requestedTab,
 }) => {
   const {
     authUser,
@@ -41,11 +43,23 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
     cancelOrder,
     addToCart,
     toggleWishlist,
+    addresses,
+    addAddress,
+    updateAddress,
+    deleteAddress,
+    setDefaultAddress,
+    returns,
+    requestReturn,
+    cancelReturn,
   } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState<
     'orders' | 'wishlist' | 'addresses' | 'returns' | 'payments' | 'security'
   >('orders');
+
+  useEffect(() => {
+    if (requestedTab) setActiveTab(requestedTab);
+  }, [requestedTab]);
   const [selectedOrder, setSelectedOrder] = useState<MasterOrder | null>(null);
   const [returnModalSubOrder, setReturnModalSubOrder] = useState<{
     orderId: string;
@@ -53,40 +67,35 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
   } | null>(null);
   const [returnReason, setReturnReason] = useState('Item defective / not turning on');
   const [returnSuccess, setReturnSuccess] = useState(false);
-
-  // Address state for demonstration
-  const [addresses, setAddresses] = useState([
-    {
-      id: 'addr-1',
-      title: 'Home Address (Default)',
-      fullName: 'Jane Wambui',
-      phone: '+254 712 345678',
-      county: 'Nairobi',
-      town: 'Westlands / Parklands',
-      street: 'Mpaka Road, Woodvale Grove, Apt 4B',
-      isDefault: true,
-    },
-    {
-      id: 'addr-2',
-      title: 'Office / Work',
-      fullName: 'Jane Wambui',
-      phone: '+254 712 345678',
-      county: 'Nairobi',
-      town: 'Kilimani / Kileleshwa',
-      street: 'Argwings Kodhek Road, Landmark Plaza, 3rd Floor',
-      isDefault: false,
-    },
-  ]);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    fullName: authUser?.name || '',
+    phone: authUser?.phone || '',
+    county: 'Nairobi',
+    town: 'Westlands',
+    streetAddress: '',
+    deliveryInstructions: '',
+  });
 
   const wishlistProducts = products.filter((p) => wishlist.includes(p.id));
+  const customerOrders = orders.filter((order) => order.customerId === authUser?.id);
+  const customerReturns = returns.filter((item) => item.customerId === authUser?.id);
 
   const handleReturnSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setReturnSuccess(true);
-    setTimeout(() => {
-      setReturnSuccess(false);
-      setReturnModalSubOrder(null);
-    }, 1800);
+    if (!returnModalSubOrder) return;
+    const order = customerOrders.find((item) => item.id === returnModalSubOrder.orderId);
+    const subOrder = order?.sellerSubOrders.find((item) => item.id === returnModalSubOrder.subOrderId);
+    const productId = subOrder?.items[0]?.productId;
+    if (!productId) return;
+    const result = requestReturn(returnModalSubOrder.orderId, returnModalSubOrder.subOrderId, productId, returnReason);
+    setReturnSuccess(result.success);
+    if (result.success) {
+      setTimeout(() => {
+        setReturnSuccess(false);
+        setReturnModalSubOrder(null);
+      }, 1800);
+    }
   };
 
   const getStatusBadge = (status: OrderStatus) => {
@@ -107,181 +116,8 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
   };
 
   return (
-    <div id="customer-portal-container" className="max-w-7xl mx-auto px-4 py-6">
-      {/* 1. Header Banner */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-amber-500 text-white font-bold text-xl flex items-center justify-center shadow-xs">
-            {authUser?.name ? authUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'CU'}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-neutral-900">{authUser?.name || 'Customer Account'}</h1>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
-                Verified Buyer
-              </span>
-            </div>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              {authUser?.email || 'customer@kesales.ke'} • {authUser?.phone || '+254 712 345678'} • Nairobi, Kenya
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-right text-xs hidden sm:block">
-            <span className="text-neutral-400 block">Active Orders</span>
-            <span className="text-base font-extrabold text-neutral-900">
-              {orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length} in transit
-            </span>
-          </div>
-          {onContinueShopping && (
-            <button
-              onClick={onContinueShopping}
-              className="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs py-2 px-4 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span>Continue Shopping</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 2. Main Layout with Left Sidebar & Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Sidebar Navigation (3 cols) */}
-        <div className="lg:col-span-3 space-y-4">
-          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-            <div className="p-3.5 bg-neutral-50 border-b border-neutral-200 text-xs font-bold text-neutral-700 uppercase tracking-wider">
-              Customer Account
-            </div>
-
-            <nav className="p-2 space-y-1 text-xs font-semibold">
-              <button
-                onClick={() => {
-                  setActiveTab('orders');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'orders'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Package className="w-4 h-4 text-amber-600" />
-                  <span>My Orders & Tracking</span>
-                </div>
-                <span className="text-[10px] bg-neutral-200 text-neutral-800 font-bold px-1.5 py-0.5 rounded-full">
-                  {orders.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('wishlist');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'wishlist'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Heart className="w-4 h-4 text-red-500" />
-                  <span>Saved Wishlist</span>
-                </div>
-                <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded-full">
-                  {wishlist.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('addresses');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'addresses'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>Delivery Addresses</span>
-                </div>
-                <span className="text-[10px] text-neutral-400">{addresses.length} saved</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('returns');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'returns'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <RotateCcw className="w-4 h-4 text-blue-600" />
-                  <span>Returns & Refunds</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('payments');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'payments'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <CreditCard className="w-4 h-4 text-purple-600" />
-                  <span>Payment Preferences</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('security');
-                  setSelectedOrder(null);
-                }}
-                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
-                  activeTab === 'security'
-                    ? 'bg-amber-50 text-amber-700 font-bold'
-                    : 'text-neutral-700 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-neutral-600" />
-                  <span>Security & Profile</span>
-                </div>
-              </button>
-            </nav>
-          </div>
-
-          {/* Quick Help Card */}
-          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-xs text-xs">
-            <h4 className="font-bold text-amber-900 mb-1">Need help with an order?</h4>
-            <p className="text-amber-800 text-[11px] leading-relaxed mb-3">
-              KESALES Customer Protection guarantees 100% genuine products with 15-day return policy and instant M-Pesa refunds.
-            </p>
-            <div className="flex items-center gap-2 text-[11px] font-bold text-amber-900">
-              <Phone className="w-3.5 h-3.5" />
-              <span>0700 000 000 (Toll Free)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Main Content Area (9 cols) */}
-        <div className="lg:col-span-9 space-y-4">
+    <div id="customer-portal-container" className="px-4 py-6">
+      <div className="space-y-4">
           {/* TAB 1: ORDERS & TRACKING */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
@@ -448,10 +284,10 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-neutral-200">
                     <h3 className="font-bold text-sm text-neutral-900">Purchase History</h3>
-                    <span className="text-xs text-neutral-500">{orders.length} orders found</span>
+                    <span className="text-xs text-neutral-500">{customerOrders.length} orders found</span>
                   </div>
 
-                  {orders.length === 0 ? (
+                  {customerOrders.length === 0 ? (
                     <div className="bg-white rounded-xl border border-neutral-200 p-12 text-center shadow-xs">
                       <Package className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
                       <h4 className="font-bold text-sm text-neutral-800">No orders placed yet</h4>
@@ -468,7 +304,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                       )}
                     </div>
                   ) : (
-                    orders.map((order) => (
+                    customerOrders.map((order) => (
                       <div
                         key={order.id}
                         className="bg-white rounded-xl border border-neutral-200 p-4 shadow-xs hover:border-amber-400 transition-colors"
@@ -555,7 +391,36 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                     Items you saved for later purchase ({wishlistProducts.length} items)
                   </p>
                 </div>
+                <button onClick={() => setShowAddressForm((value) => !value)} className="bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold text-xs px-3 py-2 rounded-lg">Add address</button>
               </div>
+
+              {showAddressForm && (
+                <form
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-amber-200 bg-amber-50/40 rounded-lg p-4 text-xs"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!newAddress.fullName.trim() || !newAddress.phone.trim() || !newAddress.streetAddress.trim()) return;
+                    addAddress({ ...newAddress, isDefault: addresses.length === 0 });
+                    setShowAddressForm(false);
+                    setNewAddress((current) => ({ ...current, streetAddress: '', deliveryInstructions: '' }));
+                  }}
+                >
+                  {(['fullName', 'phone', 'town', 'streetAddress', 'deliveryInstructions'] as const).map((field) => (
+                    <label key={field} className="font-semibold text-neutral-600">
+                      <span className="block mb-1 capitalize">{field === 'streetAddress' ? 'Street address' : field.replace(/([A-Z])/g, ' $1')}</span>
+                      <input required={field !== 'deliveryInstructions'} value={newAddress[field]} onChange={(event) => setNewAddress((current) => ({ ...current, [field]: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" />
+                    </label>
+                  ))}
+                  <label className="font-semibold text-neutral-600">
+                    <span className="block mb-1">County</span>
+                    <input value={newAddress.county} onChange={(event) => setNewAddress((current) => ({ ...current, county: event.target.value }))} className="w-full border border-neutral-300 rounded px-2.5 py-2 bg-white" />
+                  </label>
+                  <div className="sm:col-span-2 flex justify-end gap-2">
+                    <button type="button" onClick={() => setShowAddressForm(false)} className="px-3 py-2 text-neutral-600 font-bold">Cancel</button>
+                    <button type="submit" className="px-3 py-2 bg-neutral-900 text-white rounded font-bold">Save address</button>
+                  </div>
+                </form>
+              )}
 
               {wishlistProducts.length === 0 ? (
                 <div className="py-12 text-center">
@@ -647,11 +512,16 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                         Default Address
                       </span>
                     )}
-                    <h4 className="font-bold text-neutral-900 text-sm mb-1">{addr.title}</h4>
+                    <h4 className="font-bold text-neutral-900 text-sm mb-1">{addr.town} address</h4>
                     <p className="font-semibold text-neutral-800">{addr.fullName}</p>
-                    <p className="text-neutral-600 mt-0.5">{addr.street}</p>
+                    <p className="text-neutral-600 mt-0.5">{addr.streetAddress}</p>
                     <p className="text-neutral-600">{addr.town}, {addr.county} County</p>
                     <p className="text-neutral-500 mt-2 font-mono">{addr.phone}</p>
+                    <div className="mt-3 flex gap-3 text-[11px] font-bold">
+                      {!addr.isDefault && <button onClick={() => addr.id && setDefaultAddress(addr.id)} className="text-amber-700">Set default</button>}
+                      <button onClick={() => addr.id && deleteAddress(addr.id)} className="text-red-600">Delete</button>
+                      <button onClick={() => addr.id && updateAddress(addr.id, { deliveryInstructions: 'Updated from account' })} className="text-neutral-600">Update note</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -668,23 +538,19 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                 </p>
               </div>
 
-              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 text-xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold font-mono text-neutral-800">RET-2026-0891</span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                      Refunded via M-Pesa
-                    </span>
+              {customerReturns.length === 0 ? (
+                <div className="border border-dashed border-neutral-300 rounded-lg p-8 text-center text-xs text-neutral-500">No return requests yet.</div>
+              ) : customerReturns.map((item) => (
+                <div key={item.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold font-mono text-neutral-800">{item.returnNumber}</span>
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">{item.status.replace('_', ' ')}</span>
                   </div>
-                  <span className="font-bold text-neutral-900">{formatKSh(4500)}</span>
+                  <p className="text-neutral-600">Product: {item.productName}</p>
+                  <p className="text-neutral-500 text-[11px]">Reason: {item.reason} • {formatKSh(item.price)}</p>
+                  {item.status === 'pending_review' && <button onClick={() => cancelReturn(item.id)} className="text-red-600 font-bold text-[11px]">Cancel return request</button>}
                 </div>
-                <p className="text-neutral-600">
-                  Product: Anker Soundcore Life Q30 Hybrid Active Noise Cancelling Headphones
-                </p>
-                <p className="text-neutral-500 text-[11px]">
-                  Reason: Box opened with missing auxiliary audio cord • M-Pesa Ref: QKJ72910381
-                </p>
-              </div>
+              ))}
             </div>
           )}
 
@@ -747,7 +613,6 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 };

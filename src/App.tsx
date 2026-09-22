@@ -28,7 +28,102 @@ import {
   ShieldAlert,
   Lock,
   Zap,
+  Bell,
+  Search,
+  CalendarDays,
+  Home,
+  Users,
+  Boxes,
+  Wallet,
+  Ticket,
+  MapPinned,
+  Settings,
+  ChevronRight,
+  Package,
+  FileText,
 } from 'lucide-react';
+
+interface DashboardShellProps {
+  title: string;
+  subtitle: string;
+  navItems: Array<{ label: string; icon: React.ReactNode; active?: boolean; badge?: number }>; 
+  rightHeaderLabel: string;
+  onNavigate?: (label: string) => void;
+  children: React.ReactNode;
+}
+
+const DashboardShell: React.FC<DashboardShellProps> = ({
+  title,
+  subtitle,
+  navItems,
+  rightHeaderLabel,
+  onNavigate,
+  children,
+}) => {
+  const [selectedNav, setSelectedNav] = useState<string>(navItems.find((item) => item.active)?.label || navItems[0]?.label || '');
+
+  return (
+    <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] w-full h-[calc(100vh-72px)] overflow-hidden">
+        <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full sticky top-0">
+          <div className="px-5 py-4 border-b border-neutral-800 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center">
+              K
+            </div>
+            <div>
+              <div className="font-black tracking-tight text-xl">KESALES<span className="text-amber-500">.</span></div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">Admin hub</div>
+            </div>
+          </div>
+
+          <nav className="p-3 space-y-1.5">
+            {navItems.map(({ label, icon, badge }) => {
+              const isActive = selectedNav === label;
+
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setSelectedNav(label);
+                    onNavigate?.(label);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                    isActive ? 'bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400' : 'text-neutral-200 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="text-lg leading-none">{icon}</span>
+                    <span className="font-semibold text-sm">{label}</span>
+                  </span>
+                  {badge !== undefined && badge > 0 ? (
+                    <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="mt-auto border-t border-neutral-800 p-4">
+            <div className="flex items-center gap-3 bg-[#101a27] border border-neutral-700 p-3">
+              <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400" />
+              <div className="flex-1">
+                <div className="text-[12px] font-bold text-white">System status</div>
+                <div className="text-[11px] text-emerald-300">Healthy</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="bg-[#f3f4f6] h-full overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function MarketplaceApp() {
   const { products, categories, brands, formatKSh, authUser } = useMarketplace();
@@ -37,6 +132,15 @@ function MarketplaceApp() {
   const [activeView, setActiveView] = useState<
     'storefront' | 'seller' | 'admin' | 'customer'
   >('storefront');
+  const [customerTab, setCustomerTab] = useState<
+    'orders' | 'wishlist' | 'addresses' | 'returns' | 'payments' | 'security'
+  >('orders');
+  const [sellerTab, setSellerTab] = useState<
+    'dashboard' | 'products' | 'inventory' | 'orders' | 'payouts' | 'verification' | 'settings'
+  >('dashboard');
+  const [adminTab, setAdminTab] = useState<
+    'analytics' | 'users' | 'roles' | 'security' | 'audit' | 'system' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics' | 'settings'
+  >('analytics');
   const [publicPage, setPublicPage] = useState<PublicPageSlug | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -449,20 +553,75 @@ function MarketplaceApp() {
 
         {/* VIEW 2: CUSTOMER ACCOUNT PORTAL (WITH SIDEBAR) */}
         {activeView === 'customer' && (
-          <CustomerPortal
-            onViewProduct={(prodId) => {
-              const p = products.find((prod) => prod.id === prodId);
-              if (p) {
-                setSelectedProductForDetail(p);
-              }
+          <DashboardShell
+            title={`Good morning, ${authUser?.name?.split(' ')[0] || 'Robert'}`}
+            subtitle="Here’s what’s happening with your marketplace today."
+            rightHeaderLabel={authUser?.name || 'Robert Otieno'}
+            navItems={[
+              { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
+              { label: 'My Orders', icon: <ShoppingBag className="w-4 h-4" />, badge: 2 },
+              { label: 'Wishlist', icon: <Sparkles className="w-4 h-4" /> },
+              { label: 'Saved Addresses', icon: <MapPinned className="w-4 h-4" /> },
+              { label: 'Returns', icon: <RotateCcw className="w-4 h-4" /> },
+              { label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+            ]}
+            onNavigate={(label) => {
+              const tabMap: Record<string, typeof customerTab> = {
+                Dashboard: 'orders',
+                'My Orders': 'orders',
+                Wishlist: 'wishlist',
+                'Saved Addresses': 'addresses',
+                Returns: 'returns',
+                Settings: 'security',
+              };
+              const nextTab = tabMap[label];
+              if (nextTab) setCustomerTab(nextTab);
             }}
-          />
+          >
+            <CustomerPortal
+              requestedTab={customerTab}
+              onViewProduct={(prodId) => {
+                const p = products.find((prod) => prod.id === prodId);
+                if (p) {
+                  setSelectedProductForDetail(p);
+                }
+              }}
+            />
+          </DashboardShell>
         )}
 
         {/* VIEW 3: SELLER CENTER PORTAL (RBAC Guarded) */}
         {activeView === 'seller' && (
           authUser?.role === 'seller' ? (
-            <SellerPortal />
+            <DashboardShell
+              title={authUser?.name || 'Seller Dashboard'}
+              subtitle="Manage your storefront, inventory, orders, and payouts from one view."
+              rightHeaderLabel={authUser?.name || 'Seller'}
+              navItems={[
+                { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
+                { label: 'Products', icon: <Boxes className="w-4 h-4" /> },
+                { label: 'Inventory', icon: <ShoppingBag className="w-4 h-4" /> },
+                { label: 'Orders', icon: <Package className="w-4 h-4" />, badge: 1 },
+                { label: 'Payouts', icon: <Wallet className="w-4 h-4" /> },
+                { label: 'Verification', icon: <ShieldCheck className="w-4 h-4" /> },
+                { label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+              ]}
+              onNavigate={(label) => {
+                const tabMap: Record<string, typeof sellerTab> = {
+                  Dashboard: 'dashboard',
+                  Products: 'products',
+                  Inventory: 'inventory',
+                  Orders: 'orders',
+                  Payouts: 'payouts',
+                  Verification: 'verification',
+                  Settings: 'settings',
+                };
+                const nextTab = tabMap[label];
+                if (nextTab) setSellerTab(nextTab);
+              }}
+            >
+              <SellerPortal requestedTab={sellerTab} />
+            </DashboardShell>
           ) : (
             <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600 border border-emerald-200">
@@ -504,8 +663,50 @@ function MarketplaceApp() {
            authUser?.role === 'finance_admin' ||
            authUser?.role === 'seller_admin' ||
            authUser?.role === 'logistics_admin' ||
-           authUser?.role === 'product_admin') ? (
-            <AdminControlHub />
+           authUser?.role === 'product_admin' ||
+           authUser?.role === 'support_admin' ||
+           authUser?.role === 'marketing_admin') ? (
+            <DashboardShell
+              title={`Good morning, ${authUser?.name?.split(' ')[0] || 'Robert'}`}
+              subtitle="Here’s what’s happening with your marketplace today."
+              rightHeaderLabel={authUser?.name || 'Robert Otieno'}
+              navItems={[
+                { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
+                { label: 'Users', icon: <Users className="w-4 h-4" /> },
+                { label: 'Roles & Permissions', icon: <ShieldCheck className="w-4 h-4" /> },
+                { label: 'Security Center', icon: <ShieldAlert className="w-4 h-4" /> },
+                { label: 'System Controls', icon: <Settings className="w-4 h-4" /> },
+                { label: 'Audit Logs', icon: <FileText className="w-4 h-4" /> },
+                { label: 'Sellers & KYC', icon: <Users className="w-4 h-4" />, badge: 1 },
+                { label: 'Catalog Moderation', icon: <Boxes className="w-4 h-4" /> },
+                { label: 'Master Orders', icon: <ShoppingBag className="w-4 h-4" /> },
+                { label: 'Finance & Ledger', icon: <Wallet className="w-4 h-4" /> },
+                { label: 'Marketing Coupons', icon: <Ticket className="w-4 h-4" />, badge: 3 },
+                { label: 'Delivery Zones', icon: <MapPinned className="w-4 h-4" />, badge: 47 },
+                { label: 'System Settings', icon: <Settings className="w-4 h-4" /> },
+              ]}
+              onNavigate={(label) => {
+                const tabMap: Record<string, typeof adminTab> = {
+                  Dashboard: 'analytics',
+                  Users: 'users',
+                  'Roles & Permissions': 'roles',
+                  'Security Center': 'security',
+                  'System Controls': 'system',
+                  'Audit Logs': 'audit',
+                  'Sellers & KYC': 'sellers',
+                  'Catalog Moderation': 'catalog',
+                  'Master Orders': 'orders',
+                  'Finance & Ledger': 'finance',
+                  'Marketing Coupons': 'coupons',
+                  'Delivery Zones': 'logistics',
+                  'System Settings': 'settings',
+                };
+                const nextTab = tabMap[label];
+                if (nextTab) setAdminTab(nextTab);
+              }}
+            >
+              <AdminControlHub requestedTab={adminTab} />
+            </DashboardShell>
           ) : (
             <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
               <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 border border-purple-200">
@@ -549,7 +750,9 @@ function MarketplaceApp() {
             role === 'finance_admin' ||
             role === 'seller_admin' ||
             role === 'logistics_admin' ||
-            role === 'product_admin'
+              role === 'product_admin' ||
+              role === 'support_admin' ||
+              role === 'marketing_admin'
           ) {
             setActiveView('admin');
           } else {

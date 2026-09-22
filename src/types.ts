@@ -7,10 +7,96 @@ export type Role =
   | 'support_admin'
   | 'marketing_admin'
   | 'seller'
-  | 'customer';
+  | 'customer'
+  | (string & {});
 
 export type SellerStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended' | 'disabled';
-export type ProductStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'active' | 'inactive' | 'out_of_stock';
+export type SellerApplicationStatus = 'unverified' | 'incomplete' | 'pending_review' | 'more_information_required' | 'verified' | 'suspended' | 'rejected' | 'reverification_required';
+export type VerificationItemStatus = 'pending' | 'under_review' | 'verified' | 'rejected' | 'expired' | 're_upload_required';
+export type SellerType = 'individual' | 'sole_proprietor' | 'partnership' | 'limited_company' | 'other_organization';
+
+export interface SellerPerson {
+  id: string;
+  fullName: string;
+  nationality?: string;
+  idOrPassportNumber?: string;
+  kraPin?: string;
+  dateOfBirth?: string;
+  phone?: string;
+  email?: string;
+  residentialAddress?: string;
+  ownershipPercentage?: number;
+  natureOfControl?: string;
+}
+
+export interface SellerDocument {
+  id: string;
+  documentType: string;
+  documentNumber?: string;
+  fileName?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  status: VerificationItemStatus;
+  verificationNotes?: string;
+  uploadedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface SellerVerification {
+  sellerType: SellerType;
+  natureOfBusiness: string;
+  productCategories: string[];
+  expectedMonthlySalesVolume: string;
+  numberOfEmployees?: number;
+  legalName: string;
+  tradingName: string;
+  nationality?: string;
+  dateOfBirth?: string;
+  idOrPassportNumber?: string;
+  identitySelfieFileName?: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  otpVerified: boolean;
+  residentialAddress: string;
+  physicalBusinessAddress: string;
+  buildingOrEstate: string;
+  streetOrRoad: string;
+  floorOrUnit: string;
+  locationDescription: string;
+  gpsCoordinates?: string;
+  website?: string;
+  socialMedia?: string;
+  vatNumber?: string;
+  vatApplicable: boolean;
+  mpesaNumber?: string;
+  mpesaAccountHolderName?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  partners: SellerPerson[];
+  directors: SellerPerson[];
+  beneficialOwners: SellerPerson[];
+  documents: SellerDocument[];
+  declarations: Record<string, boolean>;
+  declarationAcceptedAt?: string;
+  termsVersion?: string;
+  privacyPolicyVersion?: string;
+  applicationStatus: SellerApplicationStatus;
+  identityStatus: VerificationItemStatus;
+  businessStatus: VerificationItemStatus;
+  taxStatus: VerificationItemStatus;
+  payoutStatus: VerificationItemStatus;
+  categoryComplianceStatus: VerificationItemStatus;
+  riskFlags: string[];
+  reviewNotes?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+}
+export type ProductStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'active' | 'inactive' | 'out_of_stock' | 'archived';
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
@@ -38,6 +124,13 @@ export interface User {
   permissions: string[];
   status: 'active' | 'suspended';
   avatar?: string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'reverification_required';
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  mustChangePassword?: boolean;
+  twoFactorEnabled?: boolean;
+  adminNotes?: string;
+  deactivatedAt?: string;
   createdAt: string;
 }
 
@@ -67,6 +160,7 @@ export interface Seller {
   totalPayouts: number;
   payoutMethod: 'mpesa' | 'bank';
   payoutAccount: string;
+  verification?: SellerVerification;
   createdAt: string;
 }
 
@@ -400,7 +494,7 @@ export interface ReturnRequest {
   productImage: string;
   price: number;
   reason: string;
-  status: 'pending_review' | 'approved' | 'item_received' | 'refunded' | 'rejected';
+  status: 'pending_review' | 'approved' | 'item_received' | 'refunded' | 'rejected' | 'cancelled';
   rejectionReason?: string;
   createdAt: string;
   resolvedAt?: string;
