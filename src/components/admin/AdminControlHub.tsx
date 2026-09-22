@@ -21,14 +21,41 @@ import {
   Percent,
   Lock,
   Plus,
+  Settings,
 } from 'lucide-react';
-import { Role, SellerStatus, PayoutStatus, Coupon } from '../../types';
+import { Role, SellerStatus, PayoutStatus, Coupon, SystemSettings } from '../../types';
+
+const SettingsSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <section className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
+    <h3 className="text-sm font-extrabold text-neutral-900 border-b border-neutral-100 pb-2">{title}</h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
+  </section>
+);
+
+const SettingsInput: React.FC<{ label: string; value: string; onChange: (value: string) => void }> = ({ label, value, onChange }) => (
+  <label className="text-xs font-semibold text-neutral-600">
+    <span className="block mb-1">{label}</span>
+    <input value={value} onChange={(event) => onChange(event.target.value)} className="w-full border border-neutral-300 rounded-lg px-2.5 py-2 text-xs text-neutral-900" />
+  </label>
+);
+
+const SettingsNumber: React.FC<{ label: string; value: number; onChange: (value: number) => void }> = ({ label, value, onChange }) => (
+  <label className="text-xs font-semibold text-neutral-600">
+    <span className="block mb-1">{label}</span>
+    <input type="number" min="0" value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full border border-neutral-300 rounded-lg px-2.5 py-2 text-xs text-neutral-900" />
+  </label>
+);
+
+const SettingsToggle: React.FC<{ label: string; checked: boolean; onChange: (value: boolean) => void }> = ({ label, checked, onChange }) => (
+  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 py-2">
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="rounded text-amber-500" />
+    {label}
+  </label>
+);
 
 export const AdminControlHub: React.FC = () => {
   const {
     authUser,
-    currentRole,
-    setCurrentRole,
     sellers,
     products,
     orders,
@@ -44,11 +71,14 @@ export const AdminControlHub: React.FC = () => {
     approvePayout,
     rejectPayout,
     createCoupon,
+    settings,
+    updateSettings,
   } = useMarketplace();
 
   const [adminTab, setAdminTab] = useState<
-    'analytics' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics'
+    'analytics' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics' | 'settings'
   >('analytics');
+  const [settingsDraft, setSettingsDraft] = useState<SystemSettings>(settings);
 
   // Coupon Creation State
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -102,7 +132,7 @@ export const AdminControlHub: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-white">Allsales Marketplace Admin Hub</h1>
+              <h1 className="text-lg font-bold text-white">KESALES Marketplace Admin Hub</h1>
               <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded tracking-wide uppercase">
                 Enterprise
               </span>
@@ -129,7 +159,7 @@ export const AdminControlHub: React.FC = () => {
                   {authUser?.name || 'Administrator'}
                 </div>
                 <div className="text-[10px] text-purple-700 font-semibold capitalize mt-0.5">
-                  {currentRole.replace('_', ' ')}
+                  {(authUser?.role || 'admin').replace('_', ' ')}
                 </div>
               </div>
             </div>
@@ -265,6 +295,23 @@ export const AdminControlHub: React.FC = () => {
                   47
                 </span>
               </button>
+
+              <button
+                onClick={() => {
+                  setSettingsDraft(settings);
+                  setAdminTab('settings');
+                }}
+                className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left ${
+                  adminTab === 'settings'
+                    ? 'bg-amber-50 text-amber-700 font-bold'
+                    : 'text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Settings className="w-4 h-4 text-neutral-600" />
+                  <span>System Settings</span>
+                </div>
+              </button>
             </nav>
           </div>
 
@@ -311,7 +358,7 @@ export const AdminControlHub: React.FC = () => {
                 {formatKSh(totalCommissionsEarned)}
               </div>
               <p className="text-[11px] text-neutral-400 mt-1">
-                Net earned revenue retained by Allsales
+                Net earned revenue retained by KESALES
               </p>
             </div>
 
@@ -892,6 +939,64 @@ export const AdminControlHub: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* SYSTEM SETTINGS TAB */}
+      {adminTab === 'settings' && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-lg font-extrabold text-neutral-900">System Settings</h2>
+            <p className="text-xs text-neutral-500 mt-1">Manage KESALES configuration stored in the frontend demo state.</p>
+          </div>
+          <form
+            className="grid grid-cols-1 xl:grid-cols-2 gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              updateSettings(settingsDraft);
+            }}
+          >
+            <SettingsSection title="General">
+              <SettingsInput label="Marketplace Name" value={settingsDraft.general.marketplaceName} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, marketplaceName: value } }))} />
+              <SettingsInput label="Support Email" value={settingsDraft.general.supportEmail} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, supportEmail: value } }))} />
+              <SettingsInput label="Support Phone" value={settingsDraft.general.supportPhone} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, supportPhone: value } }))} />
+              <SettingsInput label="Address" value={settingsDraft.general.address} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, general: { ...prev.general, address: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Commerce">
+              <SettingsNumber label="Commission rate (%)" value={settingsDraft.commerce.defaultCommissionRate} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, defaultCommissionRate: value } }))} />
+              <SettingsNumber label="Minimum payout (KSh)" value={settingsDraft.commerce.minPayoutAmount} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, minPayoutAmount: value } }))} />
+              <SettingsNumber label="Return period (days)" value={settingsDraft.commerce.returnPeriodDays} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, returnPeriodDays: value } }))} />
+              <SettingsNumber label="VAT (%)" value={settingsDraft.commerce.vatRate} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, commerce: { ...prev.commerce, vatRate: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Payments">
+              <SettingsToggle label="M-Pesa" checked={settingsDraft.payments.enableMpesa} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableMpesa: value } }))} />
+              <SettingsToggle label="Cards" checked={settingsDraft.payments.enableCard} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableCard: value } }))} />
+              <SettingsToggle label="Bank transfer" checked={settingsDraft.payments.enableBankTransfer} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableBankTransfer: value } }))} />
+              <SettingsToggle label="Cash on delivery" checked={settingsDraft.payments.enableCod} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, payments: { ...prev.payments, enableCod: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Delivery & Notifications">
+              <SettingsNumber label="Delivery fee (KSh)" value={settingsDraft.delivery.defaultDeliveryFee} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, defaultDeliveryFee: value } }))} />
+              <SettingsNumber label="Free delivery threshold (KSh)" value={settingsDraft.delivery.freeDeliveryThreshold} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, freeDeliveryThreshold: value } }))} />
+              <SettingsToggle label="Pickup stations" checked={settingsDraft.delivery.enablePickupStations} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, delivery: { ...prev.delivery, enablePickupStations: value } }))} />
+              <SettingsToggle label="Email notifications" checked={settingsDraft.notifications.emailNotificationsEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, notifications: { ...prev.notifications, emailNotificationsEnabled: value } }))} />
+              <SettingsToggle label="SMS notifications" checked={settingsDraft.notifications.smsNotificationsEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, notifications: { ...prev.notifications, smsNotificationsEnabled: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Security & SEO">
+              <SettingsNumber label="Password minimum length" value={settingsDraft.security.passwordMinLength} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, passwordMinLength: value } }))} />
+              <SettingsNumber label="Session timeout (minutes)" value={settingsDraft.security.sessionTimeoutMinutes} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, sessionTimeoutMinutes: value } }))} />
+              <SettingsToggle label="Require admin 2FA" checked={settingsDraft.security.twoFactorRequiredForAdmins} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, security: { ...prev.security, twoFactorRequiredForAdmins: value } }))} />
+              <SettingsInput label="Meta title" value={settingsDraft.seo.metaTitle} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, seo: { ...prev.seo, metaTitle: value } }))} />
+              <SettingsToggle label="Search indexing" checked={settingsDraft.seo.indexingEnabled} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, seo: { ...prev.seo, indexingEnabled: value } }))} />
+            </SettingsSection>
+            <SettingsSection title="Maintenance">
+              <SettingsToggle label="Maintenance mode" checked={settingsDraft.maintenance.isMaintenanceMode} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, maintenance: { ...prev.maintenance, isMaintenanceMode: value } }))} />
+              <SettingsInput label="Maintenance message" value={settingsDraft.maintenance.maintenanceMessage} onChange={(value) => setSettingsDraft((prev) => ({ ...prev, maintenance: { ...prev.maintenance, maintenanceMessage: value } }))} />
+            </SettingsSection>
+            <div className="xl:col-span-2 flex justify-end gap-2">
+              <button type="button" onClick={() => setSettingsDraft(settings)} className="px-4 py-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700">Cancel / Reset</button>
+              <button type="submit" className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-xs font-bold text-neutral-950">Save Settings</button>
+            </div>
+          </form>
         </div>
       )}
         </div>

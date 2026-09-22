@@ -12,10 +12,9 @@ import { CustomerAccountModal } from './components/storefront/CustomerAccountMod
 import { CustomerPortal } from './components/customer/CustomerPortal';
 import { SellerPortal } from './components/seller/SellerPortal';
 import { AdminControlHub } from './components/admin/AdminControlHub';
-import { RestApiExplorer } from './components/api/RestApiExplorer';
-import { LaravelArchitectureViewer } from './components/laravel/LaravelArchitectureViewer';
 import { AuthModal } from './components/auth/AuthModal';
 import { Footer } from './components/Footer';
+import { PublicInfoPage, PublicPageSlug } from './components/PublicInfoPage';
 import { Product, MasterOrder, Role } from './types';
 import {
   SlidersHorizontal,
@@ -36,8 +35,9 @@ function MarketplaceApp() {
 
   // Navigation & Modals View state
   const [activeView, setActiveView] = useState<
-    'storefront' | 'seller' | 'admin' | 'customer' | 'api' | 'laravel'
+    'storefront' | 'seller' | 'admin' | 'customer'
   >('storefront');
+  const [publicPage, setPublicPage] = useState<PublicPageSlug | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -92,11 +92,13 @@ function MarketplaceApp() {
         }
 
         // Official Stores filter
-        if (onlyOfficial && !p.isFeatured) {
+        if (onlyOfficial) {
           // Check if seller is official
           const brand = brands.find((b) => b.id === p.brandId);
           if (!brand?.isOfficial) return false;
         }
+
+        if (onlyExpress && !p.isExpress) return false;
 
         return true;
       })
@@ -108,7 +110,21 @@ function MarketplaceApp() {
         if (sortBy === 'price_desc') return priceB - priceA;
         if (sortBy === 'rating') return b.rating - a.rating;
         if (sortBy === 'popular') return b.reviewsCount - a.reviewsCount;
-        return 0; // relevance
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return (Number(b.isFeatured) - Number(a.isFeatured)) || b.reviewsCount - a.reviewsCount;
+        const score = (product: Product) => {
+          const brand = brands.find((item) => item.id === product.brandId)?.name.toLowerCase() || '';
+          const category = categories.find((item) => item.id === product.categoryId)?.name.toLowerCase() || '';
+          const name = product.name.toLowerCase();
+          const description = `${product.shortDescription} ${product.description}`.toLowerCase();
+          return (name === query ? 100 : 0) +
+            (name.includes(query) ? 40 : 0) +
+            (brand.includes(query) ? 25 : 0) +
+            (category.includes(query) ? 20 : 0) +
+            (description.includes(query) ? 10 : 0) +
+            product.rating * 2 + Math.log10(product.reviewsCount + 1);
+        };
+        return score(b) - score(a);
       });
   }, [
     products,
@@ -117,9 +133,11 @@ function MarketplaceApp() {
     selectedBrand,
     minPrice,
     maxPrice,
+    onlyExpress,
     onlyOfficial,
     sortBy,
     brands,
+    categories,
   ]);
 
   const resetFilters = () => {
@@ -139,6 +157,7 @@ function MarketplaceApp() {
     selectedBrand !== 'all' ||
     minPrice > 0 ||
     maxPrice < 200000 ||
+    onlyExpress ||
     onlyOfficial;
 
   const handleCheckoutInitiated = () => {
@@ -175,12 +194,27 @@ function MarketplaceApp() {
           setAuthModalTab(tab || 'login');
           setIsAuthModalOpen(true);
         }}
+        onBackToStorefront={() => {
+          setPublicPage(null);
+          setActiveView('storefront');
+        }}
       />
 
       {/* 2. Main Body Content Switcher */}
       <main className="flex-1">
         {/* VIEW 1: CUSTOMER STOREFRONT */}
-        {activeView === 'storefront' && (
+        {activeView === 'storefront' && publicPage && (
+          <PublicInfoPage
+            slug={publicPage}
+            onBack={() => setPublicPage(null)}
+            onOpenAuth={(tab) => {
+              setAuthModalTab(tab || 'login');
+              setIsAuthModalOpen(true);
+            }}
+          />
+        )}
+
+        {activeView === 'storefront' && !publicPage && (
           <div className="max-w-7xl mx-auto px-4">
             {/* Show Hero & Promos only when browsing top-level without search */}
             {!hasActiveFilters && (
@@ -361,6 +395,15 @@ function MarketplaceApp() {
                       <label className="flex items-center gap-2 cursor-pointer text-neutral-700">
                         <input
                           type="checkbox"
+                          checked={onlyExpress}
+                          onChange={(e) => setOnlyExpress(e.target.checked)}
+                          className="rounded text-amber-500"
+                        />
+                        <span>KESALES Express eligible</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-neutral-700">
+                        <input
+                          type="checkbox"
                           checked={onlyOfficial}
                           onChange={(e) => setOnlyOfficial(e.target.checked)}
                           className="rounded text-amber-500"
@@ -426,10 +469,10 @@ function MarketplaceApp() {
                 <Store className="w-7 h-7" />
               </div>
               <h2 className="text-lg font-black text-neutral-900 mb-1">
-                Allsales Seller Center
+                KESALES Seller Center
               </h2>
               <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                Access to the merchant portal requires an approved Allsales Kenya seller account. Sign in to your vendor profile or register your shop today.
+                Access to the merchant portal requires an approved KESALES seller account. Sign in to your vendor profile or register your shop today.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
@@ -472,7 +515,7 @@ function MarketplaceApp() {
                 Restricted Governance Area
               </h2>
               <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                This console is reserved exclusively for authenticated Allsales Kenya administrative staff (Finance, KYC Compliance, Super Admin).
+                This console is reserved exclusively for authenticated KESALES administrative staff (Finance, KYC Compliance, Super Admin).
               </p>
               <button
                 onClick={() => {
@@ -488,15 +531,10 @@ function MarketplaceApp() {
           )
         )}
 
-        {/* VIEW 5: REST API EXPLORER */}
-        {activeView === 'api' && <RestApiExplorer />}
-
-        {/* VIEW 6: LARAVEL ARCHITECTURE & CODEBASE */}
-        {activeView === 'laravel' && <LaravelArchitectureViewer />}
       </main>
 
-      {/* 3. Global Footer */}
-      <Footer />
+      {/* Public storefront footer */}
+      {activeView === 'storefront' && !publicPage && <Footer onOpenPage={setPublicPage} />}
 
       {/* 4. Real Authentication Modal */}
       <AuthModal

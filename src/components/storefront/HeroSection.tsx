@@ -183,7 +183,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-center gap-2 text-amber-600 mb-1">
               <Store className="w-5 h-5" />
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-900">
-                Sell on Allsales
+                Sell on KESALES
               </span>
             </div>
             <h4 className="text-xs font-bold text-neutral-800 mb-1">
@@ -208,7 +208,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="flex items-start gap-2">
               <Truck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-neutral-800">Allsales Express</span>
+                <span className="font-bold text-neutral-800">KESALES Express</span>
                 <p className="text-[11px] text-neutral-500">
                   Fast next-day delivery on thousands of products.
                 </p>

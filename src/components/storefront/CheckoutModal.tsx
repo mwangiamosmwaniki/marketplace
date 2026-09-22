@@ -131,7 +131,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleMpesaPinSubmit = async () => {
     if (mpesaPin.length < 4) {
-      alert('Please enter a 4-digit M-Pesa PIN');
+      setOrderError('Please enter a 4-digit M-Pesa PIN');
       return;
     }
     setMpesaProcessing(true);
@@ -229,7 +229,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-xs text-neutral-900 mb-1">
                       <MapPin className="w-4 h-4 text-amber-600" />
-                      <span>Allsales Pickup Station</span>
+                      <span>KESALES Pickup Station</span>
                     </div>
                     <p className="text-[11px] text-neutral-500">
                       Collect at a designated secure neighborhood hub.
@@ -661,12 +661,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </h4>
             <p className="text-xs text-neutral-300 mb-4">
               Do you want to pay <span className="text-white font-bold">{formatKSh(cartGrandTotal)}</span> to{' '}
-              <span className="text-emerald-300 font-bold">JUMIA ONLINE MARKETPLACE</span>?
+              <span className="text-emerald-300 font-bold">KESALES</span>?
             </p>
 
             <div className="bg-neutral-800 p-3 rounded-lg border border-neutral-700 mb-4 text-left font-mono text-xs text-neutral-300 space-y-1">
               <div>Business No: 829104</div>
-              <div>Account: JUMIA-CHK</div>
+              <div>Account: KESALES-DEMO</div>
               <div>Amount: {formatKSh(cartGrandTotal)}</div>
             </div>
 

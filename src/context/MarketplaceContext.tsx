@@ -62,9 +62,7 @@ interface MarketplaceContextType {
 
   // Navigation & Role derived from authenticated user
   currentRole: Role;
-  setCurrentRole: (role: Role) => void;
   currentSellerId: string;
-  setCurrentSellerId: (sellerId: string) => void;
   currentSeller: Seller | undefined;
 
   // Data
@@ -208,98 +206,78 @@ const MarketplaceContext = createContext<MarketplaceContextType | undefined>(und
 export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Authentication & Real User State
   const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('allsales_users');
+    const saved = localStorage.getItem('kesales_users');
     return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
 
   const [authUser, setAuthUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('allsales_auth_user');
+    const saved = localStorage.getItem('kesales_auth_user');
     return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Jane Wambui (Customer)
   });
 
   // Current view state derived from authenticated user
-  const [currentRole, setCurrentRoleState] = useState<Role>(() => authUser ? authUser.role : 'customer');
-  const [currentSellerId, setCurrentSellerIdState] = useState<string>(() => (authUser && authUser.sellerId) || 'seller-1');
-
-  // Keep role and sellerId strictly synchronized with authenticated user
-  useEffect(() => {
-    if (authUser) {
-      setCurrentRoleState(authUser.role);
-      if (authUser.sellerId) {
-        setCurrentSellerIdState(authUser.sellerId);
-      }
-    } else {
-      setCurrentRoleState('customer');
-    }
-  }, [authUser]);
-
-  const setCurrentRole = (role: Role) => {
-    setCurrentRoleState(role);
-  };
-
-  const setCurrentSellerId = (sellerId: string) => {
-    setCurrentSellerIdState(sellerId);
-  };
+  const currentRole: Role = authUser?.role || 'customer';
+  const currentSellerId = authUser?.sellerId || 'seller-1';
 
   // Datasets initialized from storage or defaults
   const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('allsales_categories');
+    const saved = localStorage.getItem('kesales_categories');
     return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
   });
   const [brands, setBrands] = useState<Brand[]>(() => {
-    const saved = localStorage.getItem('allsales_brands');
+    const saved = localStorage.getItem('kesales_brands');
     return saved ? JSON.parse(saved) : INITIAL_BRANDS;
   });
   const [sellers, setSellers] = useState<Seller[]>(() => {
-    const saved = localStorage.getItem('allsales_sellers');
+    const saved = localStorage.getItem('kesales_sellers');
     return saved ? JSON.parse(saved) : INITIAL_SELLERS;
   });
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('allsales_products');
+    const saved = localStorage.getItem('kesales_products');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
   const [orders, setOrders] = useState<MasterOrder[]>(() => {
-    const saved = localStorage.getItem('allsales_orders');
+    const saved = localStorage.getItem('kesales_orders');
     return saved ? JSON.parse(saved) : INITIAL_ORDERS;
   });
   const [ledger, setLedger] = useState<FinancialLedgerEntry[]>(() => {
-    const saved = localStorage.getItem('allsales_ledger');
+    const saved = localStorage.getItem('kesales_ledger');
     return saved ? JSON.parse(saved) : INITIAL_LEDGER;
   });
   const [payouts, setPayouts] = useState<SellerPayoutRequest[]>(() => {
-    const saved = localStorage.getItem('allsales_payouts');
+    const saved = localStorage.getItem('kesales_payouts');
     return saved ? JSON.parse(saved) : INITIAL_PAYOUTS;
   });
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('allsales_coupons');
+    const saved = localStorage.getItem('kesales_coupons');
     return saved ? JSON.parse(saved) : INITIAL_COUPONS;
   });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('allsales_audit_logs');
+    const saved = localStorage.getItem('kesales_audit_logs');
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(() => {
-    const saved = localStorage.getItem('allsales_delivery_zones');
+    const saved = localStorage.getItem('kesales_delivery_zones');
     return saved ? JSON.parse(saved) : INITIAL_DELIVERY_ZONES;
   });
   const [settings, setSettings] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem('allsales_settings');
+    const saved = localStorage.getItem('kesales_settings');
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem('allsales_support_tickets');
+    const saved = localStorage.getItem('kesales_support_tickets');
     return saved ? JSON.parse(saved) : INITIAL_SUPPORT_TICKETS;
   });
   const [promotions, setPromotions] = useState<Promotion[]>(() => {
-    const saved = localStorage.getItem('allsales_promotions');
+    const saved = localStorage.getItem('kesales_promotions');
     return saved ? JSON.parse(saved) : INITIAL_PROMOTIONS;
   });
   const [returns, setReturns] = useState<ReturnRequest[]>(() => {
-    const saved = localStorage.getItem('allsales_returns');
+    const saved = localStorage.getItem('kesales_returns');
     return saved ? JSON.parse(saved) : INITIAL_RETURNS;
   });
   const [addresses, setAddresses] = useState<DeliveryAddress[]>(() => {
-    const saved = localStorage.getItem('allsales_addresses');
+    const saved = localStorage.getItem('kesales_addresses');
     return saved ? JSON.parse(saved) : [
       {
         id: 'addr-1',
@@ -326,11 +304,11 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Cart & Wishlist
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('allsales_cart');
+    const saved = localStorage.getItem('kesales_cart');
     return saved ? JSON.parse(saved) : [];
   });
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem('allsales_wishlist');
+    const saved = localStorage.getItem('kesales_wishlist');
     return saved ? JSON.parse(saved) : ['prod-sony-wh1000xm5', 'prod-nike-airmax-90'];
   });
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -352,7 +330,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         productId: 'prod-s24-ultra',
         customerName: 'Beatrice A.',
         rating: 5,
-        comment: 'Original Samsung warranty confirmed via dial code. Arrived in 24 hours via Allsales Express!',
+        comment: 'Original Samsung warranty confirmed via dial code. Arrived in 24 hours via KESALES Express!',
         verifiedPurchase: true,
         date: '2026-09-15',
       },
@@ -382,13 +360,13 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     setAuthUser(found);
-    localStorage.setItem('allsales_auth_user', JSON.stringify(found));
+    localStorage.setItem('kesales_auth_user', JSON.stringify(found));
     return { success: true, user: found };
   };
 
   const logout = () => {
     setAuthUser(null);
-    localStorage.removeItem('allsales_auth_user');
+    localStorage.removeItem('kesales_auth_user');
   };
 
   const registerUser = (userData: {
@@ -423,7 +401,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         businessRegNumber: 'BN-' + Math.floor(100000 + Math.random() * 900000),
         logo: 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=150&auto=format&fit=crop&q=80',
         banner: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&auto=format&fit=crop&q=80',
-        description: 'New verified vendor on Allsales Kenya marketplace.',
+        description: 'New verified vendor on KESALES marketplace.',
         status: 'approved',
         commissionRate: 10,
         rating: 5.0,
@@ -455,86 +433,86 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setUsers((prev) => {
       const updated = [...prev, newUser];
-      localStorage.setItem('allsales_users', JSON.stringify(updated));
+      localStorage.setItem('kesales_users', JSON.stringify(updated));
       return updated;
     });
 
     setAuthUser(newUser);
-    localStorage.setItem('allsales_auth_user', JSON.stringify(newUser));
+    localStorage.setItem('kesales_auth_user', JSON.stringify(newUser));
     return { success: true, user: newUser };
   };
 
   // Sync state to LocalStorage
   useEffect(() => {
-    localStorage.setItem('allsales_users', JSON.stringify(users));
+    localStorage.setItem('kesales_users', JSON.stringify(users));
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_sellers', JSON.stringify(sellers));
+    localStorage.setItem('kesales_sellers', JSON.stringify(sellers));
   }, [sellers]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_products', JSON.stringify(products));
+    localStorage.setItem('kesales_products', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_orders', JSON.stringify(orders));
+    localStorage.setItem('kesales_orders', JSON.stringify(orders));
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_ledger', JSON.stringify(ledger));
+    localStorage.setItem('kesales_ledger', JSON.stringify(ledger));
   }, [ledger]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_payouts', JSON.stringify(payouts));
+    localStorage.setItem('kesales_payouts', JSON.stringify(payouts));
   }, [payouts]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_coupons', JSON.stringify(coupons));
+    localStorage.setItem('kesales_coupons', JSON.stringify(coupons));
   }, [coupons]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_cart', JSON.stringify(cart));
+    localStorage.setItem('kesales_cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_wishlist', JSON.stringify(wishlist));
+    localStorage.setItem('kesales_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_audit_logs', JSON.stringify(auditLogs));
+    localStorage.setItem('kesales_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_categories', JSON.stringify(categories));
+    localStorage.setItem('kesales_categories', JSON.stringify(categories));
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_brands', JSON.stringify(brands));
+    localStorage.setItem('kesales_brands', JSON.stringify(brands));
   }, [brands]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_delivery_zones', JSON.stringify(deliveryZones));
+    localStorage.setItem('kesales_delivery_zones', JSON.stringify(deliveryZones));
   }, [deliveryZones]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_settings', JSON.stringify(settings));
+    localStorage.setItem('kesales_settings', JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_support_tickets', JSON.stringify(supportTickets));
+    localStorage.setItem('kesales_support_tickets', JSON.stringify(supportTickets));
   }, [supportTickets]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_promotions', JSON.stringify(promotions));
+    localStorage.setItem('kesales_promotions', JSON.stringify(promotions));
   }, [promotions]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_returns', JSON.stringify(returns));
+    localStorage.setItem('kesales_returns', JSON.stringify(returns));
   }, [returns]);
 
   useEffect(() => {
-    localStorage.setItem('allsales_addresses', JSON.stringify(addresses));
+    localStorage.setItem('kesales_addresses', JSON.stringify(addresses));
   }, [addresses]);
 
   // Current logged in seller object
@@ -757,7 +735,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // 3. Generate Master Order and Seller Sub-Orders
     const orderTimestamp = new Date().toISOString();
     const orderRandomSuffix = Math.floor(100000 + Math.random() * 900000);
-    const orderNumber = `JM-ORD-${orderRandomSuffix}`;
+    const orderNumber = `KS-ORD-${orderRandomSuffix}`;
     const masterOrderId = `ord-${Date.now()}`;
 
     // Split items into sub-orders for each seller
@@ -880,7 +858,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       orderNumber,
       customerId: 'cust-demo-1',
       customerName: orderData.address.fullName,
-      customerEmail: 'customer@allsales.ke',
+      customerEmail: 'customer@kesales.ke',
       customerPhone: orderData.address.phone,
       deliveryAddress: orderData.address,
       deliveryType: orderData.deliveryType,
@@ -1589,9 +1567,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         logout,
         registerUser,
         currentRole,
-        setCurrentRole,
         currentSellerId,
-        setCurrentSellerId,
         currentSeller,
         categories,
         brands,

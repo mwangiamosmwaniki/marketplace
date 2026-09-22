@@ -204,7 +204,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <form onSubmit={handleApplyCoupon} className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="e.g. JUMIA10 or WELCOME500"
+                      placeholder="e.g. KESALES10 or WELCOME500"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                       className="flex-1 text-xs p-2 border border-neutral-300 rounded bg-white font-mono"
@@ -233,12 +233,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setCouponInput('JUMIA10');
-                      applyCoupon('JUMIA10');
+                      setCouponInput('KESALES10');
+                      applyCoupon('KESALES10');
                     }}
                     className="underline hover:text-amber-600"
                   >
-                    JUMIA10
+                    KESALES10
                   </button>
                   <span>•</span>
                   <button

@@ -27,9 +27,10 @@ interface NavbarProps {
   onSelectCategory: (categoryId: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  activeView: 'storefront' | 'seller' | 'admin' | 'customer' | 'api' | 'laravel';
-  setActiveView: (view: 'storefront' | 'seller' | 'admin' | 'customer' | 'api' | 'laravel') => void;
+  activeView: 'storefront' | 'seller' | 'admin' | 'customer';
+  setActiveView: (view: 'storefront' | 'seller' | 'admin' | 'customer') => void;
   onOpenAuthModal: (tab?: 'login' | 'register_customer' | 'register_seller') => void;
+  onBackToStorefront: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -41,6 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeView,
   setActiveView,
   onOpenAuthModal,
+  onBackToStorefront,
 }) => {
   const {
     authUser,
@@ -97,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <div>
                   <span className="font-black text-lg tracking-tight text-neutral-900">
-                    ALLSALES<span className="text-amber-500">.</span>
+                    KESALES<span className="text-amber-500">.</span>
                   </span>
                   <span className="text-[10px] font-extrabold tracking-widest text-emerald-700 block -mt-1 uppercase">
                     Seller Center
@@ -133,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Right Context Controls */}
             <div className="flex items-center gap-2 sm:gap-3">
               <button
-                onClick={() => setActiveView('storefront')}
+                onClick={onBackToStorefront}
                 className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-amber-600 px-2.5 py-1.5 rounded-lg hover:bg-neutral-50 transition-colors"
                 title="Preview public storefront"
               >
@@ -248,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <div>
                   <span className="font-black text-lg tracking-tight text-white">
-                    ALLSALES<span className="text-amber-500">.</span>
+                    KESALES<span className="text-amber-500">.</span>
                   </span>
                   <span className="text-[10px] font-extrabold tracking-widest text-amber-400 block -mt-1 uppercase">
                     Admin Control Hub
@@ -279,7 +281,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Right Context Controls */}
             <div className="flex items-center gap-2 sm:gap-3">
               <button
-                onClick={() => setActiveView('storefront')}
+                onClick={onBackToStorefront}
                 className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-neutral-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-neutral-900 transition-colors"
                 title="View customer storefront"
               >
@@ -362,8 +364,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="bg-neutral-900 text-neutral-300 text-xs py-1.5 px-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-amber-400 font-extrabold tracking-wide flex items-center gap-1">
-              <span>★</span> ALLSALES MARKETPLACE
+              <span className="text-amber-400 font-extrabold tracking-wide flex items-center gap-1">
+              <span>★</span> KESALES MARKETPLACE
             </span>
             <span className="hidden lg:inline text-neutral-400 border-l border-neutral-700 pl-3">
               Kenya's Leading Multi-Vendor E-Commerce Platform
@@ -376,7 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="text-neutral-300 hover:text-amber-400 transition-colors font-medium flex items-center gap-1"
             >
               <Store className="w-3 h-3 text-amber-400" />
-              <span>Sell on Allsales</span>
+              <span>Sell on KESALES</span>
             </button>
 
             <div className="hidden sm:flex items-center gap-1 text-neutral-400">
@@ -392,7 +394,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between gap-4">
           {/* Brand Logo */}
           <div
-            onClick={() => setActiveView('storefront')}
+            onClick={onBackToStorefront}
             className="flex items-center gap-2.5 cursor-pointer select-none flex-shrink-0"
           >
             <div className="w-9 h-9 bg-amber-500 text-neutral-950 rounded-lg flex items-center justify-center font-black text-xl shadow-xs">
@@ -400,7 +402,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <span className="font-black text-xl tracking-tight text-neutral-900 flex items-center">
-                ALLSALES<span className="text-amber-500 text-2xl leading-none">.</span>
+                KESALES<span className="text-amber-500 text-2xl leading-none">.</span>
               </span>
               <span className="text-[9px] font-extrabold tracking-widest text-neutral-500 block -mt-1 uppercase">
                 {activeView === 'customer' ? 'My Account' : 'Marketplace'}

@@ -358,7 +358,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   </div>
                   <div>
                     <span className="text-neutral-500 block">Email:</span>
-                    <span className="font-semibold text-neutral-800">jane.wambui@allsales.ke</span>
+                    <span className="font-semibold text-neutral-800">jane.wambui@kesales.ke</span>
                   </div>
                   <div>
                     <span className="text-neutral-500 block">Phone:</span>
@@ -392,7 +392,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
               Request Return & Refund
             </h3>
             <p className="text-xs text-neutral-500 mb-4">
-              Allsales guarantees free 7-15 day returns on eligible items. Our logistics rider will
+              KESALES guarantees free 7-15 day returns on eligible items. Our logistics rider will
               collect the item from your registered address.
             </p>
 

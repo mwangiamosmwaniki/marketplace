@@ -24,12 +24,8 @@ import { Product, ProductVariant, OrderStatus } from '../../types';
 
 export const SellerPortal: React.FC = () => {
   const {
-    currentRole,
-    setCurrentRole,
     currentSeller,
-    currentSellerId,
     sellers,
-    setCurrentSellerId,
     products,
     orders,
     payouts,
@@ -808,7 +804,7 @@ export const SellerPortal: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
-                          placeholder="Carrier Tracking # (e.g. TRK-JUM-991)"
+                          placeholder="Carrier Tracking # (e.g. TRK-KS-991)"
                           value={dispatchTrackingInput[sub.id] || ''}
                           onChange={(e) =>
                             setDispatchTrackingInput({
@@ -821,7 +817,7 @@ export const SellerPortal: React.FC = () => {
                         <button
                           onClick={() => {
                             const trk =
-                              dispatchTrackingInput[sub.id] || `TRK-JUM-${Math.floor(10000 + Math.random() * 90000)}`;
+                              dispatchTrackingInput[sub.id] || `TRK-KS-${Math.floor(10000 + Math.random() * 90000)}`;
                             updateSubOrderStatus(sub.id, 'dispatched', trk);
                           }}
                           className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded flex items-center gap-1"

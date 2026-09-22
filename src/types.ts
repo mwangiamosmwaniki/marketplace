@@ -118,6 +118,7 @@ export interface Product {
   status: ProductStatus;
   rating: number;
   reviewsCount: number;
+  isExpress?: boolean;
   isFlashSale?: boolean;
   flashSaleEndsAt?: string;
   isFeatured?: boolean;

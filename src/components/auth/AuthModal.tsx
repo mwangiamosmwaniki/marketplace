@@ -101,9 +101,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-neutral-900 leading-tight">
-                {tab === 'login' && 'Sign in to Allsales'}
+                {tab === 'login' && 'Sign in to KESALES'}
                 {tab === 'register_customer' && 'Create Customer Account'}
-                {tab === 'register_seller' && 'Register as Allsales Seller'}
+                {tab === 'register_seller' && 'Register as KESALES Seller'}
               </h3>
               <p className="text-xs text-neutral-500">Kenya's premier multi-vendor marketplace</p>
             </div>
@@ -155,7 +155,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 : 'border-transparent hover:text-neutral-900'
             }`}
           >
-            Sell on Allsales
+            Sell on KESALES
           </button>
         </div>
 
@@ -192,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <label className="text-xs font-bold text-neutral-700">Password</label>
                   <button
                     type="button"
-                    onClick={() => alert('Password reset link has been dispatched to your registered email.')}
+                    onClick={() => setError('Enter your email address and submit the form to request a password reset link.')}
                     className="text-[11px] text-amber-600 hover:underline"
                   >
                     Forgot password?
@@ -228,7 +228,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => handleQuickLogin('jane.wambui@allsales.ke')}
+                    onClick={() => handleQuickLogin('jane.wambui@kesales.ke')}
                     className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
                   >
                     <div className="font-bold text-neutral-900">Jane Wambui</div>
@@ -244,7 +244,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleQuickLogin('admin@allsales.ke')}
+                    onClick={() => handleQuickLogin('admin@kesales.ke')}
                     className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
                   >
                     <div className="font-bold text-neutral-900">Robert Otieno</div>
@@ -252,7 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleQuickLogin('finance@allsales.ke')}
+                    onClick={() => handleQuickLogin('finance@kesales.ke')}
                     className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
                   >
                     <div className="font-bold text-neutral-900">Faith Muthoni</div>
