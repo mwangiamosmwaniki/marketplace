@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
+import { useDialog } from "../../context/DialogContext";
 import {
   LayoutDashboard,
   Package,
@@ -119,6 +120,7 @@ const peopleToText = (people: SellerPerson[]) =>
     .join("\n");
 
 export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
+  const { prompt: dialogPrompt } = useDialog();
   const {
     currentSeller,
     sellers,
@@ -573,10 +575,11 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2 flex-wrap">
                           <button
-                            onClick={() => {
-                              const newPrice = prompt(
+                            onClick={async () => {
+                              const newPrice = await dialogPrompt(
                                 "Enter new price in KSh:",
                                 p.price.toString(),
+                                "Edit product price",
                               );
                               if (newPrice && !isNaN(Number(newPrice)))
                                 updateSellerProduct(p.id, {

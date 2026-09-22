@@ -155,7 +155,15 @@ export type PaymentMethod =
   | "card"
   | "bank_transfer"
   | "cash_on_delivery";
-export type PayoutStatus = "pending" | "approved" | "processing" | "processed" | "failed" | "held" | "rejected" | "cancelled";
+export type PayoutStatus =
+  | "pending"
+  | "approved"
+  | "processing"
+  | "processed"
+  | "failed"
+  | "held"
+  | "rejected"
+  | "cancelled";
 
 export interface User {
   id: string;

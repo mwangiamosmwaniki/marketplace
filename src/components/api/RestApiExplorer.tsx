@@ -1,26 +1,42 @@
-import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import { Code, Play, CheckCircle2, Copy, Layers, ExternalLink } from 'lucide-react';
+import React, { useState } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
+import {
+  Code,
+  Play,
+  CheckCircle2,
+  Copy,
+  Layers,
+  ExternalLink,
+} from "lucide-react";
 
 export const RestApiExplorer: React.FC = () => {
-  const { products, sellers, orders, payouts, categories, brands, deliveryZones } =
-    useMarketplace();
+  const {
+    products,
+    sellers,
+    orders,
+    payouts,
+    categories,
+    brands,
+    deliveryZones,
+  } = useMarketplace();
 
-  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('GET /api/v1/products');
-  const [responseJson, setResponseJson] = useState<string>('');
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string>(
+    "GET /api/v1/products",
+  );
+  const [responseJson, setResponseJson] = useState<string>("");
   const [statusCode, setStatusCode] = useState<number>(200);
   const [responseTime, setResponseTime] = useState<number>(38);
   const [copied, setCopied] = useState(false);
 
   const endpoints = [
     {
-      group: 'Public Storefront',
+      group: "Public Storefront",
       items: [
         {
-          id: 'GET /api/v1/products',
-          method: 'GET',
-          path: '/api/v1/products',
-          desc: 'List active catalog products with filtering, price bounds, sorting & pagination.',
+          id: "GET /api/v1/products",
+          method: "GET",
+          path: "/api/v1/products",
+          desc: "List active catalog products with filtering, price bounds, sorting & pagination.",
           handler: () => ({
             success: true,
             total: products.length,
@@ -40,20 +56,20 @@ export const RestApiExplorer: React.FC = () => {
           }),
         },
         {
-          id: 'GET /api/v1/categories',
-          method: 'GET',
-          path: '/api/v1/categories',
-          desc: 'Retrieve marketplace category taxonomy tree with commission rates.',
+          id: "GET /api/v1/categories",
+          method: "GET",
+          path: "/api/v1/categories",
+          desc: "Retrieve marketplace category taxonomy tree with commission rates.",
           handler: () => ({
             success: true,
             data: categories,
           }),
         },
         {
-          id: 'GET /api/v1/delivery/zones',
-          method: 'GET',
-          path: '/api/v1/delivery/zones',
-          desc: 'Get real-time delivery fees, pickup hubs and SLAs for all 47 counties.',
+          id: "GET /api/v1/delivery/zones",
+          method: "GET",
+          path: "/api/v1/delivery/zones",
+          desc: "Get real-time delivery fees, pickup hubs and SLAs for all 47 counties.",
           handler: () => ({
             success: true,
             data: deliveryZones,
@@ -62,63 +78,65 @@ export const RestApiExplorer: React.FC = () => {
       ],
     },
     {
-      group: 'Checkout & Payments (Daraja M-Pesa)',
+      group: "Checkout & Payments (Daraja M-Pesa)",
       items: [
         {
-          id: 'POST /api/v1/payments/mpesa/stkpush',
-          method: 'POST',
-          path: '/api/v1/payments/mpesa/stkpush',
-          desc: 'Trigger interactive Daraja USSD STK Push on Safaricom subscriber SIM card.',
+          id: "POST /api/v1/payments/mpesa/stkpush",
+          method: "POST",
+          path: "/api/v1/payments/mpesa/stkpush",
+          desc: "Trigger interactive Daraja USSD STK Push on Safaricom subscriber SIM card.",
           handler: () => ({
-            MerchantRequestID: '29381-90219-1',
-            CheckoutRequestID: 'ws_CO_17092026_891023',
-            ResponseCode: '0',
-            ResponseDescription: 'Success. Request accepted for processing',
-            CustomerMessage: 'Success. Request accepted for processing',
+            MerchantRequestID: "29381-90219-1",
+            CheckoutRequestID: "ws_CO_17092026_891023",
+            ResponseCode: "0",
+            ResponseDescription: "Success. Request accepted for processing",
+            CustomerMessage: "Success. Request accepted for processing",
           }),
         },
         {
-          id: 'POST /api/v1/payments/mpesa/callback',
-          method: 'POST',
-          path: '/api/v1/payments/mpesa/callback',
-          desc: 'Webhook receiver for Safaricom Daraja M-Pesa transaction results.',
+          id: "POST /api/v1/payments/mpesa/callback",
+          method: "POST",
+          path: "/api/v1/payments/mpesa/callback",
+          desc: "Webhook receiver for Safaricom Daraja M-Pesa transaction results.",
           handler: () => ({
             ResultCode: 0,
-            ResultDesc: 'The service request is processed successfully.',
+            ResultDesc: "The service request is processed successfully.",
             MpesaReceiptNumber: `QKJ${Math.floor(1000000 + Math.random() * 9000000)}`,
-            TransactionDate: '20260921142010',
-            PhoneNumber: '254712345678',
+            TransactionDate: "20260921142010",
+            PhoneNumber: "254712345678",
             Amount: 18999.0,
           }),
         },
       ],
     },
     {
-      group: 'Seller Center API',
+      group: "Seller Center API",
       items: [
         {
-          id: 'GET /api/v1/seller/orders',
-          method: 'GET',
-          path: '/api/v1/seller/orders',
-          desc: 'Tenant-isolated vendor sub-orders with commission deductions.',
+          id: "GET /api/v1/seller/orders",
+          method: "GET",
+          path: "/api/v1/seller/orders",
+          desc: "Tenant-isolated vendor sub-orders with commission deductions.",
           handler: () => ({
             success: true,
-            seller_id: 'seller-samsung',
+            seller_id: "seller-samsung",
             sub_orders: orders.flatMap((o) =>
-              o.sellerSubOrders.filter((sub) => sub.sellerId === 'seller-samsung')
+              o.sellerSubOrders.filter(
+                (sub) => sub.sellerId === "seller-samsung",
+              ),
             ),
           }),
         },
         {
-          id: 'GET /api/v1/seller/inventory',
-          method: 'GET',
-          path: '/api/v1/seller/inventory',
-          desc: 'Retrieve SKU-level stock balances and low stock alert warnings.',
+          id: "GET /api/v1/seller/inventory",
+          method: "GET",
+          path: "/api/v1/seller/inventory",
+          desc: "Retrieve SKU-level stock balances and low stock alert warnings.",
           handler: () => ({
             success: true,
-            seller_id: 'seller-samsung',
+            seller_id: "seller-samsung",
             items: products
-              .filter((p) => p.sellerId === 'seller-samsung')
+              .filter((p) => p.sellerId === "seller-samsung")
               .map((p) => ({
                 sku: p.sku,
                 stock: p.stock,
@@ -129,21 +147,25 @@ export const RestApiExplorer: React.FC = () => {
       ],
     },
     {
-      group: 'Platform Admin API',
+      group: "Platform Admin API",
       items: [
         {
-          id: 'GET /api/v1/admin/analytics',
-          method: 'GET',
-          path: '/api/v1/admin/analytics',
-          desc: 'Consolidated Gross Merchandise Value, commissions, and seller counts.',
+          id: "GET /api/v1/admin/analytics",
+          method: "GET",
+          path: "/api/v1/admin/analytics",
+          desc: "Consolidated Gross Merchandise Value, commissions, and seller counts.",
           handler: () => ({
             success: true,
-            gross_merchandise_value: orders.reduce((s, o) => s + o.grandTotal, 0),
+            gross_merchandise_value: orders.reduce(
+              (s, o) => s + o.grandTotal,
+              0,
+            ),
             total_commissions_earned: orders
               .flatMap((o) => o.sellerSubOrders)
               .reduce((s, sub) => s + sub.commissionTotal, 0),
             total_orders: orders.length,
-            active_sellers_count: sellers.filter((s) => s.status === 'approved').length,
+            active_sellers_count: sellers.filter((s) => s.status === "approved")
+              .length,
           }),
         },
       ],
@@ -182,14 +204,16 @@ export const RestApiExplorer: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <Code className="w-5 h-5 text-amber-600" />
-            <h2 className="text-lg font-bold text-neutral-900">KESALES RESTful API Engine</h2>
+            <h2 className="text-lg font-bold text-neutral-900">
+              KESALES RESTful API Engine
+            </h2>
             <span className="text-[10px] bg-neutral-900 text-white font-bold px-2 py-0.5 rounded font-mono">
-              v1.4.0-production
+              v1.4.0 frontend contract draft
             </span>
           </div>
           <p className="text-xs text-neutral-500 mt-1">
-            Standard REST API specifications for mobile apps (iOS / Android), merchant ERP integrations,
-            and Safaricom Daraja M-Pesa webhooks.
+            Standard REST API specifications for mobile apps (iOS / Android),
+            merchant ERP integrations, and Safaricom Daraja M-Pesa webhooks.
           </p>
         </div>
       </div>
@@ -214,18 +238,20 @@ export const RestApiExplorer: React.FC = () => {
                       key={ep.id}
                       onClick={() => handleExecute(ep.id)}
                       className={`p-3 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-amber-50/70 border-l-4 border-amber-600' : 'hover:bg-neutral-50'
+                        isSelected
+                          ? "bg-amber-50/70 border-l-4 border-amber-600"
+                          : "hover:bg-neutral-50"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span
                             className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
-                              ep.method === 'GET'
-                                ? 'bg-blue-100 text-blue-800'
-                                : ep.method === 'POST'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
+                              ep.method === "GET"
+                                ? "bg-blue-100 text-blue-800"
+                                : ep.method === "POST"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
                             }`}
                           >
                             {ep.method}
@@ -250,7 +276,9 @@ export const RestApiExplorer: React.FC = () => {
           {/* Console Header */}
           <div className="p-3 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
-              <span className="font-mono font-bold text-amber-400">{selectedEndpoint}</span>
+              <span className="font-mono font-bold text-amber-400">
+                {selectedEndpoint}
+              </span>
               {responseJson && (
                 <>
                   <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold">
@@ -290,11 +318,16 @@ export const RestApiExplorer: React.FC = () => {
           {/* Response Payload Viewer */}
           <div className="p-4 flex-1 overflow-auto font-mono text-xs text-neutral-300">
             {responseJson ? (
-              <pre className="text-emerald-400 leading-relaxed">{responseJson}</pre>
+              <pre className="text-emerald-400 leading-relaxed">
+                {responseJson}
+              </pre>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-neutral-600">
                 <Code className="w-8 h-8 mb-2" />
-                <p>Select an API endpoint and click "Send Request" to preview live output.</p>
+                <p>
+                  Select an API endpoint and click "Send Request" to preview
+                  live output.
+                </p>
               </div>
             )}
           </div>

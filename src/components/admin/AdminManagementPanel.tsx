@@ -8,9 +8,13 @@ import {
   UserX,
   LogOut,
   KeyRound,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { useMarketplace } from "../../context/MarketplaceContext";
+import { useDialog } from "../../context/DialogContext";
 import { Role, User } from "../../types";
+import { ROLE_PERMISSIONS } from "../../config/permissions";
 
 const roles: { value: Role; label: string; description: string }[] = [
   {
@@ -106,6 +110,7 @@ const actionButton =
 export const AdminManagementPanel: React.FC<{
   initialTab?: "users" | "roles" | "security" | "audit" | "system";
 }> = ({ initialTab = "users" }) => {
+  const { alert, confirm } = useDialog();
   const {
     authUser,
     users,
@@ -118,6 +123,7 @@ export const AdminManagementPanel: React.FC<{
     updateSettings,
     createUser,
     updateUser,
+    deleteUser,
     suspendUser,
     restoreUser,
     deactivateUser,
@@ -133,11 +139,13 @@ export const AdminManagementPanel: React.FC<{
     "all",
   );
   const [showCreate, setShowCreate] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
     phone: "",
     role: "customer" as Role,
+    status: "active" as User["status"],
   });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [platformFlags, setPlatformFlags] = useState(
@@ -174,6 +182,19 @@ export const AdminManagementPanel: React.FC<{
         localStorage.getItem("kesales_custom_roles") || "[]",
       ) as CustomRole[],
   );
+  const [roleOverrides, setRoleOverrides] = useState<
+    Record<string, Pick<CustomRole, "label" | "description" | "permissions" | "enabled">>
+  >(
+    () =>
+      JSON.parse(localStorage.getItem("kesales_role_overrides") || "{}") as Record<
+        string,
+        Pick<CustomRole, "label" | "description" | "permissions" | "enabled">
+      >,
+  );
+  const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>(
+    () => JSON.parse(localStorage.getItem("kesales_deleted_roles") || "[]") as string[],
+  );
+  const [showRoleForm, setShowRoleForm] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [roleDraft, setRoleDraft] = useState<CustomRole>({
     id: "",
@@ -202,25 +223,60 @@ export const AdminManagementPanel: React.FC<{
   const create = (event: React.FormEvent) => {
     event.preventDefault();
     if (!newUser.name || !newUser.email) return;
-    createUser({
-      ...newUser,
-      permissions: rolePermissions[newUser.role],
+    const permissions = ROLE_PERMISSIONS[newUser.role] ||
+      customRoles.find((role) => role.id === newUser.role)?.permissions || [];
+    if (editingUserId) {
+      updateUser(editingUserId, { ...newUser, permissions });
+    } else {
+      createUser({ ...newUser, permissions });
+    }
+    setNewUser({
+      name: "",
+      email: "",
+      phone: "",
+      role: "customer",
       status: "active",
     });
-    setNewUser({ name: "", email: "", phone: "", role: "customer" });
+    setEditingUserId(null);
     setShowCreate(false);
   };
 
-  const confirmAction = (message: string, action: () => void) => {
-    if (window.confirm(message)) action();
+  const startEditingUser = (user: User) => {
+    setEditingUserId(user.id);
+    setNewUser({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+    });
+    setShowCreate(true);
+  };
+
+  const confirmAction = async (message: string, action: () => void) => {
+    if (await confirm(message)) action();
   };
   const selectedUser = users.find((user) => user.id === selectedUserId);
+  const directoryRoles = [
+    ...roles
+      .filter((role) => !deletedRoleIds.includes(role.value))
+      .map((role) => ({
+        value: role.value,
+        label: roleOverrides[role.value]?.label || role.label,
+        description:
+          roleOverrides[role.value]?.description || role.description,
+        permissions:
+          roleOverrides[role.value]?.permissions || rolePermissions[role.value],
+        enabled: roleOverrides[role.value]?.enabled ?? true,
+        system: true,
+      })),
+    ...customRoles.map((role) => ({ ...role, value: role.id, system: false })),
+  ];
   const allRoles = [
-    ...roles,
-    ...customRoles.map((role) => ({
-      value: role.id,
-      label: role.label,
-      description: role.description,
+    ...directoryRoles.map(({ value, label, description }) => ({
+      value,
+      label,
+      description,
     })),
   ];
   const setFlag = (key: string, value: boolean) => {
@@ -243,12 +299,30 @@ export const AdminManagementPanel: React.FC<{
         `custom_${roleDraft.label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${Date.now()}`,
       createdAt: roleDraft.createdAt || new Date().toISOString(),
     };
-    const next = editingRoleId
-      ? customRoles.map((item) => (item.id === editingRoleId ? role : item))
-      : [role, ...customRoles];
-    setCustomRoles(next);
-    localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
+    if (editingRoleId && roles.some((item) => item.value === editingRoleId)) {
+      const nextOverrides = {
+        ...roleOverrides,
+        [editingRoleId]: {
+          label: role.label,
+          description: role.description,
+          permissions: role.permissions,
+          enabled: role.enabled,
+        },
+      };
+      setRoleOverrides(nextOverrides);
+      localStorage.setItem(
+        "kesales_role_overrides",
+        JSON.stringify(nextOverrides),
+      );
+    } else {
+      const next = editingRoleId
+        ? customRoles.map((item) => (item.id === editingRoleId ? role : item))
+        : [role, ...customRoles];
+      setCustomRoles(next);
+      localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
+    }
     setEditingRoleId(null);
+    setShowRoleForm(false);
     setRoleDraft({
       id: "",
       label: "",
@@ -258,15 +332,39 @@ export const AdminManagementPanel: React.FC<{
       createdAt: "",
     });
   };
-  const deleteRole = (role: CustomRole) => {
+  const deleteRole = async (role: CustomRole) => {
     if (users.some((user) => user.role === role.id)) {
-      window.alert("Reassign all users from this role before deleting it.");
+      await alert("Reassign all users from this role before deleting it.");
       return;
     }
-    if (!window.confirm(`Delete the ${role.label} role?`)) return;
+    if (!(await confirm(`Delete the ${role.label} role?`))) return;
     const next = customRoles.filter((item) => item.id !== role.id);
     setCustomRoles(next);
     localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
+  };
+  const deleteDirectoryRole = async (role: (typeof directoryRoles)[number]) => {
+    if (users.some((user) => user.role === role.value)) {
+      await alert("Reassign all users from this role before deleting it.");
+      return;
+    }
+    if (!(await confirm(`Delete the ${role.label} role?`))) return;
+    if (role.system) {
+      const next = [...deletedRoleIds, role.value];
+      setDeletedRoleIds(next);
+      localStorage.setItem("kesales_deleted_roles", JSON.stringify(next));
+    } else {
+      await deleteRole({
+        id: role.value,
+        label: role.label,
+        description: role.description,
+        permissions: role.permissions,
+        enabled: role.enabled,
+        createdAt:
+          "createdAt" in role && typeof role.createdAt === "string"
+            ? role.createdAt
+            : new Date().toISOString(),
+      });
+    }
   };
   const toggleRole = (role: CustomRole) => {
     const next = customRoles.map((item) =>
@@ -282,7 +380,7 @@ export const AdminManagementPanel: React.FC<{
         <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-sm">Custom role management</h3>
+              <h3 className="font-bold text-sm">Role directory management</h3>
               <p className="text-neutral-500">
                 Create, edit, disable, and delete roles with configurable
                 permissions.
@@ -292,6 +390,7 @@ export const AdminManagementPanel: React.FC<{
               type="button"
               onClick={() => {
                 setEditingRoleId(null);
+                setShowRoleForm(true);
                 setRoleDraft({
                   id: "",
                   label: "",
@@ -306,10 +405,11 @@ export const AdminManagementPanel: React.FC<{
               New role
             </button>
           </div>
-          <form
-            onSubmit={saveRole}
-            className="grid grid-cols-1 md:grid-cols-3 gap-2"
-          >
+          {showRoleForm && (
+            <form
+              onSubmit={saveRole}
+              className="grid grid-cols-1 md:grid-cols-3 gap-2"
+            >
             <input
               required
               placeholder="Role name"
@@ -354,9 +454,20 @@ export const AdminManagementPanel: React.FC<{
                 </label>
               ))}
             </div>
-          </form>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingRoleId(null);
+                  setShowRoleForm(false);
+                }}
+                className="text-neutral-500 text-left"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {customRoles.map((role) => (
+            {customRoles.filter((role) => !roles.some((item) => item.value === role.id)).map((role) => (
               <div
                 key={role.id}
                 className="border border-neutral-200 rounded-lg p-3 flex items-center justify-between gap-2"
@@ -381,6 +492,7 @@ export const AdminManagementPanel: React.FC<{
                     className={actionButton}
                     onClick={() => {
                       setEditingRoleId(role.id);
+                      setShowRoleForm(true);
                       setRoleDraft(role);
                     }}
                   >
@@ -444,7 +556,17 @@ export const AdminManagementPanel: React.FC<{
               <option value="suspended">Suspended</option>
             </select>
             <button
-              onClick={() => setShowCreate(!showCreate)}
+              onClick={() => {
+                setEditingUserId(null);
+                setNewUser({
+                  name: "",
+                  email: "",
+                  phone: "",
+                  role: "customer",
+                  status: "active",
+                });
+                setShowCreate(!showCreate);
+              }}
               className="bg-amber-500 text-neutral-950 px-3 py-2 rounded-lg font-bold flex items-center gap-1"
             >
               <UserPlus className="w-4 h-4" /> Create user
@@ -455,6 +577,21 @@ export const AdminManagementPanel: React.FC<{
               onSubmit={create}
               className="bg-amber-50 border border-amber-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-2"
             >
+              <div className="sm:col-span-4 flex items-center justify-between">
+                <strong>{editingUserId ? "Edit account" : "Create account"}</strong>
+                {editingUserId && (
+                  <button
+                    type="button"
+                    className="text-neutral-500"
+                    onClick={() => {
+                      setEditingUserId(null);
+                      setShowCreate(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
               <input
                 required
                 placeholder="Full name"
@@ -495,8 +632,21 @@ export const AdminManagementPanel: React.FC<{
                   </option>
                 ))}
               </select>
+              <select
+                value={newUser.status}
+                onChange={(event) =>
+                  setNewUser({
+                    ...newUser,
+                    status: event.target.value as User["status"],
+                  })
+                }
+                className="border border-neutral-300 rounded px-2 py-2"
+              >
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
               <button className="bg-neutral-900 text-white rounded px-3 py-2 font-bold sm:col-span-4">
-                Create account
+                {editingUserId ? "Save account" : "Create account"}
               </button>
             </form>
           )}
@@ -546,7 +696,7 @@ export const AdminManagementPanel: React.FC<{
                         }
                         className="border border-neutral-200 rounded px-2 py-1"
                       >
-                        {roles.map((role) => (
+                        {allRoles.map((role) => (
                           <option key={role.value} value={role.value}>
                             {role.label}
                           </option>
@@ -575,9 +725,9 @@ export const AdminManagementPanel: React.FC<{
                       <div className="flex flex-wrap gap-1">
                         <button
                           className={actionButton}
-                          onClick={() => setSelectedUserId(user.id)}
+                          onClick={() => startEditingUser(user)}
                         >
-                          View profile
+                          <Pencil className="w-3 h-3 inline" /> Edit account
                         </button>
                         {user.status === "active" ? (
                           <button
@@ -616,6 +766,26 @@ export const AdminManagementPanel: React.FC<{
                           onClick={() => requireUserReverification(user.id)}
                         >
                           <ShieldCheck className="w-3 h-3 inline" /> Re-verify
+                        </button>
+                        <button
+                          className={actionButton}
+                          disabled={
+                            user.id === authUser?.id ||
+                            user.role === "super_admin"
+                          }
+                          onClick={() =>
+                            confirmAction(
+                              `Delete ${user.name}'s account permanently?`,
+                              () => {
+                                deleteUser(user.id);
+                                if (selectedUserId === user.id) {
+                                  setSelectedUserId(null);
+                                }
+                              },
+                            )
+                          }
+                        >
+                          <Trash2 className="w-3 h-3 inline" /> Delete
                         </button>
                         <button
                           className={actionButton}
@@ -736,20 +906,77 @@ export const AdminManagementPanel: React.FC<{
         <div className="space-y-4">
           <div className="bg-white border border-neutral-200 rounded-xl p-4">
             <h3 className="font-bold text-sm">Role directory</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-              {roles.map((role) => (
-                <div
-                  key={role.value}
-                  className="border border-neutral-200 rounded-lg p-3"
-                >
-                  <strong>{role.label}</strong>
-                  <p className="text-neutral-500 mt-1">{role.description}</p>
-                  <p className="text-[11px] text-emerald-700 mt-2">
-                    {users.filter((user) => user.role === role.value).length}{" "}
-                    assigned users
-                  </p>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto border border-neutral-200 rounded-lg">
+              <table className="w-full min-w-[680px] text-left">
+                <thead className="bg-neutral-50 border-b border-neutral-200 text-[10px] uppercase tracking-wide text-neutral-500">
+                  <tr>
+                    <th className="px-3 py-2">Role</th>
+                    <th className="px-3 py-2">Description</th>
+                    <th className="px-3 py-2">Assigned users</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {directoryRoles.map((role) => (
+                    <tr key={role.value} className="hover:bg-neutral-50">
+                      <td className="px-3 py-3 font-bold whitespace-nowrap">
+                        {role.label}
+                      </td>
+                      <td className="px-3 py-3 text-neutral-500">
+                        {role.description || "No description"}
+                      </td>
+                      <td className="px-3 py-3 text-emerald-700">
+                        {users.filter((user) => user.role === role.value).length}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={
+                            role.enabled
+                              ? "text-emerald-700"
+                              : "text-red-700"
+                          }
+                        >
+                          {role.enabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            className={actionButton}
+                            onClick={() => {
+                              setEditingRoleId(role.value);
+                              setShowRoleForm(true);
+                              setRoleDraft({
+                                id: role.value,
+                                label: role.label,
+                                description: role.description,
+                                permissions: role.permissions,
+                                enabled: role.enabled,
+                                createdAt:
+                                  "createdAt" in role &&
+                                  typeof role.createdAt === "string"
+                                    ? role.createdAt
+                                    : "",
+                              });
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className={actionButton}
+                            onClick={() => deleteDirectoryRole(role)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
           <div className="bg-white border border-neutral-200 rounded-xl p-4 overflow-x-auto">
@@ -774,14 +1001,14 @@ export const AdminManagementPanel: React.FC<{
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {roles.map((role) => (
+                {directoryRoles.map((role) => (
                   <tr key={role.value}>
                     <td className="p-2 font-bold whitespace-nowrap">
                       {role.label}
                     </td>
                     {permissionModules.map((module) => (
                       <td key={module} className="p-2 text-center">
-                        {rolePermissions[role.value].includes(module) ? (
+                        {role.permissions.includes(module) ? (
                           <span className="text-emerald-600 font-black">✓</span>
                         ) : (
                           <span className="text-neutral-300">—</span>
