@@ -151,10 +151,16 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           type="button"
           onClick={() => setMobileSidebarOpen((open) => !open)}
           className="rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50"
-          aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+          aria-label={
+            mobileSidebarOpen ? "Close navigation" : "Open navigation"
+          }
           aria-expanded={mobileSidebarOpen}
         >
-          {mobileSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          {mobileSidebarOpen ? (
+            <X className="h-4 w-4" />
+          ) : (
+            <Menu className="h-4 w-4" />
+          )}
         </button>
       </div>
       <div
@@ -168,7 +174,9 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             className="fixed inset-0 top-[52px] z-40 bg-neutral-950/40 xl:hidden"
           />
         )}
-        <aside className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-[52px] z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-52px)] shadow-2xl" : "hidden"} bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}>
+        <aside
+          className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-[52px] z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-52px)] shadow-2xl" : "hidden"} bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}
+        >
           <div
             className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
           >
