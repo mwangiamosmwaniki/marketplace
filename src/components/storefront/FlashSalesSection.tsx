@@ -1,18 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import { ProductCard } from './ProductCard';
-import { Zap, Clock, ArrowRight } from 'lucide-react';
-import { Product } from '../../types';
+import React, { useState, useEffect } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
+import { ProductCard } from "./ProductCard";
+import { Zap, Clock, ArrowRight } from "lucide-react";
+import { Product } from "../../types";
 
 interface FlashSalesSectionProps {
   onViewProduct: (product: Product) => void;
 }
 
-export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({ onViewProduct }) => {
-  const { products } = useMarketplace();
-  const flashProducts = products.filter((p) => p.isFlashSale && p.status === 'active');
+export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({
+  onViewProduct,
+}) => {
+  const { products, flashSales } = useMarketplace();
+  const activeSale = flashSales
+    .filter((sale) => {
+      const now = new Date();
+      return (
+        sale.isActive &&
+        new Date(sale.startDate) <= now &&
+        new Date(sale.endDate) >= now
+      );
+    })
+    .sort((a, b) => a.displayOrder - b.displayOrder)[0];
+  const flashProducts = activeSale
+    ? activeSale.productIds
+        .map((id) => products.find((product) => product.id === id))
+        .filter((product): product is Product =>
+          Boolean(product && product.status === "active"),
+        )
+    : products.filter((p) => p.isFlashSale && p.status === "active");
 
-  // Countdown timer state: 8 hours, 42 minutes, 19 seconds remaining
   const [timeLeft, setTimeLeft] = useState({
     hours: 8,
     minutes: 42,
@@ -20,22 +37,25 @@ export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({ onViewProd
   });
 
   useEffect(() => {
+    const getTimeLeft = () => {
+      const end = activeSale
+        ? new Date(activeSale.endDate).getTime()
+        : Date.now() + 8 * 3600 * 1000;
+      const totalSeconds = Math.max(0, Math.floor((end - Date.now()) / 1000));
+      return {
+        hours: Math.floor(totalSeconds / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60,
+      };
+    };
+    setTimeLeft(getTimeLeft());
     const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        }
-        return { hours: 24, minutes: 0, seconds: 0 };
-      });
+      setTimeLeft(getTimeLeft());
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeSale]);
 
-  const pad = (n: number) => n.toString().padStart(2, '0');
+  const pad = (n: number) => n.toString().padStart(2, "0");
 
   return (
     <div
@@ -50,9 +70,11 @@ export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({ onViewProd
           </div>
           <div>
             <h3 className="font-extrabold text-sm sm:text-base tracking-wide uppercase flex items-center gap-2">
-              Flash Deals
+              {activeSale?.name || "Flash Deals"}
             </h3>
-            <p className="text-[11px] text-white/90">Daily curated top discounts with limited stock</p>
+            <p className="text-[11px] text-white/90">
+              Daily curated top discounts with limited stock
+            </p>
           </div>
         </div>
 
@@ -61,11 +83,17 @@ export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({ onViewProd
           <Clock className="w-4 h-4 text-amber-200" />
           <span className="text-[11px] text-white/90">Time Left:</span>
           <div className="flex gap-1 text-neutral-900 font-mono">
-            <span className="bg-white px-2 py-1 rounded shadow-xs">{pad(timeLeft.hours)}h</span>
+            <span className="bg-white px-2 py-1 rounded shadow-xs">
+              {pad(timeLeft.hours)}h
+            </span>
             <span className="text-white font-bold self-center">:</span>
-            <span className="bg-white px-2 py-1 rounded shadow-xs">{pad(timeLeft.minutes)}m</span>
+            <span className="bg-white px-2 py-1 rounded shadow-xs">
+              {pad(timeLeft.minutes)}m
+            </span>
             <span className="text-white font-bold self-center">:</span>
-            <span className="bg-white px-2 py-1 rounded shadow-xs">{pad(timeLeft.seconds)}s</span>
+            <span className="bg-white px-2 py-1 rounded shadow-xs">
+              {pad(timeLeft.seconds)}s
+            </span>
           </div>
         </div>
       </div>
@@ -73,7 +101,11 @@ export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({ onViewProd
       {/* Product Grid */}
       <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {flashProducts.slice(0, 4).map((prod) => (
-          <ProductCard key={prod.id} product={prod} onViewProduct={onViewProduct} />
+          <ProductCard
+            key={prod.id}
+            product={prod}
+            onViewProduct={onViewProduct}
+          />
         ))}
       </div>
     </div>

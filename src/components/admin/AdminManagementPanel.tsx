@@ -191,16 +191,24 @@ export const AdminManagementPanel: React.FC<{
       ) as CustomRole[],
   );
   const [roleOverrides, setRoleOverrides] = useState<
-    Record<string, Pick<CustomRole, "label" | "description" | "permissions" | "enabled">>
+    Record<
+      string,
+      Pick<CustomRole, "label" | "description" | "permissions" | "enabled">
+    >
   >(
     () =>
-      JSON.parse(localStorage.getItem("kesales_role_overrides") || "{}") as Record<
+      JSON.parse(
+        localStorage.getItem("kesales_role_overrides") || "{}",
+      ) as Record<
         string,
         Pick<CustomRole, "label" | "description" | "permissions" | "enabled">
       >,
   );
   const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>(
-    () => JSON.parse(localStorage.getItem("kesales_deleted_roles") || "[]") as string[],
+    () =>
+      JSON.parse(
+        localStorage.getItem("kesales_deleted_roles") || "[]",
+      ) as string[],
   );
   const [showRoleForm, setShowRoleForm] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
@@ -231,8 +239,10 @@ export const AdminManagementPanel: React.FC<{
   const create = (event: React.FormEvent) => {
     event.preventDefault();
     if (!newUser.name || !newUser.email) return;
-    const permissions = ROLE_PERMISSIONS[newUser.role] ||
-      customRoles.find((role) => role.id === newUser.role)?.permissions || [];
+    const permissions =
+      ROLE_PERMISSIONS[newUser.role] ||
+      customRoles.find((role) => role.id === newUser.role)?.permissions ||
+      [];
     if (editingUserId) {
       updateUser(editingUserId, { ...newUser, permissions });
     } else {
@@ -271,8 +281,7 @@ export const AdminManagementPanel: React.FC<{
       .map((role) => ({
         value: role.value,
         label: roleOverrides[role.value]?.label || role.label,
-        description:
-          roleOverrides[role.value]?.description || role.description,
+        description: roleOverrides[role.value]?.description || role.description,
         permissions:
           roleOverrides[role.value]?.permissions || rolePermissions[role.value],
         enabled: roleOverrides[role.value]?.enabled ?? true,
@@ -418,50 +427,53 @@ export const AdminManagementPanel: React.FC<{
               onSubmit={saveRole}
               className="grid grid-cols-1 md:grid-cols-3 gap-2"
             >
-            <input
-              required
-              placeholder="Role name"
-              value={roleDraft.label}
-              onChange={(event) =>
-                setRoleDraft({ ...roleDraft, label: event.target.value })
-              }
-              className="border border-neutral-300 rounded px-2 py-2"
-            />
-            <input
-              placeholder="Role description"
-              value={roleDraft.description}
-              onChange={(event) =>
-                setRoleDraft({ ...roleDraft, description: event.target.value })
-              }
-              className="border border-neutral-300 rounded px-2 py-2"
-            />
-            <button className="bg-neutral-900 text-white rounded px-3 py-2 font-bold">
-              {editingRoleId ? "Save changes" : "Create role"}
-            </button>
-            <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {permissionModules.map((permission) => (
-                <label
-                  key={permission}
-                  className="flex items-center gap-2 text-[11px]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={roleDraft.permissions.includes(permission)}
-                    onChange={(event) =>
-                      setRoleDraft({
-                        ...roleDraft,
-                        permissions: event.target.checked
-                          ? [...roleDraft.permissions, permission]
-                          : roleDraft.permissions.filter(
-                              (item) => item !== permission,
-                            ),
-                      })
-                    }
-                  />
-                  {permission}
-                </label>
-              ))}
-            </div>
+              <input
+                required
+                placeholder="Role name"
+                value={roleDraft.label}
+                onChange={(event) =>
+                  setRoleDraft({ ...roleDraft, label: event.target.value })
+                }
+                className="border border-neutral-300 rounded px-2 py-2"
+              />
+              <input
+                placeholder="Role description"
+                value={roleDraft.description}
+                onChange={(event) =>
+                  setRoleDraft({
+                    ...roleDraft,
+                    description: event.target.value,
+                  })
+                }
+                className="border border-neutral-300 rounded px-2 py-2"
+              />
+              <button className="bg-neutral-900 text-white rounded px-3 py-2 font-bold">
+                {editingRoleId ? "Save changes" : "Create role"}
+              </button>
+              <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {permissionModules.map((permission) => (
+                  <label
+                    key={permission}
+                    className="flex items-center gap-2 text-[11px]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={roleDraft.permissions.includes(permission)}
+                      onChange={(event) =>
+                        setRoleDraft({
+                          ...roleDraft,
+                          permissions: event.target.checked
+                            ? [...roleDraft.permissions, permission]
+                            : roleDraft.permissions.filter(
+                                (item) => item !== permission,
+                              ),
+                        })
+                      }
+                    />
+                    {permission}
+                  </label>
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -475,54 +487,56 @@ export const AdminManagementPanel: React.FC<{
             </form>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {customRoles.filter((role) => !roles.some((item) => item.value === role.id)).map((role) => (
-              <div
-                key={role.id}
-                className="border border-neutral-200 rounded-lg p-3 flex items-center justify-between gap-2"
-              >
-                <div>
-                  <strong>{role.label}</strong>
-                  <p className="text-neutral-500">
-                    {role.description || "No description"} •{" "}
-                    {role.permissions.length} permissions
-                  </p>
-                  <span
-                    className={
-                      role.enabled ? "text-emerald-700" : "text-red-700"
-                    }
-                  >
-                    {role.enabled ? "Enabled" : "Disabled"}
-                  </span>
+            {customRoles
+              .filter((role) => !roles.some((item) => item.value === role.id))
+              .map((role) => (
+                <div
+                  key={role.id}
+                  className="border border-neutral-200 rounded-lg p-3 flex items-center justify-between gap-2"
+                >
+                  <div>
+                    <strong>{role.label}</strong>
+                    <p className="text-neutral-500">
+                      {role.description || "No description"} •{" "}
+                      {role.permissions.length} permissions
+                    </p>
+                    <span
+                      className={
+                        role.enabled ? "text-emerald-700" : "text-red-700"
+                      }
+                    >
+                      {role.enabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className={actionButton}
+                      onClick={() => {
+                        setEditingRoleId(role.id);
+                        setShowRoleForm(true);
+                        setRoleDraft(role);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className={actionButton}
+                      onClick={() => toggleRole(role)}
+                    >
+                      {role.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      className={actionButton}
+                      onClick={() => deleteRole(role)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    className={actionButton}
-                    onClick={() => {
-                      setEditingRoleId(role.id);
-                      setShowRoleForm(true);
-                      setRoleDraft(role);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className={actionButton}
-                    onClick={() => toggleRole(role)}
-                  >
-                    {role.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    type="button"
-                    className={actionButton}
-                    onClick={() => deleteRole(role)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       )}
@@ -586,7 +600,9 @@ export const AdminManagementPanel: React.FC<{
               className="bg-amber-50 border border-amber-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-2"
             >
               <div className="sm:col-span-4 flex items-center justify-between">
-                <strong>{editingUserId ? "Edit account" : "Create account"}</strong>
+                <strong>
+                  {editingUserId ? "Edit account" : "Create account"}
+                </strong>
                 {editingUserId && (
                   <button
                     type="button"
@@ -935,14 +951,15 @@ export const AdminManagementPanel: React.FC<{
                         {role.description || "No description"}
                       </td>
                       <td className="px-3 py-3 text-emerald-700">
-                        {users.filter((user) => user.role === role.value).length}
+                        {
+                          users.filter((user) => user.role === role.value)
+                            .length
+                        }
                       </td>
                       <td className="px-3 py-3">
                         <span
                           className={
-                            role.enabled
-                              ? "text-emerald-700"
-                              : "text-red-700"
+                            role.enabled ? "text-emerald-700" : "text-red-700"
                           }
                         >
                           {role.enabled ? "Enabled" : "Disabled"}

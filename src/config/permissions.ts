@@ -46,6 +46,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     "reports.view",
   ],
   marketing_admin: [
+    "marketing.homepage.view",
+    "marketing.homepage.manage",
+    "marketing.hero.manage",
+    "marketing.flash_sales",
+    "marketing.campaigns",
     "marketing.coupons",
     "marketing.promotions",
     "reports.view",

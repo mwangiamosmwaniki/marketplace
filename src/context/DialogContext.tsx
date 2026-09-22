@@ -62,7 +62,12 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         confirm: (message, title = "Please confirm") =>
           open("confirm", message, title).then((value) => value === true),
-        prompt: (message, defaultValue = "", title = "Enter value", placeholder) =>
+        prompt: (
+          message,
+          defaultValue = "",
+          title = "Enter value",
+          placeholder,
+        ) =>
           open("prompt", message, title, defaultValue, placeholder).then(
             (value) => (typeof value === "string" ? value : null),
           ),
@@ -93,7 +98,9 @@ const DialogSurface: React.FC<{
         <div className="flex items-start gap-3 border-b border-neutral-100 px-5 py-4">
           <div
             className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-              isAlert ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+              isAlert
+                ? "bg-amber-100 text-amber-700"
+                : "bg-blue-100 text-blue-700"
             }`}
           >
             {isAlert ? (
@@ -103,7 +110,10 @@ const DialogSurface: React.FC<{
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id="dialog-title" className="text-sm font-bold text-neutral-950">
+            <h2
+              id="dialog-title"
+              className="text-sm font-bold text-neutral-950"
+            >
               {request.title}
             </h2>
             <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-neutral-600">
