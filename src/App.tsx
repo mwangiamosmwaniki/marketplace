@@ -54,6 +54,8 @@ import {
   FileText,
   CreditCard,
   BarChart3,
+  Menu,
+  X,
 } from "lucide-react";
 
 type NavigationState = {
@@ -125,6 +127,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     if (activeLabel && activeLabel !== selectedNav) setSelectedNav(activeLabel);
   }, [navItems, selectedNav]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const groups = Array.from(
     new Set(navItems.map((item) => item.group).filter(Boolean)),
   ) as string[];
@@ -141,11 +144,31 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
-    <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
+    <div className="relative min-h-[calc(100dvh-52px)] w-full bg-[#eef0f2]">
+      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 xl:hidden">
+        <div className="text-xs font-bold text-neutral-800">{title}</div>
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen((open) => !open)}
+          className="rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50"
+          aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={mobileSidebarOpen}
+        >
+          {mobileSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+      </div>
       <div
-        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full h-[calc(100vh-72px)] overflow-hidden`}
+        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full min-h-[calc(100dvh-52px)] xl:h-[calc(100dvh-52px)] overflow-hidden`}
       >
-        <aside className="bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex flex-col h-full sticky top-0">
+        {mobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMobileSidebarOpen(false)}
+            className="fixed inset-0 top-[52px] z-40 bg-neutral-950/40 xl:hidden"
+          />
+        )}
+        <aside className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-[52px] z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-52px)] shadow-2xl" : "hidden"} bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}>
           <div
             className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
           >
@@ -179,7 +202,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             </button>
           </div>
 
-          <nav className="p-3 space-y-1.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+          <nav className="p-3 space-y-1.5 flex-1 min-h-0 max-h-[45vh] overflow-y-auto scrollbar-thin xl:max-h-none">
             {navItems.map(({ label, icon, badge, group, path }, index) => {
               const isActive = selectedNav === label;
               const isGroupOpen =
@@ -220,6 +243,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                       type="button"
                       onClick={() => {
                         setSelectedNav(label);
+                        setMobileSidebarOpen(false);
                         if (path) router.push(path);
                         onNavigate?.(label);
                       }}
@@ -1163,7 +1187,6 @@ function MarketplaceApp({
                 icon: <Settings className="w-4 h-4" />,
                 path: "/admin/settings",
                 active: adminTab === "settings",
-                group: "System",
               },
             ]}
             onNavigate={(label) => {

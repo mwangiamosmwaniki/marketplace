@@ -1594,7 +1594,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                 )}
 
                 {marketingTab === "hero" && (
-                  <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+                  <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
                     <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                       <div>
                         <h4 className="text-sm font-bold text-neutral-900">
@@ -1608,9 +1608,10 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                         {promotions.length} banners
                       </span>
                     </div>
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full min-w-[760px] text-left text-xs">
                       <thead className="bg-neutral-50 border-b border-neutral-200 uppercase text-[10px] text-neutral-500">
                         <tr>
+                          <th className="p-3">Banner</th>
                           <th className="p-3">Hero banner</th>
                           <th className="p-3">Schedule</th>
                           <th className="p-3">Status</th>
@@ -1620,19 +1621,33 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                       <tbody className="divide-y divide-neutral-100">
                         {promotions.map((promotion) => (
                           <tr key={promotion.id}>
-                            <td className="p-3">
+                            <td className="w-20 p-3">
+                              {promotion.bannerImage ? (
+                                <img
+                                  src={promotion.bannerImage}
+                                  alt=""
+                                  className="h-10 w-16 rounded-md border border-neutral-200 object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-16 items-center justify-center rounded-md border border-dashed border-neutral-300 bg-neutral-50 text-[10px] text-neutral-400">
+                                  No image
+                                </div>
+                              )}
+                            </td>
+                            <td className="w-[280px] max-w-[280px] p-3">
                               <strong>{promotion.title}</strong>
-                              <span className="block text-neutral-500">
+                              <span className="block max-w-[260px] text-neutral-500">
                                 {promotion.subtitle}
                               </span>
                             </td>
-                            <td className="p-3 text-neutral-500">
+                            <td className="whitespace-nowrap p-3 text-neutral-500">
                               {promotion.startDate} to {promotion.endDate}
                             </td>
-                            <td className="p-3">
+                            <td className="whitespace-nowrap p-3">
                               {promotion.isActive ? "Active" : "Inactive"}
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="whitespace-nowrap p-3 text-right">
                               <button
                                 className={actionButton}
                                 onClick={() => {
@@ -1744,7 +1759,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                 </div>
 
                 {marketingTab === "flash" && (
-                  <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50/40 shadow-sm">
+                  <div className="overflow-x-auto rounded-xl border border-amber-200 bg-amber-50/40 shadow-sm">
                     <div className="flex items-center justify-between border-b border-amber-100 px-4 py-3">
                       <div>
                         <h4 className="text-sm font-bold text-neutral-900">
@@ -1761,7 +1776,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                         Create flash sale
                       </button>
                     </div>
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full min-w-[640px] text-left text-xs">
                       <thead className="bg-neutral-50 border-b border-neutral-200 uppercase text-[10px] text-neutral-500">
                         <tr>
                           <th className="p-3">Flash sale</th>
@@ -1782,10 +1797,10 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                             <td className="p-3">
                               {sale.productIds.length} selected
                             </td>
-                            <td className="p-3 text-neutral-500">
+                            <td className="whitespace-nowrap p-3 text-neutral-500">
                               {sale.startDate} to {sale.endDate}
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="whitespace-nowrap p-3 text-right">
                               <button
                                 className={actionButton}
                                 onClick={() => {
