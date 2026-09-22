@@ -1,21 +1,24 @@
-import React, { useState, useMemo } from 'react';
-import { MarketplaceProvider, useMarketplace } from './context/MarketplaceContext';
-import { Navbar } from './components/Navbar';
-import { HeroSection } from './components/storefront/HeroSection';
-import { FlashSalesSection } from './components/storefront/FlashSalesSection';
-import { OfficialStoresSection } from './components/storefront/OfficialStoresSection';
-import { ProductCard } from './components/storefront/ProductCard';
-import { ProductDetailModal } from './components/storefront/ProductDetailModal';
-import { CartDrawer } from './components/storefront/CartDrawer';
-import { CheckoutModal } from './components/storefront/CheckoutModal';
-import { CustomerAccountModal } from './components/storefront/CustomerAccountModal';
-import { CustomerPortal } from './components/customer/CustomerPortal';
-import { SellerPortal } from './components/seller/SellerPortal';
-import { AdminControlHub } from './components/admin/AdminControlHub';
-import { AuthModal } from './components/auth/AuthModal';
-import { Footer } from './components/Footer';
-import { PublicInfoPage, PublicPageSlug } from './components/PublicInfoPage';
-import { Product, MasterOrder, Role } from './types';
+import React, { useState, useMemo } from "react";
+import {
+  MarketplaceProvider,
+  useMarketplace,
+} from "./context/MarketplaceContext";
+import { Navbar } from "./components/Navbar";
+import { HeroSection } from "./components/storefront/HeroSection";
+import { FlashSalesSection } from "./components/storefront/FlashSalesSection";
+import { OfficialStoresSection } from "./components/storefront/OfficialStoresSection";
+import { ProductCard } from "./components/storefront/ProductCard";
+import { ProductDetailModal } from "./components/storefront/ProductDetailModal";
+import { CartDrawer } from "./components/storefront/CartDrawer";
+import { CheckoutModal } from "./components/storefront/CheckoutModal";
+import { CustomerAccountModal } from "./components/storefront/CustomerAccountModal";
+import { CustomerPortal } from "./components/customer/CustomerPortal";
+import { SellerPortal } from "./components/seller/SellerPortal";
+import { AdminControlHub } from "./components/admin/AdminControlHub";
+import { AuthModal } from "./components/auth/AuthModal";
+import { Footer } from "./components/Footer";
+import { PublicInfoPage, PublicPageSlug } from "./components/PublicInfoPage";
+import { Product, MasterOrder, Role } from "./types";
 import {
   SlidersHorizontal,
   ArrowUpDown,
@@ -41,12 +44,17 @@ import {
   ChevronRight,
   Package,
   FileText,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface DashboardShellProps {
   title: string;
   subtitle: string;
-  navItems: Array<{ label: string; icon: React.ReactNode; active?: boolean; badge?: number }>; 
+  navItems: Array<{
+    label: string;
+    icon: React.ReactNode;
+    active?: boolean;
+    badge?: number;
+  }>;
   rightHeaderLabel: string;
   onNavigate?: (label: string) => void;
   children: React.ReactNode;
@@ -60,7 +68,9 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   onNavigate,
   children,
 }) => {
-  const [selectedNav, setSelectedNav] = useState<string>(navItems.find((item) => item.active)?.label || navItems[0]?.label || '');
+  const [selectedNav, setSelectedNav] = useState<string>(
+    navItems.find((item) => item.active)?.label || navItems[0]?.label || "",
+  );
 
   return (
     <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
@@ -71,8 +81,12 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
               K
             </div>
             <div>
-              <div className="font-black tracking-tight text-xl">KESALES<span className="text-amber-500">.</span></div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">Admin hub</div>
+              <div className="font-black tracking-tight text-xl">
+                KESALES<span className="text-amber-500">.</span>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
+                Admin hub
+              </div>
             </div>
           </div>
 
@@ -89,7 +103,9 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                     onNavigate?.(label);
                   }}
                   className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
-                    isActive ? 'bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400' : 'text-neutral-200 hover:bg-white/5'
+                    isActive
+                      ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
+                      : "text-neutral-200 hover:bg-white/5"
                   }`}
                 >
                   <span className="flex items-center gap-3">
@@ -110,65 +126,87 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             <div className="flex items-center gap-3 bg-[#101a27] border border-neutral-700 p-3">
               <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400" />
               <div className="flex-1">
-                <div className="text-[12px] font-bold text-white">System status</div>
+                <div className="text-[12px] font-bold text-white">
+                  System status
+                </div>
                 <div className="text-[11px] text-emerald-300">Healthy</div>
               </div>
             </div>
           </div>
         </aside>
 
-        <div className="bg-[#f3f4f6] h-full overflow-y-auto">
-          {children}
-        </div>
+        <div className="bg-[#f3f4f6] h-full overflow-y-auto">{children}</div>
       </div>
     </div>
   );
 };
 
 function MarketplaceApp() {
-  const { products, categories, brands, formatKSh, authUser } = useMarketplace();
+  const { products, categories, brands, formatKSh, authUser } =
+    useMarketplace();
 
   // Navigation & Modals View state
   const [activeView, setActiveView] = useState<
-    'storefront' | 'seller' | 'admin' | 'customer'
-  >('storefront');
+    "storefront" | "seller" | "admin" | "customer"
+  >("storefront");
   const [customerTab, setCustomerTab] = useState<
-    'orders' | 'wishlist' | 'addresses' | 'returns' | 'payments' | 'security'
-  >('orders');
+    "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
+  >("orders");
   const [sellerTab, setSellerTab] = useState<
-    'dashboard' | 'products' | 'inventory' | 'orders' | 'payouts' | 'verification' | 'settings'
-  >('dashboard');
+    | "dashboard"
+    | "products"
+    | "inventory"
+    | "orders"
+    | "payouts"
+    | "verification"
+    | "settings"
+  >("dashboard");
   const [adminTab, setAdminTab] = useState<
-    'analytics' | 'users' | 'roles' | 'security' | 'audit' | 'system' | 'sellers' | 'catalog' | 'orders' | 'finance' | 'coupons' | 'logistics' | 'settings'
-  >('analytics');
+    | "analytics"
+    | "users"
+    | "roles"
+    | "security"
+    | "audit"
+    | "system"
+    | "sellers"
+    | "catalog"
+    | "orders"
+    | "finance"
+    | "coupons"
+    | "logistics"
+    | "settings"
+  >("analytics");
   const [publicPage, setPublicPage] = useState<PublicPageSlug | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [selectedProductForDetail, setSelectedProductForDetail] = useState<Product | null>(null);
+  const [selectedProductForDetail, setSelectedProductForDetail] =
+    useState<Product | null>(null);
 
   // Real Authentication Modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'register_customer' | 'register_seller'>('login');
+  const [authModalTab, setAuthModalTab] = useState<
+    "login" | "register_customer" | "register_seller"
+  >("login");
 
   // Search & Filtering
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(200000);
   const [onlyExpress, setOnlyExpress] = useState(false);
   const [onlyOfficial, setOnlyOfficial] = useState(false);
   const [sortBy, setSortBy] = useState<
-    'relevance' | 'price_asc' | 'price_desc' | 'rating' | 'popular'
-  >('relevance');
+    "relevance" | "price_asc" | "price_desc" | "rating" | "popular"
+  >("relevance");
 
   // Filtered & Sorted Product Collection
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
         // Status check
-        if (p.status !== 'active') return false;
+        if (p.status !== "active") return false;
 
         // Search text matching name, description, brand, or SKU
         if (searchQuery.trim()) {
@@ -180,12 +218,12 @@ function MarketplaceApp() {
         }
 
         // Category filter
-        if (selectedCategory !== 'all' && p.categoryId !== selectedCategory) {
+        if (selectedCategory !== "all" && p.categoryId !== selectedCategory) {
           return false;
         }
 
         // Brand filter
-        if (selectedBrand !== 'all' && p.brandId !== selectedBrand) {
+        if (selectedBrand !== "all" && p.brandId !== selectedBrand) {
           return false;
         }
 
@@ -210,23 +248,37 @@ function MarketplaceApp() {
         const priceA = a.discountPrice || a.price;
         const priceB = b.discountPrice || b.price;
 
-        if (sortBy === 'price_asc') return priceA - priceB;
-        if (sortBy === 'price_desc') return priceB - priceA;
-        if (sortBy === 'rating') return b.rating - a.rating;
-        if (sortBy === 'popular') return b.reviewsCount - a.reviewsCount;
+        if (sortBy === "price_asc") return priceA - priceB;
+        if (sortBy === "price_desc") return priceB - priceA;
+        if (sortBy === "rating") return b.rating - a.rating;
+        if (sortBy === "popular") return b.reviewsCount - a.reviewsCount;
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return (Number(b.isFeatured) - Number(a.isFeatured)) || b.reviewsCount - a.reviewsCount;
+        if (!query)
+          return (
+            Number(b.isFeatured) - Number(a.isFeatured) ||
+            b.reviewsCount - a.reviewsCount
+          );
         const score = (product: Product) => {
-          const brand = brands.find((item) => item.id === product.brandId)?.name.toLowerCase() || '';
-          const category = categories.find((item) => item.id === product.categoryId)?.name.toLowerCase() || '';
+          const brand =
+            brands
+              .find((item) => item.id === product.brandId)
+              ?.name.toLowerCase() || "";
+          const category =
+            categories
+              .find((item) => item.id === product.categoryId)
+              ?.name.toLowerCase() || "";
           const name = product.name.toLowerCase();
-          const description = `${product.shortDescription} ${product.description}`.toLowerCase();
-          return (name === query ? 100 : 0) +
+          const description =
+            `${product.shortDescription} ${product.description}`.toLowerCase();
+          return (
+            (name === query ? 100 : 0) +
             (name.includes(query) ? 40 : 0) +
             (brand.includes(query) ? 25 : 0) +
             (category.includes(query) ? 20 : 0) +
             (description.includes(query) ? 10 : 0) +
-            product.rating * 2 + Math.log10(product.reviewsCount + 1);
+            product.rating * 2 +
+            Math.log10(product.reviewsCount + 1)
+          );
         };
         return score(b) - score(a);
       });
@@ -245,20 +297,20 @@ function MarketplaceApp() {
   ]);
 
   const resetFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('all');
-    setSelectedBrand('all');
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setSelectedBrand("all");
     setMinPrice(0);
     setMaxPrice(200000);
     setOnlyExpress(false);
     setOnlyOfficial(false);
-    setSortBy('relevance');
+    setSortBy("relevance");
   };
 
   const hasActiveFilters =
-    searchQuery !== '' ||
-    selectedCategory !== 'all' ||
-    selectedBrand !== 'all' ||
+    searchQuery !== "" ||
+    selectedCategory !== "all" ||
+    selectedBrand !== "all" ||
     minPrice > 0 ||
     maxPrice < 200000 ||
     onlyExpress ||
@@ -280,45 +332,45 @@ function MarketplaceApp() {
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAccount={() => {
           if (!authUser) {
-            setAuthModalTab('login');
+            setAuthModalTab("login");
             setIsAuthModalOpen(true);
           } else {
-            setActiveView('customer');
+            setActiveView("customer");
           }
         }}
         onSelectCategory={(catId) => {
           setSelectedCategory(catId);
-          if (activeView !== 'storefront') setActiveView('storefront');
+          if (activeView !== "storefront") setActiveView("storefront");
         }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         activeView={activeView}
         setActiveView={setActiveView}
         onOpenAuthModal={(tab) => {
-          setAuthModalTab(tab || 'login');
+          setAuthModalTab(tab || "login");
           setIsAuthModalOpen(true);
         }}
         onBackToStorefront={() => {
           setPublicPage(null);
-          setActiveView('storefront');
+          setActiveView("storefront");
         }}
       />
 
       {/* 2. Main Body Content Switcher */}
       <main className="flex-1">
         {/* VIEW 1: CUSTOMER STOREFRONT */}
-        {activeView === 'storefront' && publicPage && (
+        {activeView === "storefront" && publicPage && (
           <PublicInfoPage
             slug={publicPage}
             onBack={() => setPublicPage(null)}
             onOpenAuth={(tab) => {
-              setAuthModalTab(tab || 'login');
+              setAuthModalTab(tab || "login");
               setIsAuthModalOpen(true);
             }}
           />
         )}
 
-        {activeView === 'storefront' && !publicPage && (
+        {activeView === "storefront" && !publicPage && (
           <div className="max-w-7xl mx-auto px-4">
             {/* Show Hero & Promos only when browsing top-level without search */}
             {!hasActiveFilters && (
@@ -326,16 +378,18 @@ function MarketplaceApp() {
                 <HeroSection
                   onSelectCategory={(catId) => setSelectedCategory(catId)}
                   onOpenSellerPortal={() => {
-                    if (authUser?.role === 'seller') {
-                      setActiveView('seller');
+                    if (authUser?.role === "seller") {
+                      setActiveView("seller");
                     } else {
-                      setAuthModalTab('register_seller');
+                      setAuthModalTab("register_seller");
                       setIsAuthModalOpen(true);
                     }
                   }}
                 />
                 <FlashSalesSection
-                  onViewProduct={(product) => setSelectedProductForDetail(product)}
+                  onViewProduct={(product) =>
+                    setSelectedProductForDetail(product)
+                  }
                 />
                 <OfficialStoresSection
                   onSelectBrand={(brandId) => setSelectedBrand(brandId)}
@@ -351,9 +405,10 @@ function MarketplaceApp() {
                   <h3 className="font-bold text-sm sm:text-base text-neutral-900 flex items-center gap-2">
                     <ShoppingBag className="w-5 h-5 text-amber-500" />
                     <span>
-                      {selectedCategory !== 'all'
-                        ? categories.find((c) => c.id === selectedCategory)?.name
-                        : 'Explore All Products'}
+                      {selectedCategory !== "all"
+                        ? categories.find((c) => c.id === selectedCategory)
+                            ?.name
+                        : "Explore All Products"}
                     </span>
                     <span className="text-xs text-neutral-400 font-normal">
                       ({filteredProducts.length} items found)
@@ -361,7 +416,9 @@ function MarketplaceApp() {
                   </h3>
                   {hasActiveFilters && (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-neutral-500">Filtered results</span>
+                      <span className="text-xs text-neutral-500">
+                        Filtered results
+                      </span>
                       <button
                         onClick={resetFilters}
                         className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1 font-semibold"
@@ -412,14 +469,16 @@ function MarketplaceApp() {
 
                     {/* Category Filter */}
                     <div className="py-3 border-b border-neutral-100">
-                      <label className="block text-xs font-bold text-neutral-800 mb-2">Category</label>
+                      <label className="block text-xs font-bold text-neutral-800 mb-2">
+                        Category
+                      </label>
                       <div className="space-y-1.5 text-xs text-neutral-600">
                         <div
-                          onClick={() => setSelectedCategory('all')}
+                          onClick={() => setSelectedCategory("all")}
                           className={`cursor-pointer px-2 py-1 rounded transition-colors ${
-                            selectedCategory === 'all'
-                              ? 'bg-amber-50 text-amber-700 font-bold'
-                              : 'hover:bg-neutral-50'
+                            selectedCategory === "all"
+                              ? "bg-amber-50 text-amber-700 font-bold"
+                              : "hover:bg-neutral-50"
                           }`}
                         >
                           All Categories
@@ -430,8 +489,8 @@ function MarketplaceApp() {
                             onClick={() => setSelectedCategory(c.id)}
                             className={`cursor-pointer px-2 py-1 rounded transition-colors ${
                               selectedCategory === c.id
-                                ? 'bg-amber-50 text-amber-700 font-bold'
-                                : 'hover:bg-neutral-50'
+                                ? "bg-amber-50 text-amber-700 font-bold"
+                                : "hover:bg-neutral-50"
                             }`}
                           >
                             {c.name}
@@ -442,14 +501,16 @@ function MarketplaceApp() {
 
                     {/* Brand Filter */}
                     <div className="py-3 border-b border-neutral-100">
-                      <label className="block text-xs font-bold text-neutral-800 mb-2">Brand</label>
+                      <label className="block text-xs font-bold text-neutral-800 mb-2">
+                        Brand
+                      </label>
                       <div className="space-y-1.5 text-xs text-neutral-600">
                         <div
-                          onClick={() => setSelectedBrand('all')}
+                          onClick={() => setSelectedBrand("all")}
                           className={`cursor-pointer px-2 py-1 rounded transition-colors ${
-                            selectedBrand === 'all'
-                              ? 'bg-amber-50 text-amber-700 font-bold'
-                              : 'hover:bg-neutral-50'
+                            selectedBrand === "all"
+                              ? "bg-amber-50 text-amber-700 font-bold"
+                              : "hover:bg-neutral-50"
                           }`}
                         >
                           All Brands
@@ -460,8 +521,8 @@ function MarketplaceApp() {
                             onClick={() => setSelectedBrand(b.id)}
                             className={`cursor-pointer px-2 py-1 rounded transition-colors ${
                               selectedBrand === b.id
-                                ? 'bg-amber-50 text-amber-700 font-bold'
-                                : 'hover:bg-neutral-50'
+                                ? "bg-amber-50 text-amber-700 font-bold"
+                                : "hover:bg-neutral-50"
                             }`}
                           >
                             {b.name}
@@ -479,7 +540,7 @@ function MarketplaceApp() {
                         <input
                           type="number"
                           placeholder="Min"
-                          value={minPrice || ''}
+                          value={minPrice || ""}
                           onChange={(e) => setMinPrice(Number(e.target.value))}
                           className="w-full p-1.5 border border-neutral-300 rounded text-center text-xs"
                         />
@@ -487,7 +548,7 @@ function MarketplaceApp() {
                         <input
                           type="number"
                           placeholder="Max"
-                          value={maxPrice || ''}
+                          value={maxPrice || ""}
                           onChange={(e) => setMaxPrice(Number(e.target.value))}
                           className="w-full p-1.5 border border-neutral-300 rounded text-center text-xs"
                         />
@@ -523,9 +584,12 @@ function MarketplaceApp() {
                   {filteredProducts.length === 0 ? (
                     <div className="bg-white rounded-lg border border-neutral-200 p-12 text-center shadow-xs">
                       <ShoppingBag className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
-                      <h4 className="font-bold text-sm text-neutral-800">No matching products found</h4>
+                      <h4 className="font-bold text-sm text-neutral-800">
+                        No matching products found
+                      </h4>
                       <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-                        Try modifying your search term or adjusting filter bounds to view more items.
+                        Try modifying your search term or adjusting filter
+                        bounds to view more items.
                       </p>
                       <button
                         onClick={resetFilters}
@@ -552,27 +616,38 @@ function MarketplaceApp() {
         )}
 
         {/* VIEW 2: CUSTOMER ACCOUNT PORTAL (WITH SIDEBAR) */}
-        {activeView === 'customer' && (
+        {activeView === "customer" && (
           <DashboardShell
-            title={`Good morning, ${authUser?.name?.split(' ')[0] || 'Robert'}`}
+            title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
             subtitle="Here’s what’s happening with your marketplace today."
-            rightHeaderLabel={authUser?.name || 'Robert Otieno'}
+            rightHeaderLabel={authUser?.name || "Robert Otieno"}
             navItems={[
-              { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
-              { label: 'My Orders', icon: <ShoppingBag className="w-4 h-4" />, badge: 2 },
-              { label: 'Wishlist', icon: <Sparkles className="w-4 h-4" /> },
-              { label: 'Saved Addresses', icon: <MapPinned className="w-4 h-4" /> },
-              { label: 'Returns', icon: <RotateCcw className="w-4 h-4" /> },
-              { label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+              {
+                label: "Dashboard",
+                icon: <Home className="w-4 h-4" />,
+                active: true,
+              },
+              {
+                label: "My Orders",
+                icon: <ShoppingBag className="w-4 h-4" />,
+                badge: 2,
+              },
+              { label: "Wishlist", icon: <Sparkles className="w-4 h-4" /> },
+              {
+                label: "Saved Addresses",
+                icon: <MapPinned className="w-4 h-4" />,
+              },
+              { label: "Returns", icon: <RotateCcw className="w-4 h-4" /> },
+              { label: "Settings", icon: <Settings className="w-4 h-4" /> },
             ]}
             onNavigate={(label) => {
               const tabMap: Record<string, typeof customerTab> = {
-                Dashboard: 'orders',
-                'My Orders': 'orders',
-                Wishlist: 'wishlist',
-                'Saved Addresses': 'addresses',
-                Returns: 'returns',
-                Settings: 'security',
+                Dashboard: "orders",
+                "My Orders": "orders",
+                Wishlist: "wishlist",
+                "Saved Addresses": "addresses",
+                Returns: "returns",
+                Settings: "security",
               };
               const nextTab = tabMap[label];
               if (nextTab) setCustomerTab(nextTab);
@@ -591,30 +666,44 @@ function MarketplaceApp() {
         )}
 
         {/* VIEW 3: SELLER CENTER PORTAL (RBAC Guarded) */}
-        {activeView === 'seller' && (
-          authUser?.role === 'seller' ? (
+        {activeView === "seller" &&
+          (authUser?.role === "seller" ? (
             <DashboardShell
-              title={authUser?.name || 'Seller Dashboard'}
+              title={authUser?.name || "Seller Dashboard"}
               subtitle="Manage your storefront, inventory, orders, and payouts from one view."
-              rightHeaderLabel={authUser?.name || 'Seller'}
+              rightHeaderLabel={authUser?.name || "Seller"}
               navItems={[
-                { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
-                { label: 'Products', icon: <Boxes className="w-4 h-4" /> },
-                { label: 'Inventory', icon: <ShoppingBag className="w-4 h-4" /> },
-                { label: 'Orders', icon: <Package className="w-4 h-4" />, badge: 1 },
-                { label: 'Payouts', icon: <Wallet className="w-4 h-4" /> },
-                { label: 'Verification', icon: <ShieldCheck className="w-4 h-4" /> },
-                { label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+                {
+                  label: "Dashboard",
+                  icon: <Home className="w-4 h-4" />,
+                  active: true,
+                },
+                { label: "Products", icon: <Boxes className="w-4 h-4" /> },
+                {
+                  label: "Inventory",
+                  icon: <ShoppingBag className="w-4 h-4" />,
+                },
+                {
+                  label: "Orders",
+                  icon: <Package className="w-4 h-4" />,
+                  badge: 1,
+                },
+                { label: "Payouts", icon: <Wallet className="w-4 h-4" /> },
+                {
+                  label: "Verification",
+                  icon: <ShieldCheck className="w-4 h-4" />,
+                },
+                { label: "Settings", icon: <Settings className="w-4 h-4" /> },
               ]}
               onNavigate={(label) => {
                 const tabMap: Record<string, typeof sellerTab> = {
-                  Dashboard: 'dashboard',
-                  Products: 'products',
-                  Inventory: 'inventory',
-                  Orders: 'orders',
-                  Payouts: 'payouts',
-                  Verification: 'verification',
-                  Settings: 'settings',
+                  Dashboard: "dashboard",
+                  Products: "products",
+                  Inventory: "inventory",
+                  Orders: "orders",
+                  Payouts: "payouts",
+                  Verification: "verification",
+                  Settings: "settings",
                 };
                 const nextTab = tabMap[label];
                 if (nextTab) setSellerTab(nextTab);
@@ -631,12 +720,14 @@ function MarketplaceApp() {
                 KESALES Seller Center
               </h2>
               <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                Access to the merchant portal requires an approved KESALES seller account. Sign in to your vendor profile or register your shop today.
+                Access to the merchant portal requires an approved KESALES
+                seller account. Sign in to your vendor profile or register your
+                shop today.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => {
-                    setAuthModalTab('login');
+                    setAuthModalTab("login");
                     setIsAuthModalOpen(true);
                   }}
                   className="w-full sm:w-auto px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition-colors"
@@ -645,7 +736,7 @@ function MarketplaceApp() {
                 </button>
                 <button
                   onClick={() => {
-                    setAuthModalTab('register_seller');
+                    setAuthModalTab("register_seller");
                     setIsAuthModalOpen(true);
                   }}
                   className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors"
@@ -654,52 +745,88 @@ function MarketplaceApp() {
                 </button>
               </div>
             </div>
-          )
-        )}
+          ))}
 
         {/* VIEW 4: ADMIN CONTROL HUB (RBAC Guarded) */}
-        {activeView === 'admin' && (
-          (authUser?.role === 'super_admin' ||
-           authUser?.role === 'finance_admin' ||
-           authUser?.role === 'seller_admin' ||
-           authUser?.role === 'logistics_admin' ||
-           authUser?.role === 'product_admin' ||
-           authUser?.role === 'support_admin' ||
-           authUser?.role === 'marketing_admin') ? (
+        {activeView === "admin" &&
+          (authUser?.role === "super_admin" ||
+          authUser?.role === "finance_admin" ||
+          authUser?.role === "seller_admin" ||
+          authUser?.role === "logistics_admin" ||
+          authUser?.role === "product_admin" ||
+          authUser?.role === "support_admin" ||
+          authUser?.role === "marketing_admin" ? (
             <DashboardShell
-              title={`Good morning, ${authUser?.name?.split(' ')[0] || 'Robert'}`}
+              title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
               subtitle="Here’s what’s happening with your marketplace today."
-              rightHeaderLabel={authUser?.name || 'Robert Otieno'}
+              rightHeaderLabel={authUser?.name || "Robert Otieno"}
               navItems={[
-                { label: 'Dashboard', icon: <Home className="w-4 h-4" />, active: true },
-                { label: 'Users', icon: <Users className="w-4 h-4" /> },
-                { label: 'Roles & Permissions', icon: <ShieldCheck className="w-4 h-4" /> },
-                { label: 'Security Center', icon: <ShieldAlert className="w-4 h-4" /> },
-                { label: 'System Controls', icon: <Settings className="w-4 h-4" /> },
-                { label: 'Audit Logs', icon: <FileText className="w-4 h-4" /> },
-                { label: 'Sellers & KYC', icon: <Users className="w-4 h-4" />, badge: 1 },
-                { label: 'Catalog Moderation', icon: <Boxes className="w-4 h-4" /> },
-                { label: 'Master Orders', icon: <ShoppingBag className="w-4 h-4" /> },
-                { label: 'Finance & Ledger', icon: <Wallet className="w-4 h-4" /> },
-                { label: 'Marketing Coupons', icon: <Ticket className="w-4 h-4" />, badge: 3 },
-                { label: 'Delivery Zones', icon: <MapPinned className="w-4 h-4" />, badge: 47 },
-                { label: 'System Settings', icon: <Settings className="w-4 h-4" /> },
+                {
+                  label: "Dashboard",
+                  icon: <Home className="w-4 h-4" />,
+                  active: true,
+                },
+                { label: "Users", icon: <Users className="w-4 h-4" /> },
+                {
+                  label: "Roles & Permissions",
+                  icon: <ShieldCheck className="w-4 h-4" />,
+                },
+                {
+                  label: "Security Center",
+                  icon: <ShieldAlert className="w-4 h-4" />,
+                },
+                {
+                  label: "System Controls",
+                  icon: <Settings className="w-4 h-4" />,
+                },
+                { label: "Audit Logs", icon: <FileText className="w-4 h-4" /> },
+                {
+                  label: "Sellers & KYC",
+                  icon: <Users className="w-4 h-4" />,
+                  badge: 1,
+                },
+                {
+                  label: "Catalog Moderation",
+                  icon: <Boxes className="w-4 h-4" />,
+                },
+                {
+                  label: "Master Orders",
+                  icon: <ShoppingBag className="w-4 h-4" />,
+                },
+                {
+                  label: "Finance & Ledger",
+                  icon: <Wallet className="w-4 h-4" />,
+                },
+                {
+                  label: "Marketing Coupons",
+                  icon: <Ticket className="w-4 h-4" />,
+                  badge: 3,
+                },
+                {
+                  label: "Delivery Zones",
+                  icon: <MapPinned className="w-4 h-4" />,
+                  badge: 47,
+                },
+                {
+                  label: "System Settings",
+                  icon: <Settings className="w-4 h-4" />,
+                },
               ]}
               onNavigate={(label) => {
                 const tabMap: Record<string, typeof adminTab> = {
-                  Dashboard: 'analytics',
-                  Users: 'users',
-                  'Roles & Permissions': 'roles',
-                  'Security Center': 'security',
-                  'System Controls': 'system',
-                  'Audit Logs': 'audit',
-                  'Sellers & KYC': 'sellers',
-                  'Catalog Moderation': 'catalog',
-                  'Master Orders': 'orders',
-                  'Finance & Ledger': 'finance',
-                  'Marketing Coupons': 'coupons',
-                  'Delivery Zones': 'logistics',
-                  'System Settings': 'settings',
+                  Dashboard: "analytics",
+                  Users: "users",
+                  "Roles & Permissions": "roles",
+                  "Security Center": "security",
+                  "System Controls": "system",
+                  "Audit Logs": "audit",
+                  "Sellers & KYC": "sellers",
+                  "Catalog Moderation": "catalog",
+                  "Master Orders": "orders",
+                  "Finance & Ledger": "finance",
+                  "Marketing Coupons": "coupons",
+                  "Delivery Zones": "logistics",
+                  "System Settings": "settings",
                 };
                 const nextTab = tabMap[label];
                 if (nextTab) setAdminTab(nextTab);
@@ -716,11 +843,12 @@ function MarketplaceApp() {
                 Restricted Governance Area
               </h2>
               <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                This console is reserved exclusively for authenticated KESALES administrative staff (Finance, KYC Compliance, Super Admin).
+                This console is reserved exclusively for authenticated KESALES
+                administrative staff (Finance, KYC Compliance, Super Admin).
               </p>
               <button
                 onClick={() => {
-                  setAuthModalTab('login');
+                  setAuthModalTab("login");
                   setIsAuthModalOpen(true);
                 }}
                 className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-xs transition-colors inline-flex items-center gap-2"
@@ -729,13 +857,13 @@ function MarketplaceApp() {
                 <span>Sign In with Staff Credentials</span>
               </button>
             </div>
-          )
-        )}
-
+          ))}
       </main>
 
       {/* Public storefront footer */}
-      {activeView === 'storefront' && !publicPage && <Footer onOpenPage={setPublicPage} />}
+      {activeView === "storefront" && !publicPage && (
+        <Footer onOpenPage={setPublicPage} />
+      )}
 
       {/* 4. Real Authentication Modal */}
       <AuthModal
@@ -743,20 +871,20 @@ function MarketplaceApp() {
         onClose={() => setIsAuthModalOpen(false)}
         defaultTab={authModalTab}
         onSuccess={(role) => {
-          if (role === 'seller') {
-            setActiveView('seller');
+          if (role === "seller") {
+            setActiveView("seller");
           } else if (
-            role === 'super_admin' ||
-            role === 'finance_admin' ||
-            role === 'seller_admin' ||
-            role === 'logistics_admin' ||
-              role === 'product_admin' ||
-              role === 'support_admin' ||
-              role === 'marketing_admin'
+            role === "super_admin" ||
+            role === "finance_admin" ||
+            role === "seller_admin" ||
+            role === "logistics_admin" ||
+            role === "product_admin" ||
+            role === "support_admin" ||
+            role === "marketing_admin"
           ) {
-            setActiveView('admin');
+            setActiveView("admin");
           } else {
-            setActiveView('storefront');
+            setActiveView("storefront");
           }
         }}
       />

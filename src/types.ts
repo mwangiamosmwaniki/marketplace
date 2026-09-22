@@ -1,19 +1,44 @@
 export type Role =
-  | 'super_admin'
-  | 'product_admin'
-  | 'seller_admin'
-  | 'finance_admin'
-  | 'logistics_admin'
-  | 'support_admin'
-  | 'marketing_admin'
-  | 'seller'
-  | 'customer'
+  | "super_admin"
+  | "product_admin"
+  | "seller_admin"
+  | "finance_admin"
+  | "logistics_admin"
+  | "support_admin"
+  | "marketing_admin"
+  | "seller"
+  | "customer"
   | (string & {});
 
-export type SellerStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended' | 'disabled';
-export type SellerApplicationStatus = 'unverified' | 'incomplete' | 'pending_review' | 'more_information_required' | 'verified' | 'suspended' | 'rejected' | 'reverification_required';
-export type VerificationItemStatus = 'pending' | 'under_review' | 'verified' | 'rejected' | 'expired' | 're_upload_required';
-export type SellerType = 'individual' | 'sole_proprietor' | 'partnership' | 'limited_company' | 'other_organization';
+export type SellerStatus =
+  | "pending"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "suspended"
+  | "disabled";
+export type SellerApplicationStatus =
+  | "unverified"
+  | "incomplete"
+  | "pending_review"
+  | "more_information_required"
+  | "verified"
+  | "suspended"
+  | "rejected"
+  | "reverification_required";
+export type VerificationItemStatus =
+  | "pending"
+  | "under_review"
+  | "verified"
+  | "rejected"
+  | "expired"
+  | "re_upload_required";
+export type SellerType =
+  | "individual"
+  | "sole_proprietor"
+  | "partnership"
+  | "limited_company"
+  | "other_organization";
 
 export interface SellerPerson {
   id: string;
@@ -96,23 +121,41 @@ export interface SellerVerification {
   approvedAt?: string;
   rejectedAt?: string;
 }
-export type ProductStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'active' | 'inactive' | 'out_of_stock' | 'archived';
+export type ProductStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "active"
+  | "inactive"
+  | "out_of_stock"
+  | "archived";
 export type OrderStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'processing'
-  | 'ready_for_dispatch'
-  | 'dispatched'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled'
-  | 'return_requested'
-  | 'returned'
-  | 'refunded';
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "ready_for_dispatch"
+  | "dispatched"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled"
+  | "return_requested"
+  | "returned"
+  | "refunded";
 
-export type PaymentStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
-export type PaymentMethod = 'mpesa_stk' | 'card' | 'bank_transfer' | 'cash_on_delivery';
-export type PayoutStatus = 'pending' | 'approved' | 'processed' | 'rejected';
+export type PaymentStatus =
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "refunded"
+  | "partially_refunded";
+export type PaymentMethod =
+  | "mpesa_stk"
+  | "card"
+  | "bank_transfer"
+  | "cash_on_delivery";
+export type PayoutStatus = "pending" | "approved" | "processed" | "rejected";
 
 export interface User {
   id: string;
@@ -122,9 +165,13 @@ export interface User {
   role: Role;
   sellerId?: string;
   permissions: string[];
-  status: 'active' | 'suspended';
+  status: "active" | "suspended";
   avatar?: string;
-  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'reverification_required';
+  verificationStatus?:
+    | "unverified"
+    | "pending"
+    | "verified"
+    | "reverification_required";
   lastLoginAt?: string;
   lastLoginIp?: string;
   mustChangePassword?: boolean;
@@ -158,7 +205,7 @@ export interface Seller {
   pendingBalance: number;
   availableBalance: number;
   totalPayouts: number;
-  payoutMethod: 'mpesa' | 'bank';
+  payoutMethod: "mpesa" | "bank";
   payoutAccount: string;
   verification?: SellerVerification;
   createdAt: string;
@@ -217,7 +264,7 @@ export interface Product {
   flashSaleEndsAt?: string;
   isFeatured?: boolean;
   warranty: string;
-  condition: 'Brand New' | 'Refurbished' | 'Open Box';
+  condition: "Brand New" | "Refurbished" | "Open Box";
   returnPolicy: string;
   weightKg: number;
   createdAt: string;
@@ -287,7 +334,7 @@ export interface MasterOrder {
   customerEmail: string;
   customerPhone: string;
   deliveryAddress: DeliveryAddress;
-  deliveryType: 'home_delivery' | 'pickup_station';
+  deliveryType: "home_delivery" | "pickup_station";
   pickupStationName?: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
@@ -305,7 +352,13 @@ export interface MasterOrder {
 export interface FinancialLedgerEntry {
   id: string;
   transactionRef: string;
-  type: 'CUSTOMER_PAYMENT' | 'SELLER_CREDIT' | 'PLATFORM_COMMISSION' | 'DELIVERY_FEE' | 'REFUND' | 'SELLER_PAYOUT';
+  type:
+    | "CUSTOMER_PAYMENT"
+    | "SELLER_CREDIT"
+    | "PLATFORM_COMMISSION"
+    | "DELIVERY_FEE"
+    | "REFUND"
+    | "SELLER_PAYOUT";
   orderNumber?: string;
   sellerId?: string;
   sellerName?: string;
@@ -324,9 +377,9 @@ export interface SellerPayoutRequest {
   sellerId: string;
   sellerName: string;
   amount: number;
-  method: 'mpesa' | 'bank';
+  method: "mpesa" | "bank";
   accountDetails: string;
-  status: 'pending' | 'approved' | 'processed' | 'rejected';
+  status: "pending" | "approved" | "processed" | "rejected";
   rejectionReason?: string;
   transactionRef?: string;
   createdAt: string;
@@ -346,8 +399,8 @@ export interface Review {
 export interface Coupon {
   id?: string;
   code: string;
-  type: 'percentage' | 'fixed';
-  discountType?: 'percentage' | 'fixed';
+  type: "percentage" | "fixed";
+  discountType?: "percentage" | "fixed";
   value: number; // e.g. 10 for 10% or 500 for KSh 500
   minOrderValue: number;
   minOrderAmount?: number;
@@ -404,7 +457,7 @@ export interface SystemSettings {
     enableBankTransfer: boolean;
     enableCod: boolean;
     mpesaShortcode: string;
-    mpesaEnvironment: 'sandbox' | 'production';
+    mpesaEnvironment: "sandbox" | "production";
   };
   delivery: {
     defaultDeliveryFee: number;
@@ -454,9 +507,20 @@ export interface SupportTicket {
   userEmail: string;
   userRole: Role;
   subject: string;
-  category: 'orders' | 'payments' | 'returns' | 'seller_onboarding' | 'technical' | 'general';
-  status: 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  category:
+    | "orders"
+    | "payments"
+    | "returns"
+    | "seller_onboarding"
+    | "technical"
+    | "general";
+  status:
+    | "open"
+    | "in_progress"
+    | "waiting_on_customer"
+    | "resolved"
+    | "closed";
+  priority: "low" | "medium" | "high" | "urgent";
   assignedAdminName?: string;
   orderNumber?: string;
   createdAt: string;
@@ -494,7 +558,13 @@ export interface ReturnRequest {
   productImage: string;
   price: number;
   reason: string;
-  status: 'pending_review' | 'approved' | 'item_received' | 'refunded' | 'rejected' | 'cancelled';
+  status:
+    | "pending_review"
+    | "approved"
+    | "item_received"
+    | "refunded"
+    | "rejected"
+    | "cancelled";
   rejectionReason?: string;
   createdAt: string;
   resolvedAt?: string;
