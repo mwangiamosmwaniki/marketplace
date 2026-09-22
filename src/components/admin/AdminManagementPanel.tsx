@@ -16,6 +16,14 @@ import { useDialog } from "../../context/DialogContext";
 import { Role, User } from "../../types";
 import { ROLE_PERMISSIONS } from "../../config/permissions";
 
+const localStorage = {
+  getItem: (key: string) =>
+    typeof window === "undefined" ? null : window.localStorage.getItem(key),
+  setItem: (key: string, value: string) => {
+    if (typeof window !== "undefined") window.localStorage.setItem(key, value);
+  },
+};
+
 const roles: { value: Role; label: string; description: string }[] = [
   {
     value: "super_admin",
