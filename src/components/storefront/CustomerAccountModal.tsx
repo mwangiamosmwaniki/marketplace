@@ -36,6 +36,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
     cancelOrder,
     addToCart,
     toggleWishlist,
+    requestReturn,
   } = useMarketplace();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
@@ -53,6 +54,12 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
 
   const handleReturnSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (returnModalSubOrder) {
+      const order = orders.find((o) => o.id === returnModalSubOrder.orderId);
+      const sub = order?.sellerSubOrders.find((s) => s.id === returnModalSubOrder.subOrderId);
+      const prodId = sub?.items[0]?.productId || '';
+      requestReturn(returnModalSubOrder.orderId, returnModalSubOrder.subOrderId, prodId, returnReason);
+    }
     setReturnSuccess(true);
     setTimeout(() => {
       setReturnSuccess(false);

@@ -25,40 +25,56 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectCategory,
   onOpenSellerPortal,
 }) => {
-  const { categories } = useMarketplace();
+  const { categories, promotions } = useMarketplace();
 
   // Slide index
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    {
-      id: 1,
-      title: 'Mega Flash Sales — Up to 40% Off',
-      subtitle: 'Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery',
-      tag: 'LIMITED TIME DEALS',
-      bgClass: 'from-amber-600 to-orange-600',
-      image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80',
-      cta: 'Shop Deals Now',
-    },
-    {
-      id: 2,
-      title: 'Official Samsung Brand Week',
-      subtitle: 'Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty',
-      tag: 'OFFICIAL STORE GUARANTEE',
-      bgClass: 'from-blue-700 to-indigo-900',
-      image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80',
-      cta: 'Explore Samsung',
-    },
-    {
-      id: 3,
-      title: 'High Performance Computing',
-      subtitle: 'Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals',
-      tag: 'WORK & GAMING GEAR',
-      bgClass: 'from-neutral-900 to-neutral-800',
-      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
-      cta: 'View Laptops',
-    },
-  ];
+  const activePromos = promotions.filter((p) => p.isActive);
+
+  const slides = activePromos.length > 0
+    ? activePromos.map((p) => ({
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle,
+        tag: p.tag,
+        bgClass: p.bgClass || 'from-amber-600 to-orange-600',
+        image: p.bannerImage,
+        cta: p.linkText || 'Shop Deals Now',
+        targetCategory: p.targetCategory,
+      }))
+    : [
+        {
+          id: 'slide-1',
+          title: 'Mega Flash Sales — Up to 40% Off',
+          subtitle: 'Official Flagship Phones, QLED TVs & Wireless Audio with Free Express Delivery',
+          tag: 'LIMITED TIME DEALS',
+          bgClass: 'from-amber-600 to-orange-600',
+          image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&auto=format&fit=crop&q=80',
+          cta: 'Shop Deals Now',
+          targetCategory: undefined,
+        },
+        {
+          id: 'slide-2',
+          title: 'Official Samsung Brand Week',
+          subtitle: 'Galaxy S24 Ultra, 4K Smart Screens & Appliances with 24-Month Warranty',
+          tag: 'OFFICIAL STORE GUARANTEE',
+          bgClass: 'from-blue-700 to-indigo-900',
+          image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&fit=crop&q=80',
+          cta: 'Explore Samsung',
+          targetCategory: undefined,
+        },
+        {
+          id: 'slide-3',
+          title: 'High Performance Computing',
+          subtitle: 'Intel Core Ultra & M3 Laptops, 140W GaN Charging & Studio Peripherals',
+          tag: 'WORK & GAMING GEAR',
+          bgClass: 'from-neutral-900 to-neutral-800',
+          image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
+          cta: 'View Laptops',
+          targetCategory: undefined,
+        },
+      ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -151,7 +167,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => onSelectCategory('cat-phones')}
+                onClick={() => onSelectCategory(slide.targetCategory || 'cat-phones')}
                 className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-extrabold text-xs py-2.5 px-5 rounded-lg shadow flex items-center gap-1.5 transition-transform active:scale-95"
               >
                 <span>{slide.cta}</span>
