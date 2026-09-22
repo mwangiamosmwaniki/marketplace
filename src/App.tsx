@@ -54,6 +54,7 @@ interface DashboardShellProps {
     icon: React.ReactNode;
     active?: boolean;
     badge?: number;
+    group?: string;
   }>;
   rightHeaderLabel: string;
   onNavigate?: (label: string) => void;
@@ -71,6 +72,12 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   const [selectedNav, setSelectedNav] = useState<string>(
     navItems.find((item) => item.active)?.label || navItems[0]?.label || "",
   );
+  const groups = Array.from(new Set(navItems.map((item) => item.group).filter(Boolean))) as string[];
+  const initialOpenGroups = groups.reduce<Record<string, boolean>>((open, group) => {
+    open[group] = navItems.some((item) => item.group === group && item.label === selectedNav);
+    return open;
+  }, {});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
     <div className="min-h-[calc(100vh-72px)] w-full bg-[#eef0f2]">
@@ -90,34 +97,43 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             </div>
           </div>
 
-          <nav className="p-3 space-y-1.5">
-            {navItems.map(({ label, icon, badge }) => {
+          <nav className="p-3 space-y-1.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+            {navItems.map(({ label, icon, badge, group }, index) => {
               const isActive = selectedNav === label;
+              const isGroupOpen = !group || openGroups[group];
 
               return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setSelectedNav(label);
-                    onNavigate?.(label);
-                  }}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
-                    isActive
-                      ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
-                      : "text-neutral-200 hover:bg-white/5"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="text-lg leading-none">{icon}</span>
-                    <span className="font-semibold text-sm">{label}</span>
-                  </span>
-                  {badge !== undefined && badge > 0 ? (
-                    <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {badge}
+                <React.Fragment key={label}>
+                  {group &&
+                    (index === 0 || navItems[index - 1]?.group !== group) && (
+                      <button type="button" onClick={() => setOpenGroups((current) => ({ ...current, [group]: !current[group] }))} className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 hover:text-neutral-300" aria-expanded={isGroupOpen}>
+                        <span>{group}</span>
+                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isGroupOpen ? "rotate-90" : ""}`} />
+                      </button>
+                    )}
+                  {isGroupOpen && <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedNav(label);
+                      onNavigate?.(label);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                      isActive
+                        ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
+                        : "text-neutral-200 hover:bg-white/5"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="text-lg leading-none">{icon}</span>
+                      <span className="font-semibold text-sm">{label}</span>
                     </span>
-                  ) : null}
-                </button>
+                    {badge !== undefined && badge > 0 ? (
+                      <span className="min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </button>}
+                </React.Fragment>
               );
             })}
           </nav>
@@ -218,30 +234,7 @@ function MarketplaceApp() {
         }
 
         // Category filter
-        if (selectedCategory !== "all" && p.categoryId !== selectedCategory) {
           return false;
-        }
-
-        // Brand filter
-        if (selectedBrand !== "all" && p.brandId !== selectedBrand) {
-          return false;
-        }
-
-        // Price range
-        const effectivePrice = p.discountPrice || p.price;
-        if (effectivePrice < minPrice || effectivePrice > maxPrice) {
-          return false;
-        }
-
-        // Official Stores filter
-        if (onlyOfficial) {
-          // Check if seller is official
-          const brand = brands.find((b) => b.id === p.brandId);
-          if (!brand?.isOfficial) return false;
-        }
-
-        if (onlyExpress && !p.isExpress) return false;
-
         return true;
       })
       .sort((a, b) => {
@@ -626,19 +619,34 @@ function MarketplaceApp() {
                 label: "Dashboard",
                 icon: <Home className="w-4 h-4" />,
                 active: true,
+                group: "Overview",
               },
               {
                 label: "My Orders",
                 icon: <ShoppingBag className="w-4 h-4" />,
                 badge: 2,
+                group: "Shopping",
               },
-              { label: "Wishlist", icon: <Sparkles className="w-4 h-4" /> },
+              {
+                label: "Wishlist",
+                icon: <Sparkles className="w-4 h-4" />,
+                group: "Shopping",
+              },
               {
                 label: "Saved Addresses",
                 icon: <MapPinned className="w-4 h-4" />,
+                group: "Account",
               },
-              { label: "Returns", icon: <RotateCcw className="w-4 h-4" /> },
-              { label: "Settings", icon: <Settings className="w-4 h-4" /> },
+              {
+                label: "Returns",
+                icon: <RotateCcw className="w-4 h-4" />,
+                group: "Account",
+              },
+              {
+                label: "Settings",
+                icon: <Settings className="w-4 h-4" />,
+                group: "Account",
+              },
             ]}
             onNavigate={(label) => {
               const tabMap: Record<string, typeof customerTab> = {
@@ -677,23 +685,39 @@ function MarketplaceApp() {
                   label: "Dashboard",
                   icon: <Home className="w-4 h-4" />,
                   active: true,
+                  group: "Overview",
                 },
-                { label: "Products", icon: <Boxes className="w-4 h-4" /> },
+                {
+                  label: "Products",
+                  icon: <Boxes className="w-4 h-4" />,
+                  group: "Catalog",
+                },
                 {
                   label: "Inventory",
                   icon: <ShoppingBag className="w-4 h-4" />,
+                  group: "Catalog",
                 },
                 {
                   label: "Orders",
                   icon: <Package className="w-4 h-4" />,
                   badge: 1,
+                  group: "Sales",
                 },
-                { label: "Payouts", icon: <Wallet className="w-4 h-4" /> },
+                {
+                  label: "Payouts",
+                  icon: <Wallet className="w-4 h-4" />,
+                  group: "Finance",
+                },
                 {
                   label: "Verification",
                   icon: <ShieldCheck className="w-4 h-4" />,
+                  group: "Account",
                 },
-                { label: "Settings", icon: <Settings className="w-4 h-4" /> },
+                {
+                  label: "Settings",
+                  icon: <Settings className="w-4 h-4" />,
+                  group: "Account",
+                },
               ]}
               onNavigate={(label) => {
                 const tabMap: Record<string, typeof sellerTab> = {
@@ -765,51 +789,70 @@ function MarketplaceApp() {
                   label: "Dashboard",
                   icon: <Home className="w-4 h-4" />,
                   active: true,
+                  group: "Overview",
                 },
-                { label: "Users", icon: <Users className="w-4 h-4" /> },
+                {
+                  label: "Users",
+                  icon: <Users className="w-4 h-4" />,
+                  group: "Users",
+                },
                 {
                   label: "Roles & Permissions",
                   icon: <ShieldCheck className="w-4 h-4" />,
+                  group: "Users",
                 },
                 {
                   label: "Security Center",
                   icon: <ShieldAlert className="w-4 h-4" />,
+                  group: "System",
                 },
                 {
                   label: "System Controls",
                   icon: <Settings className="w-4 h-4" />,
+                  group: "System",
                 },
-                { label: "Audit Logs", icon: <FileText className="w-4 h-4" /> },
+                {
+                  label: "Audit Logs",
+                  icon: <FileText className="w-4 h-4" />,
+                  group: "System",
+                },
                 {
                   label: "Sellers & KYC",
                   icon: <Users className="w-4 h-4" />,
                   badge: 1,
+                  group: "Sellers",
                 },
                 {
                   label: "Catalog Moderation",
                   icon: <Boxes className="w-4 h-4" />,
+                  group: "Catalog",
                 },
                 {
                   label: "Master Orders",
                   icon: <ShoppingBag className="w-4 h-4" />,
+                  group: "Orders",
                 },
                 {
                   label: "Finance & Ledger",
                   icon: <Wallet className="w-4 h-4" />,
+                  group: "Finance",
                 },
                 {
                   label: "Marketing Coupons",
                   icon: <Ticket className="w-4 h-4" />,
                   badge: 3,
+                  group: "Marketing",
                 },
                 {
                   label: "Delivery Zones",
                   icon: <MapPinned className="w-4 h-4" />,
                   badge: 47,
+                  group: "Logistics",
                 },
                 {
                   label: "System Settings",
                   icon: <Settings className="w-4 h-4" />,
+                  group: "System",
                 },
               ]}
               onNavigate={(label) => {
