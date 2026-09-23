@@ -336,14 +336,23 @@ function MarketplaceApp({
   );
 
   // Navigation & Modals View state
-  const savedNavigation = (() => {
-    try {
-      const saved = localStorage.getItem("kesales_navigation");
-      return saved ? (JSON.parse(saved) as Partial<NavigationState>) : null;
-    } catch {
-      return null;
-    }
-  })();
+  const [isClientHydrated, setIsClientHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsClientHydrated(true);
+  }, []);
+
+  const savedNavigation =
+    isClientHydrated && typeof window !== "undefined"
+      ? (() => {
+          try {
+            const saved = localStorage.getItem("kesales_navigation");
+            return saved ? (JSON.parse(saved) as Partial<NavigationState>) : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   const defaultView =
     authUser?.role === "seller"
       ? "seller"
