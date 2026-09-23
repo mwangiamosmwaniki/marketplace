@@ -347,7 +347,9 @@ function MarketplaceApp({
       ? (() => {
           try {
             const saved = localStorage.getItem("kesales_navigation");
-            return saved ? (JSON.parse(saved) as Partial<NavigationState>) : null;
+            return saved
+              ? (JSON.parse(saved) as Partial<NavigationState>)
+              : null;
           } catch {
             return null;
           }
