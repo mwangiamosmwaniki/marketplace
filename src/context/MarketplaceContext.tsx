@@ -298,19 +298,26 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   // Authentication & Real User State
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem("kesales_users");
-    try {
-      return saved ? (JSON.parse(saved) as User[]) : INITIAL_USERS;
-    } catch {
-      localStorage.removeItem("kesales_users");
-      return INITIAL_USERS;
-    }
-  });
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
 
-  const [authUser, setAuthUser] = useState<User | null>(() => {
+  const [authUser, setAuthUser] = useState<User | null>(INITIAL_USERS[0]);
+
+  useEffect(() => {
+    const savedUsers = localStorage.getItem("kesales_users");
+    if (savedUsers) {
+      try {
+        setUsers(JSON.parse(savedUsers) as User[]);
+      } catch {
+        localStorage.removeItem("kesales_users");
+      }
+    }
+
     const saved = localStorage.getItem("kesales_auth_user");
-    if (!saved) return INITIAL_USERS[0]; // Jane Wambui (Customer)
+    if (!saved) {
+      setAuthUser(INITIAL_USERS[0]);
+      return;
+    }
+
     try {
       const persistedUser = JSON.parse(saved) as User;
       const currentUsers = localStorage.getItem("kesales_users");
@@ -323,15 +330,16 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!currentUser || currentUser.status === "suspended") {
         localStorage.removeItem("kesales_auth_user");
         localStorage.removeItem("kesales_navigation");
-        return null;
+        setAuthUser(null);
+        return;
       }
-      return currentUser;
+      setAuthUser(currentUser);
     } catch {
       localStorage.removeItem("kesales_auth_user");
       localStorage.removeItem("kesales_navigation");
-      return null;
+      setAuthUser(null);
     }
-  });
+  }, []);
 
   // Current view state derived from authenticated user
   const currentRole: Role = authUser?.role || "customer";
