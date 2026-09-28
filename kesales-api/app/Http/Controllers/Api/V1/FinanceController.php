@@ -81,65 +81,13 @@ class FinanceController extends BaseController
 
     public function reconcilePayment(Request $request, string $paymentId): JsonResponse
     {
-        $validated = $request->validate([
-            'provider_transaction_id' => 'required|string|min:6',
-            'reason' => 'required|string|min:10',
-            'evidence_reference' => 'nullable|string',
-        ]);
-
-        $payment = Payment::with('order.sellerOrders')->findOrFail($paymentId);
-        $oldValues = $payment->toArray();
-
-        $payment->status = 'paid';
-        $payment->provider_transaction_id = $validated['provider_transaction_id'];
-        $payment->paid_at = now();
-        $payment->save();
-
-        // Audit this sensitive financial override
-        AuditService::log(
-            action: 'manual_payment_reconciliation',
-            module: 'finance',
-            entityType: 'payment',
-            entityId: $payment->id,
-            oldValues: ['status' => $oldValues['status']],
-            newValues: [
-                'status' => 'paid',
-                'provider_transaction_id' => $validated['provider_transaction_id'],
-                'reason' => $validated['reason'],
-                'evidence' => $validated['evidence_reference'] ?? null,
-            ],
-            actorId: $request->user()->id
-        );
-
-        // Ensure order is updated and posted to ledger if not previously posted
-        if ($payment->order && $payment->order->payment_status !== 'paid') {
-            $payment->order->update([
-                'status' => 'PAYMENT_CONFIRMED',
-                'payment_status' => 'paid',
-            ]);
-
-            $sellerSplits = [];
-            foreach ($payment->order->sellerOrders as $so) {
-                $sellerSplits[] = [
-                    'seller_id' => $so->seller_id,
-                    'net_amount' => (float) $so->seller_net_payout,
-                ];
-            }
-
-            $this->ledgerService->postOrderPayment(
-                orderId: $payment->order->id,
-                grandTotal: (float) $payment->order->grand_total,
-                sellerSplits: $sellerSplits,
-                commissionTotal: (float) $payment->order->sellerOrders->sum('commission_total'),
-                deliveryFee: (float) $payment->order->delivery_fee
-            );
-        }
-
         return response()->json([
-            'success' => true,
-            'message' => 'Payment reconciled manually with full audit trail',
-            'payment' => $payment,
-        ]);
+            'success' => false,
+            'error' => [
+                'code' => 'PROVIDER_VERIFICATION_REQUIRED',
+                'message' => 'Manual payment reconciliation is disabled until provider evidence and maker-checker approval are implemented.',
+            ],
+        ], 409);
     }
 
     public function refunds(Request $request): JsonResponse
@@ -366,9 +314,11 @@ class FinanceController extends BaseController
     public function exportReportJob(Request $request): JsonResponse
     {
         return response()->json([
-            'message' => 'Financial export dispatched to Horizon background workers. Download link will be available once compiled.',
-            'job_id' => (string) Str::uuid(),
-            'status' => 'queued',
-        ]);
+            'success' => false,
+            'error' => [
+                'code' => 'REPORT_EXPORT_UNAVAILABLE',
+                'message' => 'Report exports are unavailable until persistent export jobs and private download storage are configured.',
+            ],
+        ], 503);
     }
 }

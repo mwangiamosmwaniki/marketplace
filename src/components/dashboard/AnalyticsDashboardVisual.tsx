@@ -1,5 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
+import {
+  getFinanceLedger,
+  getFinanceSummary,
+  FinanceLedgerEntry,
+  FinanceSummary,
+} from "../../lib/api/finance";
 import {
   Users,
   TrendingUp,
@@ -30,11 +36,9 @@ interface AnalyticsDashboardVisualProps {
   onNavigateTab?: (tab: string) => void;
 }
 
-export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> = ({
-  mode,
-  sellerId,
-  onNavigateTab,
-}) => {
+export const AnalyticsDashboardVisual: React.FC<
+  AnalyticsDashboardVisualProps
+> = ({ mode, sellerId, onNavigateTab }) => {
   const {
     products,
     orders,
@@ -48,7 +52,34 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
   } = useMarketplace();
 
   const [activeToggle, setActiveToggle] = useState<boolean>(true);
-  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(
+    null,
+  );
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummary | null>(
+    null,
+  );
+  const [financeLedger, setFinanceLedger] = useState<FinanceLedgerEntry[]>([]);
+
+  useEffect(() => {
+    if (mode !== "finance") return;
+
+    let active = true;
+    Promise.all([getFinanceSummary(), getFinanceLedger()]).then(
+      ([summary, ledger]) => {
+        if (!active) return;
+        setFinanceSummary(summary.success ? (summary.data ?? null) : null);
+        setFinanceLedger(
+          ledger.success && Array.isArray(ledger.data?.data)
+            ? ledger.data.data
+            : [],
+        );
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [mode]);
 
   // ==========================================================================
   // DATA FILTERING STRICTLY SCOPED TO ACCOUNT ROLE
@@ -58,9 +89,13 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
   const scopedData = useMemo(() => {
     if (mode === "seller") {
       // ONLY fetch data for THIS specific seller
-      const sellerProds = products.filter((p) => p.sellerId === effectiveSellerId);
+      const sellerProds = products.filter(
+        (p) => p.sellerId === effectiveSellerId,
+      );
       const sellerSubOrders = orders.flatMap((o) =>
-        (o.sellerSubOrders || []).filter((so) => so.sellerId === effectiveSellerId),
+        (o.sellerSubOrders || []).filter(
+          (so) => so.sellerId === effectiveSellerId,
+        ),
       );
       const grossRevenue = sellerSubOrders.reduce(
         (sum, so) => sum + (so.subtotal || 0),
@@ -95,7 +130,9 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
           icon: <TrendingUp className="w-9 h-9 opacity-90 text-neutral-900" />,
         },
         card3: {
-          val: (sellerProds.reduce((sum, p) => sum + p.stock, 0) || 1428).toLocaleString(),
+          val: (
+            sellerProds.reduce((sum, p) => sum + p.stock, 0) || 1428
+          ).toLocaleString(),
           label: "INVENTORY UNITS",
           color: "bg-[#43a047]",
           icon: <Package className="w-9 h-9 opacity-90" />,
@@ -108,8 +145,12 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         },
         chartTitle: "Store Sales & Order Performance",
         chartSubtitle: "Monthly GMV trends & customer shipments for your store",
-        weeklyStat: formatKSh(grossRevenue ? Math.round(grossRevenue * 0.28) : 324222),
-        monthlyStat: formatKSh(grossRevenue ? Math.round(grossRevenue * 0.72) : 123432),
+        weeklyStat: formatKSh(
+          grossRevenue ? Math.round(grossRevenue * 0.28) : 324222,
+        ),
+        monthlyStat: formatKSh(
+          grossRevenue ? Math.round(grossRevenue * 0.72) : 123432,
+        ),
         trendPercentage: "+18.4%",
         csatScore: "96.42%",
         csatLabel: "SELLER FULFILLMENT RATE",
@@ -118,7 +159,11 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         channelTitle: "Fulfillment Status",
         channels: [
           { name: "Delivered & Settled", percent: 84, color: "bg-emerald-500" },
-          { name: "In Transit / Dispatched", percent: 12, color: "bg-blue-500" },
+          {
+            name: "In Transit / Dispatched",
+            percent: 12,
+            color: "bg-blue-500",
+          },
           { name: "Packing & Processing", percent: 4, color: "bg-amber-500" },
         ],
         donutTitle: "Sales By Category",
@@ -128,154 +173,126 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
           { label: "Appliances & Spares", percent: "16.0%", color: "#43a047" },
         ],
         tableTitle: "Recent Merchant Sub-Orders",
-        tableCols: ["ORDER REF", "CUSTOMER COUNTY", "ITEMS", "NET PAYOUT", "STATUS"],
-        tableRows: (sellerSubOrders.length > 0 ? sellerSubOrders.slice(0, 5) : [
-          {
-            ref: "KS-SUB-001",
-            client: "Nairobi (Westlands)",
-            changes: "2 units",
-            amount: "KSh 148,000",
-            status: "delivered",
-          },
-          {
-            ref: "KS-SUB-002",
-            client: "Mombasa (Nyali)",
-            changes: "1 unit",
-            amount: "KSh 84,500",
-            status: "dispatched",
-          },
-          {
-            ref: "KS-SUB-003",
-            client: "Nakuru (Milimani)",
-            changes: "3 units",
-            amount: "KSh 29,900",
-            status: "processing",
-          },
-          {
-            ref: "KS-SUB-004",
-            client: "Eldoret (Town)",
-            changes: "1 unit",
-            amount: "KSh 42,000",
-            status: "delivered",
-          },
-        ]).map((item: any) => ({
+        tableCols: [
+          "ORDER REF",
+          "CUSTOMER COUNTY",
+          "ITEMS",
+          "NET PAYOUT",
+          "STATUS",
+        ],
+        tableRows: (sellerSubOrders.length > 0
+          ? sellerSubOrders.slice(0, 5)
+          : [
+              {
+                ref: "KS-SUB-001",
+                client: "Nairobi (Westlands)",
+                changes: "2 units",
+                amount: "KSh 148,000",
+                status: "delivered",
+              },
+              {
+                ref: "KS-SUB-002",
+                client: "Mombasa (Nyali)",
+                changes: "1 unit",
+                amount: "KSh 84,500",
+                status: "dispatched",
+              },
+              {
+                ref: "KS-SUB-003",
+                client: "Nakuru (Milimani)",
+                changes: "3 units",
+                amount: "KSh 29,900",
+                status: "processing",
+              },
+              {
+                ref: "KS-SUB-004",
+                client: "Eldoret (Town)",
+                changes: "1 unit",
+                amount: "KSh 42,000",
+                status: "delivered",
+              },
+            ]
+        ).map((item: any) => ({
           col1: item.subOrderNumber || item.ref,
           col2: item.buyerCounty || item.client,
           col3: item.items ? `${item.items.length} item(s)` : item.changes,
-          col4: item.sellerNetTotal ? formatKSh(item.sellerNetTotal) : item.amount,
+          col4: item.sellerNetTotal
+            ? formatKSh(item.sellerNetTotal)
+            : item.amount,
           col5: item.status || "delivered",
         })),
       };
     } else if (mode === "finance") {
-      // ONLY fetch platform finance, ledger & escrow accounting data
-      const totalGMV = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
-      const totalCommissions = orders.reduce(
-        (sum, o) =>
-          sum +
-          (o.sellerSubOrders || []).reduce(
-            (cSum, so) => cSum + (so.commissionTotal || 0),
-            0,
-          ),
-        0,
-      );
-      const totalEscrow = sellers.reduce(
-        (sum, s) => sum + (s.pendingBalance || 0),
-        0,
-      );
-      const totalDisbursed = payouts
-        .filter((p) => p.status === "processed")
-        .reduce((sum, p) => sum + p.amount, 0);
-
       return {
         card1: {
-          val: formatKSh(totalGMV || 14850000),
+          val: financeSummary
+            ? formatKSh(financeSummary.gross_merchandise_value)
+            : "Unavailable",
           label: "M-PESA SETTLED GMV",
           color: "bg-[#e53935]",
           icon: <CreditCard className="w-9 h-9 opacity-90" />,
         },
         card2: {
-          val: formatKSh(totalEscrow || 3420000),
+          val: financeSummary
+            ? formatKSh(financeSummary.escrow_reserve)
+            : "Unavailable",
           label: "ESCROW LIABILITY",
           color: "bg-[#fbc02d]",
           icon: <Wallet className="w-9 h-9 opacity-90 text-neutral-900" />,
         },
         card3: {
-          val: formatKSh(totalCommissions || 1485000),
+          val: financeSummary
+            ? formatKSh(financeSummary.total_commissions)
+            : "Unavailable",
           label: "NET COMMISSION",
           color: "bg-[#43a047]",
           icon: <DollarSign className="w-9 h-9 opacity-90" />,
         },
         card4: {
-          val: formatKSh(totalDisbursed || 8240000),
+          val: financeSummary
+            ? formatKSh(financeSummary.disbursed_payouts)
+            : "Unavailable",
           label: "DISBURSED PAYOUTS",
           color: "bg-[#1e88e5]",
           icon: <TrendingUp className="w-9 h-9 opacity-90" />,
         },
         chartTitle: "Marketplace Cashflow & Settlement Trends",
-        chartSubtitle: "DR M-Pesa clearing vs CR escrow payable & platform revenue",
-        weeklyStat: formatKSh(3840000),
-        monthlyStat: formatKSh(14850000),
-        trendPercentage: "+22.5%",
-        csatScore: "99.85%",
+        chartSubtitle:
+          "DR M-Pesa clearing vs CR escrow payable & platform revenue",
+        weeklyStat: "Not provided by backend",
+        monthlyStat: "Not provided by backend",
+        trendPercentage: "Unavailable",
+        csatScore: "Unavailable",
         csatLabel: "BALANCED LEDGER ACCURACY",
-        csatPrev: "98.10",
-        csatChange: "+1.75",
+        csatPrev: "Unavailable",
+        csatChange: "Unavailable",
         channelTitle: "Payment Channels",
-        channels: [
-          { name: "M-Pesa STK Push Express", percent: 82, color: "bg-emerald-500" },
-          { name: "C2B Paybill & Till Direct", percent: 13, color: "bg-blue-500" },
-          { name: "Cards & Bank Transfer", percent: 5, color: "bg-amber-500" },
-        ],
+        channels: [],
         donutTitle: "Fund Allocation Breakdown",
-        donutData: [
-          { label: "Seller Escrow Payouts", percent: "68.5%", color: "#1e88e5" },
-          { label: "Platform Commission", percent: "21.5%", color: "#43a047" },
-          { label: "Gateway & Logistics Fees", percent: "10.0%", color: "#fbc02d" },
-        ],
+        donutData: [],
         tableTitle: "Financial Ledger Journal Transactions",
-        tableCols: ["JOURNAL ID", "TRANSACTION TYPE", "REFERENCE", "AMOUNT", "STATUS"],
-        tableRows: (ledger.length > 0 ? ledger.slice(0, 5) : [
-          {
-            id: "LED-001",
-            type: "order_payment",
-            description: "Daraja M-Pesa Clearing settlement",
-            amount: 84500,
-            status: "posted",
-          },
-          {
-            id: "LED-002",
-            type: "seller_payable",
-            description: "Escrow allocation to Tech Point Kenya",
-            amount: 76050,
-            status: "posted",
-          },
-          {
-            id: "LED-003",
-            type: "platform_commission",
-            description: "10% Marketplace fee retention",
-            amount: 8450,
-            status: "posted",
-          },
-          {
-            id: "LED-004",
-            type: "payout_disbursed",
-            description: "M-Pesa B2C batch disbursement",
-            amount: 125000,
-            status: "posted",
-          },
-        ]).map((item: any) => ({
-          col1: item.id || "LED-TXN",
-          col2: item.type ? item.type.replace("_", " ").toUpperCase() : "PAYMENT",
-          col3: item.description || "Platform settlement",
-          col4: formatKSh(item.amount || 50000),
-          col5: item.status || "posted",
+        tableCols: [
+          "JOURNAL ID",
+          "TRANSACTION TYPE",
+          "REFERENCE",
+          "AMOUNT",
+          "STATUS",
+        ],
+        tableRows: financeLedger.slice(0, 5).map((item) => ({
+          col1: item.transaction_number || item.id,
+          col2: item.type.replaceAll("_", " ").toUpperCase(),
+          col3: item.description,
+          col4: "View journal lines",
+          col5: item.status,
         })),
       };
     } else {
       // ADMIN: Platform-wide governance, KYC, and catalog health data
       const totalUsers = users.length || 914001;
       const totalOrders = orders.length || 4054876;
-      const verifiedSellers = sellers.filter((s) => s.status === "approved").length;
+      const verifiedSellers = sellers.filter(
+        (s) => s.status === "approved",
+      ).length;
 
       return {
         card1: {
@@ -303,7 +320,8 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
           icon: <BarChart3 className="w-9 h-9 opacity-90" />,
         },
         chartTitle: "Marketplace Activity & Traffic Trends",
-        chartSubtitle: "Shopper sessions, conversions, and catalog orders across Kenya",
+        chartSubtitle:
+          "Shopper sessions, conversions, and catalog orders across Kenya",
         weeklyStat: "324,222",
         monthlyStat: "1,234,432",
         trendPercentage: "+14.29%",
@@ -313,18 +331,40 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         csatChange: "+14.29",
         channelTitle: "Browser & Client Share",
         channels: [
-          { name: "Google Chrome (Mobile)", percent: 68, color: "bg-emerald-500" },
+          {
+            name: "Google Chrome (Mobile)",
+            percent: 68,
+            color: "bg-emerald-500",
+          },
           { name: "Safari (iOS)", percent: 22, color: "bg-blue-500" },
-          { name: "Mozilla Firefox & Opera", percent: 10, color: "bg-amber-500" },
+          {
+            name: "Mozilla Firefox & Opera",
+            percent: 10,
+            color: "bg-amber-500",
+          },
         ],
         donutTitle: "Orders By Kenyan Region",
         donutData: [
-          { label: "Nairobi Metro & Central", percent: "48.5%", color: "#1e88e5" },
+          {
+            label: "Nairobi Metro & Central",
+            percent: "48.5%",
+            color: "#1e88e5",
+          },
           { label: "Coast & Mombasa Hub", percent: "24.2%", color: "#43a047" },
-          { label: "Rift Valley & Western", percent: "27.3%", color: "#fbc02d" },
+          {
+            label: "Rift Valley & Western",
+            percent: "27.3%",
+            color: "#fbc02d",
+          },
         ],
         tableTitle: "Platform Governance & System Audit Logs",
-        tableCols: ["ACTION / EVENT", "ACTOR / ROLE", "TARGET ENTITY", "IP / LOCATION", "STATUS"],
+        tableCols: [
+          "ACTION / EVENT",
+          "ACTOR / ROLE",
+          "TARGET ENTITY",
+          "IP / LOCATION",
+          "STATUS",
+        ],
         tableRows: [
           {
             col1: "SELLER_KYC_VERIFIED",
@@ -357,7 +397,18 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         ],
       };
     }
-  }, [mode, effectiveSellerId, products, orders, sellers, users, ledger, payouts, formatKSh, currentSeller]);
+  }, [
+    mode,
+    effectiveSellerId,
+    products,
+    orders,
+    sellers,
+    users,
+    ledger,
+    payouts,
+    formatKSh,
+    currentSeller,
+  ]);
 
   // Points for Multi-Line Trend Chart
   const months = ["Jan", "Feb", "April", "June", "Aug", "Sep", "Oct", "Dec"];
@@ -383,7 +434,9 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
               {scopedData.card1.label}
             </div>
           </div>
-          <div className="p-2 bg-black/10 rounded-lg">{scopedData.card1.icon}</div>
+          <div className="p-2 bg-black/10 rounded-lg">
+            {scopedData.card1.icon}
+          </div>
         </div>
 
         {/* Card 2: Vibrant Amber/Yellow */}
@@ -398,7 +451,9 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
               {scopedData.card2.label}
             </div>
           </div>
-          <div className="p-2 bg-black/10 rounded-lg">{scopedData.card2.icon}</div>
+          <div className="p-2 bg-black/10 rounded-lg">
+            {scopedData.card2.icon}
+          </div>
         </div>
 
         {/* Card 3: Vibrant Emerald Green */}
@@ -413,7 +468,9 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
               {scopedData.card3.label}
             </div>
           </div>
-          <div className="p-2 bg-black/10 rounded-lg">{scopedData.card3.icon}</div>
+          <div className="p-2 bg-black/10 rounded-lg">
+            {scopedData.card3.icon}
+          </div>
         </div>
 
         {/* Card 4: Vibrant Blue */}
@@ -428,7 +485,9 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
               {scopedData.card4.label}
             </div>
           </div>
-          <div className="p-2 bg-black/10 rounded-lg">{scopedData.card4.icon}</div>
+          <div className="p-2 bg-black/10 rounded-lg">
+            {scopedData.card4.icon}
+          </div>
         </div>
       </div>
 
@@ -466,7 +525,14 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
             </div>
 
             {/* SVG Interactive Multi-Line Trend Chart */}
-            <div className="relative h-64 w-full pt-2">
+            {mode === "finance" && (
+              <div className="flex h-64 items-center justify-center text-sm text-neutral-500">
+                Backend time-series data is unavailable.
+              </div>
+            )}
+            <div
+              className={`relative h-64 w-full pt-2 ${mode === "finance" ? "hidden" : ""}`}
+            >
               <svg
                 viewBox="0 0 500 240"
                 className="w-full h-full overflow-visible"
@@ -704,41 +770,52 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
 
             {/* Vibrant SVG Pie/Donut Chart */}
             <div className="flex justify-center my-3">
-              <svg width="150" height="150" viewBox="0 0 100 100" className="transform -rotate-90">
-                {/* Yellow slice: 45% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="35"
-                  fill="transparent"
-                  stroke="#fbc02d"
-                  strokeWidth="28"
-                  strokeDasharray="99 220"
-                  strokeDashoffset="0"
-                />
-                {/* Green slice: 10% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="35"
-                  fill="transparent"
-                  stroke="#43a047"
-                  strokeWidth="28"
-                  strokeDasharray="22 220"
-                  strokeDashoffset="-99"
-                />
-                {/* Blue slice: 45% */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="35"
-                  fill="transparent"
-                  stroke="#1e88e5"
-                  strokeWidth="28"
-                  strokeDasharray="99 220"
-                  strokeDashoffset="-121"
-                />
-              </svg>
+              {mode === "finance" ? (
+                <div className="flex h-[150px] items-center text-xs text-neutral-500">
+                  Allocation data is unavailable.
+                </div>
+              ) : (
+                <svg
+                  width="150"
+                  height="150"
+                  viewBox="0 0 100 100"
+                  className="transform -rotate-90"
+                >
+                  {/* Yellow slice: 45% */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="35"
+                    fill="transparent"
+                    stroke="#fbc02d"
+                    strokeWidth="28"
+                    strokeDasharray="99 220"
+                    strokeDashoffset="0"
+                  />
+                  {/* Green slice: 10% */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="35"
+                    fill="transparent"
+                    stroke="#43a047"
+                    strokeWidth="28"
+                    strokeDasharray="22 220"
+                    strokeDashoffset="-99"
+                  />
+                  {/* Blue slice: 45% */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="35"
+                    fill="transparent"
+                    stroke="#1e88e5"
+                    strokeWidth="28"
+                    strokeDasharray="99 220"
+                    strokeDashoffset="-121"
+                  />
+                </svg>
+              )}
             </div>
           </div>
 
@@ -827,7 +904,10 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
               </thead>
               <tbody className="divide-y divide-neutral-100 text-neutral-700">
                 {scopedData.tableRows.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-neutral-50/70 transition-colors">
+                  <tr
+                    key={idx}
+                    className="hover:bg-neutral-50/70 transition-colors"
+                  >
                     <td className="py-3 px-3 font-bold font-mono text-neutral-900">
                       {row.col1}
                     </td>
@@ -845,7 +925,8 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
                           row.col5 === "approved" ||
                           row.col5 === "active"
                             ? "bg-emerald-100 text-emerald-800"
-                            : row.col5 === "dispatched" || row.col5 === "processing"
+                            : row.col5 === "dispatched" ||
+                                row.col5 === "processing"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-amber-100 text-amber-800"
                         }`}
@@ -890,9 +971,18 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
                   <span>78.4% On Schedule</span>
                 </div>
                 <div className="flex h-5 w-full rounded-md overflow-hidden bg-neutral-100 border border-neutral-200">
-                  <div className="bg-[#fbc02d] w-[35%] h-full" title="Pending Window" />
-                  <div className="bg-[#e53935] w-[25%] h-full" title="In Verification" />
-                  <div className="bg-[#43a047] w-[40%] h-full" title="Completed & Cleared" />
+                  <div
+                    className="bg-[#fbc02d] w-[35%] h-full"
+                    title="Pending Window"
+                  />
+                  <div
+                    className="bg-[#e53935] w-[25%] h-full"
+                    title="In Verification"
+                  />
+                  <div
+                    className="bg-[#43a047] w-[40%] h-full"
+                    title="Completed & Cleared"
+                  />
                 </div>
                 <div className="flex justify-between text-[9px] text-neutral-400 mt-1 font-mono uppercase">
                   <span>01 Days</span>

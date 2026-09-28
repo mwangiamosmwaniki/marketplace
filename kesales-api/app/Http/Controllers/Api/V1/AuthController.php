@@ -38,7 +38,7 @@ class AuthController extends BaseController
             $user->roles()->attach($role->id);
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $token = $user->createToken('auth-token', ['*'], now()->addHours(12))->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -70,7 +70,7 @@ class AuthController extends BaseController
         }
 
         $user->update(['last_login_at' => now()]);
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $token = $user->createToken('auth-token', ['*'], now()->addHours(12))->plainTextToken;
 
         return response()->json([
             'success' => true,

@@ -10,6 +10,7 @@ use App\Domain\Inventory\Services\InventoryService;
 use App\Models\Payment;
 use App\Models\Order;
 use App\Models\MpesaTransaction;
+use App\Models\User;
 use Illuminate\Support\Str;
 use Mockery;
 
@@ -20,6 +21,31 @@ class StkPushServiceTest extends TestCase
         $orderId = (string) Str::uuid();
         $paymentId = (string) Str::uuid();
         $checkoutRequestId = 'ws_CO_28092026_123456';
+        $customer = User::factory()->create();
+        Order::create([
+            'id' => $orderId,
+            'order_number' => 'KS-ORD-STK-TEST-001',
+            'customer_id' => $customer->id,
+            'currency' => 'KES',
+            'subtotal' => 1500,
+            'discount_total' => 0,
+            'delivery_fee' => 0,
+            'tax_total' => 0,
+            'grand_total' => 1500,
+            'status' => 'PENDING_PAYMENT',
+            'payment_status' => 'pending',
+        ]);
+        Payment::create([
+            'id' => $paymentId,
+            'payment_number' => 'PAY-STK-TEST-001',
+            'order_id' => $orderId,
+            'customer_id' => $customer->id,
+            'provider' => 'mpesa',
+            'method' => 'mpesa_stk',
+            'amount' => 1500,
+            'currency' => 'KES',
+            'status' => 'pending',
+        ]);
 
         // Pre-create already-processed M-Pesa transaction
         MpesaTransaction::create([

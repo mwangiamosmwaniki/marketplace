@@ -5,9 +5,6 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Role;
 use App\Models\Permission;
-use App\Models\User;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Hash;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
@@ -28,6 +25,26 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $permissions = [
             // Finance capabilities
+            ['name' => 'View Finance Dashboard', 'slug' => 'finance.dashboard.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'View Financial Orders', 'slug' => 'finance.orders.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'View Payments', 'slug' => 'finance.payments.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Reconcile Payments', 'slug' => 'finance.payments.reconcile', 'module' => 'finance', 'action' => 'reconcile'],
+            ['name' => 'View Refunds', 'slug' => 'finance.refunds.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Approve Refunds', 'slug' => 'finance.refunds.approve', 'module' => 'finance', 'action' => 'approve'],
+            ['name' => 'Reject Refunds', 'slug' => 'finance.refunds.reject', 'module' => 'finance', 'action' => 'reject'],
+            ['name' => 'Process Refunds', 'slug' => 'finance.refunds.process', 'module' => 'finance', 'action' => 'process'],
+            ['name' => 'View Payouts', 'slug' => 'finance.payouts.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Approve Payouts', 'slug' => 'finance.payouts.approve', 'module' => 'finance', 'action' => 'approve'],
+            ['name' => 'Hold Payouts', 'slug' => 'finance.payouts.hold', 'module' => 'finance', 'action' => 'hold'],
+            ['name' => 'Reject Payouts', 'slug' => 'finance.payouts.reject', 'module' => 'finance', 'action' => 'reject'],
+            ['name' => 'Disburse Payouts', 'slug' => 'finance.payouts.disburse', 'module' => 'finance', 'action' => 'disburse'],
+            ['name' => 'View Ledger', 'slug' => 'finance.ledger.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Adjust Ledger', 'slug' => 'finance.ledger.adjust', 'module' => 'finance', 'action' => 'adjust'],
+            ['name' => 'View Reconciliation', 'slug' => 'finance.reconciliation.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Run Reconciliation', 'slug' => 'finance.reconciliation.run', 'module' => 'finance', 'action' => 'run'],
+            ['name' => 'Resolve Reconciliation Exceptions', 'slug' => 'finance.reconciliation.resolve', 'module' => 'finance', 'action' => 'resolve'],
+            ['name' => 'View Reports', 'slug' => 'finance.reports.view', 'module' => 'finance', 'action' => 'view'],
+            ['name' => 'Export Reports', 'slug' => 'finance.reports.export', 'module' => 'finance', 'action' => 'export'],
             ['name' => 'View Financial Orders', 'slug' => 'orders.view_financial', 'module' => 'finance', 'action' => 'view'],
             ['name' => 'View Payments', 'slug' => 'payments.view', 'module' => 'finance', 'action' => 'view'],
             ['name' => 'Reconcile Payments', 'slug' => 'payments.reconcile', 'module' => 'finance', 'action' => 'reconcile'],
@@ -60,22 +77,5 @@ class RolesAndPermissionsSeeder extends Seeder
             $financeRole->permissions()->sync($financePerms);
         }
 
-        // Create initial default admin if not exists
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@kesales.ke'],
-            [
-                'id' => (string) Str::uuid(),
-                'name' => 'KESALES Super Administrator',
-                'phone' => '+254700000001',
-                'password' => Hash::make('Admin@Kesales2026!'),
-                'status' => 'active',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        $superRole = Role::where('slug', 'super_admin')->first();
-        if ($superRole) {
-            $admin->roles()->syncWithoutDetaching([$superRole->id]);
-        }
     }
 }

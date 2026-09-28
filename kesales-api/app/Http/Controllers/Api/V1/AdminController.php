@@ -8,8 +8,6 @@ use App\Models\Permission;
 use App\Models\Seller;
 use App\Models\SellerDocument;
 use App\Models\Product;
-use App\Models\Category;
-use App\Models\Brand;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use Illuminate\Http\Request;
@@ -33,7 +31,8 @@ class AdminController extends BaseController
 
     public function approveProduct(string $id): JsonResponse
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with('seller')->findOrFail($id);
+        abort_unless($product->seller?->status === 'approved', 409, 'Seller approval is required before publishing products.');
         $product->status = 'active';
         $product->published_at = now();
         $product->save();
@@ -48,56 +47,6 @@ class AdminController extends BaseController
         $product->save();
 
         return response()->json(['message' => 'Product rejected', 'product' => $product]);
-    }
-
-    // --- Category & Brand Resource Handlers ---
-
-    public function index(Request $request): JsonResponse
-    {
-        if (str_contains($request->path(), 'categories')) {
-            return response()->json(Category::all());
-        }
-        return response()->json(Brand::all());
-    }
-
-    public function store(Request $request): JsonResponse
-    {
-        if (str_contains($request->path(), 'categories')) {
-            $cat = Category::create($request->all());
-            return response()->json($cat, 201);
-        }
-        $brand = Brand::create($request->all());
-        return response()->json($brand, 201);
-    }
-
-    public function show(Request $request, string $id): JsonResponse
-    {
-        if (str_contains($request->path(), 'categories')) {
-            return response()->json(Category::findOrFail($id));
-        }
-        return response()->json(Brand::findOrFail($id));
-    }
-
-    public function update(Request $request, string $id): JsonResponse
-    {
-        if (str_contains($request->path(), 'categories')) {
-            $cat = Category::findOrFail($id);
-            $cat->update($request->all());
-            return response()->json($cat);
-        }
-        $brand = Brand::findOrFail($id);
-        $brand->update($request->all());
-        return response()->json($brand);
-    }
-
-    public function destroy(Request $request, string $id): JsonResponse
-    {
-        if (str_contains($request->path(), 'categories')) {
-            Category::findOrFail($id)->delete();
-        } else {
-            Brand::findOrFail($id)->delete();
-        }
-        return response()->json(['message' => 'Resource deleted']);
     }
 
     // --- Seller Governance & KYC ---

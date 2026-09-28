@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\SellerController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\AdminController;
+use App\Http\Controllers\Api\V1\BrandController;
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\HealthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,19 +23,7 @@ use App\Http\Controllers\Api\V1\AdminController;
 */
 
 Route::prefix('v1')->group(function () {
-    Route::get('/health', function () {
-        return response()->json([
-            'success' => true,
-            'status' => 'ok',
-            'service' => 'kesales-api',
-            'timestamp' => now()->toISOString(),
-            'checks' => [
-                'app' => 'ok',
-                'database' => config('database.default') ? 'configured' : 'missing',
-                'cache' => config('cache.default') ? 'configured' : 'missing',
-            ],
-        ]);
-    });
+    Route::get('/health', HealthController::class);
 
     // ========================================================================
     // 1. PUBLIC STOREFRONT & CATALOG ENDPOINTS
@@ -139,35 +130,35 @@ Route::prefix('v1')->group(function () {
     // ========================================================================
     // 7. FINANCE & ESCROW CONSOLE (RBAC Guarded: finance_admin)
     // ========================================================================
-    Route::prefix('finance')->middleware(['auth:sanctum', 'can:finance_admin'])->group(function () {
-        Route::get('/dashboard', [FinanceController::class, 'overviewMetrics']);
-        Route::get('/orders', [FinanceController::class, 'ordersFinancialView']);
-        Route::get('/orders/{orderId}', [FinanceController::class, 'showOrderFinancials']);
+    Route::prefix('finance')->middleware('auth:sanctum')->group(function () {
+        Route::get('/dashboard', [FinanceController::class, 'overviewMetrics'])->middleware('can:finance.dashboard.view');
+        Route::get('/orders', [FinanceController::class, 'ordersFinancialView'])->middleware('can:finance.orders.view');
+        Route::get('/orders/{orderId}', [FinanceController::class, 'showOrderFinancials'])->middleware('can:finance.orders.view');
 
-        Route::get('/payments', [FinanceController::class, 'payments']);
-        Route::get('/payments/{paymentId}', [FinanceController::class, 'showPayment']);
-        Route::post('/payments/{paymentId}/reconcile', [FinanceController::class, 'reconcilePayment']);
+        Route::get('/payments', [FinanceController::class, 'payments'])->middleware('can:finance.payments.view');
+        Route::get('/payments/{paymentId}', [FinanceController::class, 'showPayment'])->middleware('can:finance.payments.view');
+        Route::post('/payments/{paymentId}/reconcile', [FinanceController::class, 'reconcilePayment'])->middleware('can:finance.payments.reconcile');
 
-        Route::get('/refunds', [FinanceController::class, 'refunds']);
-        Route::post('/refunds/{refundId}/approve', [FinanceController::class, 'approveRefund']);
-        Route::post('/refunds/{refundId}/reject', [FinanceController::class, 'rejectRefund']);
-        Route::post('/refunds/{refundId}/process', [FinanceController::class, 'processRefundPayout']);
+        Route::get('/refunds', [FinanceController::class, 'refunds'])->middleware('can:finance.refunds.view');
+        Route::post('/refunds/{refundId}/approve', [FinanceController::class, 'approveRefund'])->middleware('can:finance.refunds.approve');
+        Route::post('/refunds/{refundId}/reject', [FinanceController::class, 'rejectRefund'])->middleware('can:finance.refunds.reject');
+        Route::post('/refunds/{refundId}/process', [FinanceController::class, 'processRefundPayout'])->middleware('can:finance.refunds.process');
 
-        Route::get('/payouts', [FinanceController::class, 'payouts']);
-        Route::post('/payouts/{payoutId}/approve', [FinanceController::class, 'approvePayout']);
-        Route::post('/payouts/{payoutId}/hold', [FinanceController::class, 'holdPayout']);
-        Route::post('/payouts/{payoutId}/reject', [FinanceController::class, 'rejectPayout']);
-        Route::post('/payouts/{payoutId}/disburse', [FinanceController::class, 'disburseB2CPayout']);
+        Route::get('/payouts', [FinanceController::class, 'payouts'])->middleware('can:finance.payouts.view');
+        Route::post('/payouts/{payoutId}/approve', [FinanceController::class, 'approvePayout'])->middleware('can:finance.payouts.approve');
+        Route::post('/payouts/{payoutId}/hold', [FinanceController::class, 'holdPayout'])->middleware('can:finance.payouts.hold');
+        Route::post('/payouts/{payoutId}/reject', [FinanceController::class, 'rejectPayout'])->middleware('can:finance.payouts.reject');
+        Route::post('/payouts/{payoutId}/disburse', [FinanceController::class, 'disburseB2CPayout'])->middleware('can:finance.payouts.disburse');
 
-        Route::get('/ledger', [FinanceController::class, 'ledgerEntries']);
-        Route::post('/ledger/adjustments', [FinanceController::class, 'createJournalAdjustment']);
+        Route::get('/ledger', [FinanceController::class, 'ledgerEntries'])->middleware('can:finance.ledger.view');
+        Route::post('/ledger/adjustments', [FinanceController::class, 'createJournalAdjustment'])->middleware('can:finance.ledger.adjust');
 
-        Route::get('/reconciliation', [FinanceController::class, 'reconciliationRuns']);
-        Route::post('/reconciliation/run', [FinanceController::class, 'triggerReconciliation']);
-        Route::post('/reconciliation/exceptions/{id}/resolve', [FinanceController::class, 'resolveException']);
+        Route::get('/reconciliation', [FinanceController::class, 'reconciliationRuns'])->middleware('can:finance.reconciliation.view');
+        Route::post('/reconciliation/run', [FinanceController::class, 'triggerReconciliation'])->middleware('can:finance.reconciliation.run');
+        Route::post('/reconciliation/exceptions/{id}/resolve', [FinanceController::class, 'resolveException'])->middleware('can:finance.reconciliation.resolve');
 
-        Route::get('/reports', [FinanceController::class, 'reportsSummary']);
-        Route::post('/reports/export', [FinanceController::class, 'exportReportJob']);
+        Route::get('/reports', [FinanceController::class, 'reportsSummary'])->middleware('can:finance.reports.view');
+        Route::post('/reports/export', [FinanceController::class, 'exportReportJob'])->middleware('can:finance.reports.export');
     });
 
     // ========================================================================
@@ -179,8 +170,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/products', [AdminController::class, 'allProducts']);
             Route::post('/products/{id}/approve', [AdminController::class, 'approveProduct']);
             Route::post('/products/{id}/reject', [AdminController::class, 'rejectProduct']);
-            Route::apiResource('categories', AdminController::class);
-            Route::apiResource('brands', AdminController::class);
+            Route::apiResource('categories', CategoryController::class);
+            Route::apiResource('brands', BrandController::class);
         });
 
         // Seller Governance & KYC

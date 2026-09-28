@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Jobs\ProcessMpesaCallbackJob;
-use App\Models\MpesaCallback;
 use App\Models\Payment;
 use App\Models\Order;
 use App\Models\Payout;
+use App\Models\Refund;
 use App\Domain\Finance\Services\LedgerPostingService;
 use App\Domain\Inventory\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 use Illuminate\Routing\Controller as BaseController;
-use Exception;
 
 class MpesaWebhookController extends BaseController
 {
@@ -23,32 +23,32 @@ class MpesaWebhookController extends BaseController
         protected InventoryService $inventoryService
     ) {}
 
-    /**
-     * Async STK Push Webhook Handler
-     * 1. Persists raw callback immediately
-     * 2. Returns 200 OK fast to Safaricom Daraja
-     * 3. Dispatches ProcessMpesaCallbackJob to Horizon queue
-     */
     public function handleStkCallback(Request $request): JsonResponse
     {
         $payload = $request->all();
         $checkoutReqId = $payload['Body']['stkCallback']['CheckoutRequestID'] ?? null;
-
-        MpesaCallback::create([
+        $inserted = DB::table('mpesa_callbacks')->insertOrIgnore([
             'id' => (string) Str::uuid(),
             'event_type' => 'mpesa.stk_callback',
+            'provider_event_id' => $checkoutReqId,
+            'payload_hash' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)),
             'checkout_request_id' => $checkoutReqId,
-            'payload' => $payload,
+            'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
             'processing_status' => 'queued',
+            'attempts' => 0,
+            'received_at' => now(),
             'created_at' => now(),
         ]);
 
-        // Dispatch background processing job to Horizon
-        ProcessMpesaCallbackJob::dispatch($payload);
+        if ($inserted === 1) {
+            ProcessMpesaCallbackJob::dispatch($payload);
+        }
 
         return response()->json([
             'ResultCode' => 0,
-            'ResultDesc' => 'Callback received and queued for asynchronous settlement',
+            'ResultDesc' => $inserted === 1
+                ? 'Callback received and queued for asynchronous settlement'
+                : 'Duplicate callback already received',
         ]);
     }
 
@@ -106,7 +106,8 @@ class MpesaWebhookController extends BaseController
         $order = Order::with('sellerOrders')->where('order_number', $billRef)->first();
 
         if ($order) {
-            DB::transaction(function () use ($order, $transId, $amount, $data) {
+            try {
+                DB::transaction(function () use ($order, $transId, $amount, $data) {
                 // Double-check with lock inside transaction
                 $lockedPayment = Payment::where('provider_transaction_id', $transId)->lockForUpdate()->first();
                 if ($lockedPayment) {
@@ -156,7 +157,17 @@ class MpesaWebhookController extends BaseController
                     commissionTotal: $commissionTotal,
                     deliveryFee: (float) $order->delivery_fee
                 );
-            });
+                });
+            } catch (QueryException $exception) {
+                if (!Payment::where('provider', 'mpesa')->where('provider_transaction_id', $transId)->exists()) {
+                    throw $exception;
+                }
+
+                return response()->json([
+                    'ResultCode' => 0,
+                    'ResultDesc' => 'Duplicate provider transaction ignored',
+                ]);
+            }
         }
 
         return response()->json([
@@ -178,11 +189,20 @@ class MpesaWebhookController extends BaseController
         $resultCode = $result['ResultCode'] ?? 1;
         $transactionId = $result['TransactionID'] ?? null;
 
-        $payout = Payout::where('provider_conversation_id', $conversationId)
-            ->orWhere('provider_request_id', $originatorConversationId)
-            ->orWhere('id', $conversationId)
-            ->orWhere('payout_number', $conversationId)
-            ->first();
+        $payout = null;
+        if ($conversationId || $originatorConversationId) {
+            $payout = Payout::where(function ($query) use ($conversationId, $originatorConversationId) {
+                if ($conversationId) {
+                    $query->where('provider_conversation_id', $conversationId)
+                        ->orWhere('id', $conversationId)
+                        ->orWhere('payout_number', $conversationId);
+                }
+                if ($originatorConversationId) {
+                    $method = $conversationId ? 'orWhere' : 'where';
+                    $query->{$method}('provider_request_id', $originatorConversationId);
+                }
+            })->first();
+        }
 
         if ($payout) {
             DB::transaction(function () use ($payout, $resultCode, $result, $transactionId) {
@@ -191,7 +211,7 @@ class MpesaWebhookController extends BaseController
                     return; // Already finalized
                 }
 
-                if ($resultCode === 0) {
+                if ((int) $resultCode === 0 && $transactionId) {
                     // 1. Post to double-entry general ledger upon confirmed Safaricom disbursement
                     $this->ledgerService->postSellerPayout(
                         payoutId: $lockedPayout->id,
@@ -211,6 +231,48 @@ class MpesaWebhookController extends BaseController
                     ]);
                 }
             });
+        } else {
+            $refund = null;
+            if ($conversationId || $originatorConversationId) {
+                $refund = Refund::where(function ($query) use ($conversationId, $originatorConversationId) {
+                    if ($conversationId) {
+                        $query->where('provider_conversation_id', $conversationId);
+                    }
+                    if ($originatorConversationId) {
+                        $method = $conversationId ? 'orWhere' : 'where';
+                        $query->{$method}('provider_request_id', $originatorConversationId);
+                    }
+                })->first();
+            }
+
+            if ($refund) {
+                DB::transaction(function () use ($refund, $resultCode, $result, $transactionId) {
+                    $lockedRefund = Refund::where('id', $refund->id)->lockForUpdate()->first();
+                    if ($lockedRefund->status === 'completed') {
+                        return;
+                    }
+
+                    if ((int) $resultCode === 0 && $transactionId) {
+                        $this->ledgerService->postCustomerRefund(
+                            refundId: $lockedRefund->id,
+                            orderId: $lockedRefund->order_id,
+                            amount: (float) $lockedRefund->amount,
+                            customerId: $lockedRefund->customer_id
+                        );
+
+                        $lockedRefund->update([
+                            'status' => 'completed',
+                            'provider_transaction_id' => $transactionId,
+                            'completed_at' => now(),
+                        ]);
+                    } else {
+                        $lockedRefund->update([
+                            'status' => 'failed',
+                            'failure_reason' => $result['ResultDesc'] ?? 'Provider rejected refund.',
+                        ]);
+                    }
+                });
+            }
         }
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'B2C Result Handled']);
@@ -220,13 +282,25 @@ class MpesaWebhookController extends BaseController
     {
         $conversationId = $request->input('ConversationID') ?? $request->input('Result.ConversationID');
         if ($conversationId) {
-            $payout = Payout::where('provider_conversation_id', $conversationId)
-                ->orWhere('provider_request_id', $conversationId)
-                ->first();
+            $payout = Payout::where(function ($query) use ($conversationId) {
+                $query->where('provider_conversation_id', $conversationId)
+                    ->orWhere('provider_request_id', $conversationId);
+            })->first();
             if ($payout && $payout->status === 'processing') {
                 $payout->update([
                     'status' => 'timeout_pending_reconciliation',
                     'failure_reason' => 'Safaricom B2C queue timeout; queued for automatic transaction query.',
+                ]);
+            }
+
+            $refund = Refund::where(function ($query) use ($conversationId) {
+                $query->where('provider_conversation_id', $conversationId)
+                    ->orWhere('provider_request_id', $conversationId);
+            })->first();
+            if ($refund && $refund->status === 'provider_pending') {
+                $refund->update([
+                    'status' => 'timeout_pending_reconciliation',
+                    'failure_reason' => 'Safaricom reversal timeout; provider transaction status requires reconciliation.',
                 ]);
             }
         }

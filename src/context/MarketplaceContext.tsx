@@ -30,24 +30,6 @@ import {
   ReturnRequest,
   SellerVerification,
 } from "../types";
-import {
-  INITIAL_CATEGORIES,
-  INITIAL_BRANDS,
-  INITIAL_SELLERS,
-  INITIAL_PRODUCTS,
-  INITIAL_ORDERS,
-  INITIAL_LEDGER,
-  INITIAL_PAYOUTS,
-  INITIAL_COUPONS,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_DELIVERY_ZONES,
-  INITIAL_SETTINGS,
-  INITIAL_SUPPORT_TICKETS,
-  INITIAL_PROMOTIONS,
-  INITIAL_FLASH_SALES,
-  INITIAL_HOMEPAGE_SETTINGS,
-  INITIAL_RETURNS,
-} from "../data/initialData";
 import { hasPermission, isGeneralAdmin } from "../config/permissions";
 import {
   getCurrentUser,
@@ -55,17 +37,6 @@ import {
   logoutUser,
   registerUser as apiRegisterUser,
 } from "../lib/api/auth";
-
-const localStorage = {
-  getItem: (key: string) =>
-    typeof window === "undefined" ? null : window.localStorage.getItem(key),
-  setItem: (key: string, value: string) => {
-    if (typeof window !== "undefined") window.localStorage.setItem(key, value);
-  },
-  removeItem: (key: string) => {
-    if (typeof window !== "undefined") window.localStorage.removeItem(key);
-  },
-};
 
 interface MarketplaceContextType {
   // Authentication & Real User State
@@ -308,6 +279,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
+    const handleUnauthorized = () => setAuthUser(null);
+    window.addEventListener("kesales:unauthorized", handleUnauthorized);
+
     const restoreSession = async () => {
       const token = sessionStorage.getItem("kesales_auth_token");
       if (!token) {
@@ -317,7 +291,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const response = await getCurrentUser();
       if (!response.success || !response.data?.user) {
-        sessionStorage.removeItem("kesales_auth_token");
+        if (response.error?.status === 401) {
+          sessionStorage.removeItem("kesales_auth_token");
+        }
         setAuthUser(null);
         return;
       }
@@ -346,6 +322,10 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     restoreSession();
+
+    return () => {
+      window.removeEventListener("kesales:unauthorized", handleUnauthorized);
+    };
   }, []);
 
   // Current view state derived from authenticated user
@@ -372,15 +352,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       currentSellerId !== "" &&
       currentSellerId === product.sellerId);
 
-  // Business datasets are server-authoritative. Only UI preferences may remain in localStorage.
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem("kesales_categories");
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
-  const [brands, setBrands] = useState<Brand[]>(() => {
-    const saved = localStorage.getItem("kesales_brands");
-    return saved ? JSON.parse(saved) : INITIAL_BRANDS;
-  });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<MasterOrder[]>([]);
@@ -389,75 +362,77 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
-  const [settings, setSettings] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem("kesales_settings");
-    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+  const [settings, setSettings] = useState<SystemSettings>({
+    general: {
+      marketplaceName: "",
+      logoUrl: "",
+      supportEmail: "",
+      supportPhone: "",
+      defaultCurrency: "KES",
+      timezone: "Africa/Nairobi",
+      country: "Kenya",
+      address: "",
+    },
+    commerce: {
+      defaultCommissionRate: 0,
+      minPayoutAmount: 0,
+      returnPeriodDays: 0,
+      orderCancellationMinutes: 0,
+      vatRate: 0,
+      minOrderValue: 0,
+    },
+    payments: {
+      enableMpesa: false,
+      enableCard: false,
+      enableBankTransfer: false,
+      enableCod: false,
+      mpesaShortcode: "",
+      mpesaEnvironment: "sandbox",
+    },
+    delivery: {
+      defaultDeliveryFee: 0,
+      freeDeliveryThreshold: 0,
+      enablePickupStations: false,
+      defaultDispatchWindowHours: 0,
+    },
+    notifications: {
+      emailNotificationsEnabled: false,
+      smsNotificationsEnabled: false,
+      orderConfirmationEmail: false,
+      sellerPayoutAlerts: false,
+      adminEscrowAlerts: false,
+    },
+    security: {
+      passwordMinLength: 0,
+      requireSpecialChar: false,
+      sessionTimeoutMinutes: 0,
+      twoFactorRequiredForAdmins: false,
+    },
+    seo: {
+      metaTitle: "",
+      metaDescription: "",
+      socialShareImage: "",
+      indexingEnabled: false,
+    },
+    maintenance: { isMaintenanceMode: false, maintenanceMessage: "" },
   });
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [flashSales, setFlashSales] = useState<FlashSaleCampaign[]>([]);
-  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(
-    () => {
-      const saved = localStorage.getItem("kesales_homepage_settings");
-      return saved ? JSON.parse(saved) : INITIAL_HOMEPAGE_SETTINGS;
-    },
-  );
-  const [returns, setReturns] = useState<ReturnRequest[]>([]);
-  const [addresses, setAddresses] = useState<DeliveryAddress[]>(() => {
-    const saved = localStorage.getItem("kesales_addresses");
-    return saved ? JSON.parse(saved) : [];
+  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>({
+    sections: [],
+    visibility: { hero: false, flash_sales: false, official_stores: false },
   });
+  const [returns, setReturns] = useState<ReturnRequest[]>([]);
+  const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
 
   // Cart & Wishlist
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem("kesales_cart");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem("kesales_wishlist");
-    return saved
-      ? JSON.parse(saved)
-      : ["prod-sony-wh1000xm5", "prod-nike-airmax-90"];
-  });
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
   // Reviews dictionary by product ID
-  const [reviews, setReviews] = useState<Record<string, Review[]>>({
-    "prod-s24-ultra": [
-      {
-        id: "rev-1",
-        productId: "prod-s24-ultra",
-        customerName: "John Kamau",
-        rating: 5,
-        comment:
-          "Absolute monster of a phone. The display is flat and anti-reflective, and battery easily lasts 2 full days in Nairobi traffic.",
-        verifiedPurchase: true,
-        date: "2026-09-10",
-      },
-      {
-        id: "rev-2",
-        productId: "prod-s24-ultra",
-        customerName: "Beatrice A.",
-        rating: 5,
-        comment:
-          "Original Samsung warranty confirmed via dial code. Arrived in 24 hours via KESALES Express!",
-        verifiedPurchase: true,
-        date: "2026-09-15",
-      },
-    ],
-    "prod-anker-737": [
-      {
-        id: "rev-3",
-        productId: "prod-anker-737",
-        customerName: "Edwin M.",
-        rating: 5,
-        comment:
-          "Charges my M2 MacBook Pro at full 100W speed! The screen is super handy to see wattage.",
-        verifiedPurchase: true,
-        date: "2026-09-12",
-      },
-    ],
-  });
+  const [reviews, setReviews] = useState<Record<string, Review[]>>({});
 
   // Authentication methods
   const login = async (email: string, password?: string) => {
@@ -552,136 +527,6 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     return { success: true, user };
   };
-
-  // Business data is server-authoritative. Keep only client-side UI preferences in localStorage.
-  useEffect(() => {
-    if (users.length > 0) {
-      localStorage.setItem("kesales_users", JSON.stringify(users));
-    }
-  }, [users]);
-
-  useEffect(() => {
-    if (sellers.length > 0) {
-      localStorage.setItem("kesales_sellers", JSON.stringify(sellers));
-    }
-  }, [sellers]);
-
-  useEffect(() => {
-    if (products.length > 0) {
-      localStorage.setItem("kesales_products", JSON.stringify(products));
-    }
-  }, [products]);
-
-  useEffect(() => {
-    if (orders.length > 0) {
-      localStorage.setItem("kesales_orders", JSON.stringify(orders));
-    }
-  }, [orders]);
-
-  useEffect(() => {
-    if (ledger.length > 0) {
-      localStorage.setItem("kesales_ledger", JSON.stringify(ledger));
-    }
-  }, [ledger]);
-
-  useEffect(() => {
-    if (payouts.length > 0) {
-      localStorage.setItem("kesales_payouts", JSON.stringify(payouts));
-    }
-  }, [payouts]);
-
-  useEffect(() => {
-    if (coupons.length > 0) {
-      localStorage.setItem("kesales_coupons", JSON.stringify(coupons));
-    }
-  }, [coupons]);
-
-  useEffect(() => {
-    if (cart.length > 0) {
-      localStorage.setItem("kesales_cart", JSON.stringify(cart));
-    }
-  }, [cart]);
-
-  useEffect(() => {
-    if (wishlist.length > 0) {
-      localStorage.setItem("kesales_wishlist", JSON.stringify(wishlist));
-    }
-  }, [wishlist]);
-
-  useEffect(() => {
-    if (auditLogs.length > 0) {
-      localStorage.setItem("kesales_audit_logs", JSON.stringify(auditLogs));
-    }
-  }, [auditLogs]);
-
-  useEffect(() => {
-    if (categories.length > 0) {
-      localStorage.setItem("kesales_categories", JSON.stringify(categories));
-    }
-  }, [categories]);
-
-  useEffect(() => {
-    if (brands.length > 0) {
-      localStorage.setItem("kesales_brands", JSON.stringify(brands));
-    }
-  }, [brands]);
-
-  useEffect(() => {
-    if (deliveryZones.length > 0) {
-      localStorage.setItem(
-        "kesales_delivery_zones",
-        JSON.stringify(deliveryZones),
-      );
-    }
-  }, [deliveryZones]);
-
-  useEffect(() => {
-    if (settings) {
-      localStorage.setItem("kesales_settings", JSON.stringify(settings));
-    }
-  }, [settings]);
-
-  useEffect(() => {
-    if (supportTickets.length > 0) {
-      localStorage.setItem(
-        "kesales_support_tickets",
-        JSON.stringify(supportTickets),
-      );
-    }
-  }, [supportTickets]);
-
-  useEffect(() => {
-    if (promotions.length > 0) {
-      localStorage.setItem("kesales_promotions", JSON.stringify(promotions));
-    }
-  }, [promotions]);
-
-  useEffect(() => {
-    if (flashSales.length > 0) {
-      localStorage.setItem("kesales_flash_sales", JSON.stringify(flashSales));
-    }
-  }, [flashSales]);
-
-  useEffect(() => {
-    if (homepageSettings) {
-      localStorage.setItem(
-        "kesales_homepage_settings",
-        JSON.stringify(homepageSettings),
-      );
-    }
-  }, [homepageSettings]);
-
-  useEffect(() => {
-    if (returns.length > 0) {
-      localStorage.setItem("kesales_returns", JSON.stringify(returns));
-    }
-  }, [returns]);
-
-  useEffect(() => {
-    if (addresses.length > 0) {
-      localStorage.setItem("kesales_addresses", JSON.stringify(addresses));
-    }
-  }, [addresses]);
 
   // Current logged in seller object
   const currentSeller = currentSellerId
@@ -1849,7 +1694,6 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     if (authUser?.id === userId) {
       setAuthUser(nextUser);
-      localStorage.setItem("kesales_auth_user", JSON.stringify(nextUser));
     }
     logAuditAction(
       "USER_UPDATED",

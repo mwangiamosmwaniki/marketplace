@@ -15,7 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
-use Exception;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class CheckoutController extends BaseController
 {
@@ -145,18 +146,42 @@ class CheckoutController extends BaseController
     {
         $idempotencyKey = $request->header('Idempotency-Key') ?? $request->input('idempotency_key');
         $user = $request->user();
+        $requestHash = null;
 
-        // Check idempotency cache
-        if ($idempotencyKey && $user) {
+        if ($idempotencyKey !== null) {
+            if (!is_string($idempotencyKey) || strlen($idempotencyKey) > 255) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'INVALID_IDEMPOTENCY_KEY',
+                        'message' => 'Idempotency-Key must be a string no longer than 255 characters.',
+                    ],
+                ], 422);
+            }
+
+            $requestHash = hash('sha256', $request->path().'|'.json_encode(
+                $request->except('idempotency_key'),
+                JSON_THROW_ON_ERROR
+            ));
+
             $cached = IdempotencyKey::where('user_id', $user->id)
                 ->where('idempotency_key', $idempotencyKey)
+                ->where('request_path', $request->path())
                 ->first();
 
-            if ($cached && $cached->response_body) {
-                return response()->json(
-                    $cached->response_body,
-                    $cached->response_code ?? 200
-                )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+            if ($cached) {
+                if (!hash_equals($cached->request_hash, $requestHash)) {
+                    return $this->idempotencyConflict('IDEMPOTENCY_KEY_REUSED');
+                }
+
+                if ($cached->response_body !== null) {
+                    return response()->json(
+                        $cached->response_body,
+                        $cached->response_code ?? 200
+                    )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+                }
+
+                return $this->idempotencyConflict('IDEMPOTENCY_REQUEST_IN_PROGRESS');
             }
         }
 
@@ -217,48 +242,114 @@ class CheckoutController extends BaseController
             $shippingAddress = $validated['shipping_address'];
         }
 
+        if ($idempotencyKey !== null) {
+            $claimed = DB::table('idempotency_keys')->insertOrIgnore([
+                'id' => (string) Str::uuid(),
+                'user_id' => $user->id,
+                'idempotency_key' => $idempotencyKey,
+                'request_path' => $request->path(),
+                'request_hash' => $requestHash,
+                'response_code' => null,
+                'response_body' => null,
+                'created_at' => now(),
+                'expires_at' => now()->addHours(24),
+            ]);
+
+            if ($claimed !== 1) {
+                $existing = IdempotencyKey::where('user_id', $user->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('request_path', $request->path())
+                    ->first();
+
+                if ($existing && hash_equals($existing->request_hash, $requestHash) && $existing->response_body !== null) {
+                    return response()->json(
+                        $existing->response_body,
+                        $existing->response_code ?? 200
+                    )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+                }
+
+                return $this->idempotencyConflict(
+                    $existing && !hash_equals($existing->request_hash, $requestHash)
+                        ? 'IDEMPOTENCY_KEY_REUSED'
+                        : 'IDEMPOTENCY_REQUEST_IN_PROGRESS'
+                );
+            }
+        }
+
         try {
-            $order = $this->createOrderAction->execute(
-                customerId: $user->id,
-                items: $checkoutItems,
-                shippingAddress: $shippingAddress,
-                deliveryType: $validated['delivery_type'] ?? 'home_delivery',
-                couponCode: $validated['coupon_code'] ?? null
-            );
+            $responsePayload = DB::transaction(function () use (
+                $user,
+                $checkoutItems,
+                $shippingAddress,
+                $validated,
+                $source,
+                $idempotencyKey,
+                $requestHash,
+                $request
+            ) {
+                $order = $this->createOrderAction->execute(
+                    customerId: $user->id,
+                    items: $checkoutItems,
+                    shippingAddress: $shippingAddress,
+                    deliveryType: $validated['delivery_type'] ?? 'home_delivery',
+                    couponCode: $validated['coupon_code'] ?? null
+                );
 
-            // If checked out from cart, clear cart
-            if ($source === 'cart') {
-                Cart::where('user_id', $user->id)->first()?->items()->delete();
-            }
+                if ($source === 'cart') {
+                    Cart::where('user_id', $user->id)->first()?->items()->delete();
+                }
 
-            $responsePayload = [
-                'success' => true,
-                'message' => 'Order created successfully',
-                'order' => $order,
-            ];
+                $responsePayload = [
+                    'success' => true,
+                    'message' => 'Order created successfully',
+                    'order' => $order,
+                ];
 
-            // Cache response for idempotency
-            if ($idempotencyKey && $user) {
-                IdempotencyKey::create([
-                    'id' => (string) Str::uuid(),
-                    'user_id' => $user->id,
-                    'idempotency_key' => $idempotencyKey,
-                    'request_path' => $request->path(),
-                    'request_hash' => md5($request->path() . '|' . json_encode($request->all())),
-                    'response_code' => 201,
-                    'response_body' => $responsePayload,
-                    'created_at' => now(),
-                    'expires_at' => now()->addHours(24),
-                ]);
-            }
+                if ($idempotencyKey !== null) {
+                    IdempotencyKey::where('user_id', $user->id)
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->where('request_path', $request->path())
+                        ->where('request_hash', $requestHash)
+                        ->update([
+                            'response_code' => 201,
+                            'response_body' => json_encode($responsePayload, JSON_THROW_ON_ERROR),
+                        ]);
+                }
+
+                return $responsePayload;
+            });
 
             return response()->json($responsePayload, 201);
-        } catch (Exception $e) {
+        } catch (Throwable) {
+            if ($idempotencyKey !== null) {
+                IdempotencyKey::where('user_id', $user->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('request_path', $request->path())
+                    ->whereNull('response_body')
+                    ->delete();
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Checkout error: ' . $e->getMessage(),
+                'error' => [
+                    'code' => 'CHECKOUT_FAILED',
+                    'message' => 'Checkout could not be completed. Review the request and try again.',
+                ],
             ], 422);
         }
+    }
+
+    private function idempotencyConflict(string $code): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'error' => [
+                'code' => $code,
+                'message' => $code === 'IDEMPOTENCY_KEY_REUSED'
+                    ? 'This idempotency key was already used with a different request.'
+                    : 'A request using this idempotency key is already in progress.',
+            ],
+        ], 409);
     }
 
     /**

@@ -16,10 +16,15 @@ class MpesaCallback extends Model
     protected $fillable = [
         'id',
         'event_type',
+        'provider_event_id',
+        'payload_hash',
         'checkout_request_id',
         'payload',
         'processing_status',
+        'attempts',
+        'received_at',
         'processed_at',
+        'failed_at',
         'error_message',
         'created_at',
     ];

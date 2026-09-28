@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\ReconciliationRun;
 use App\Models\ReconciliationException;
+use App\Models\User;
 use Illuminate\Support\Str;
 
 class ReconciliationTest extends TestCase
@@ -19,7 +20,7 @@ class ReconciliationTest extends TestCase
         $order = Order::create([
             'id' => (string) Str::uuid(),
             'order_number' => 'KS-ORD-REC-001',
-            'customer_id' => (string) Str::uuid(),
+            'customer_id' => User::factory()->create()->id,
             'currency' => 'KES',
             'subtotal' => 4500.00,
             'discount_total' => 0.00,

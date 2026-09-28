@@ -6,6 +6,9 @@ use Tests\TestCase;
 use App\Domain\Finance\Services\LedgerPostingService;
 use App\Models\FinancialTransaction;
 use App\Models\FinancialTransactionLine;
+use App\Models\Order;
+use App\Models\Seller;
+use App\Models\User;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -19,10 +22,41 @@ class LedgerPostingServiceTest extends TestCase
         $this->ledgerService = new LedgerPostingService();
     }
 
+    private function createSeller(): Seller
+    {
+        $user = User::factory()->create();
+
+        return Seller::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'store_name' => 'Ledger Test Seller',
+            'slug' => 'ledger-test-'.Str::lower(Str::random(8)),
+            'legal_name' => 'Ledger Test Seller Limited',
+            'status' => 'approved',
+        ]);
+    }
+
+    private function createOrder(): Order
+    {
+        return Order::create([
+            'id' => (string) Str::uuid(),
+            'order_number' => 'KS-ORD-LEDGER-'.strtoupper(Str::random(8)),
+            'customer_id' => User::factory()->create()->id,
+            'currency' => 'KES',
+            'subtotal' => 10000,
+            'discount_total' => 0,
+            'delivery_fee' => 500,
+            'tax_total' => 0,
+            'grand_total' => 10500,
+            'status' => 'PAYMENT_CONFIRMED',
+            'payment_status' => 'paid',
+        ]);
+    }
+
     public function test_post_order_payment_creates_balanced_two_leg_entries(): void
     {
-        $orderId = (string) Str::uuid();
-        $sellerId = (string) Str::uuid();
+        $orderId = $this->createOrder()->id;
+        $sellerId = $this->createSeller()->id;
         $grandTotal = 10500.00; // KSh 10,000 subtotal + KSh 500 delivery fee
         $deliveryFee = 500.00;
         $commissionTotal = 1000.00; // 10% of KSh 10,000
@@ -69,7 +103,7 @@ class LedgerPostingServiceTest extends TestCase
     public function test_post_seller_payout_creates_balanced_escrow_release(): void
     {
         $payoutId = (string) Str::uuid();
-        $sellerId = (string) Str::uuid();
+        $sellerId = $this->createSeller()->id;
         $amount = 9000.00;
 
         $txId = $this->ledgerService->postSellerPayout(

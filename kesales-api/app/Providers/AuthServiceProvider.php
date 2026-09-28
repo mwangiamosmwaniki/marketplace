@@ -40,23 +40,34 @@ class AuthServiceProvider extends ServiceProvider
             return $user->status === 'active' && ($user->hasRole('finance_admin') || $user->hasRole('super_admin'));
         });
 
-        // Granular Finance Capabilities
-        Gate::define('orders.view_financial', fn(User $user) => $user->hasPermission('orders.view_financial') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payments.view', fn(User $user) => $user->hasPermission('payments.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payments.reconcile', fn(User $user) => $user->hasPermission('payments.reconcile') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('refunds.view', fn(User $user) => $user->hasPermission('refunds.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('refunds.approve', fn(User $user) => $user->hasPermission('refunds.approve') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('refunds.process', fn(User $user) => $user->hasPermission('refunds.process') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payouts.view', fn(User $user) => $user->hasPermission('payouts.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payouts.approve', fn(User $user) => $user->hasPermission('payouts.approve') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payouts.hold', fn(User $user) => $user->hasPermission('payouts.hold') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('payouts.process', fn(User $user) => $user->hasPermission('payouts.process') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('ledger.view', fn(User $user) => $user->hasPermission('ledger.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('ledger.adjust', fn(User $user) => $user->hasPermission('ledger.adjust') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('reconciliation.view', fn(User $user) => $user->hasPermission('reconciliation.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('reconciliation.resolve', fn(User $user) => $user->hasPermission('reconciliation.resolve') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('reports.view', fn(User $user) => $user->hasPermission('reports.view') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
-        Gate::define('reports.export', fn(User $user) => $user->hasPermission('reports.export') || $user->hasRole('finance_admin') || $user->hasRole('super_admin'));
+        // Finance capabilities are granted per operation, never by role name alone.
+        foreach ([
+            'finance.dashboard.view',
+            'finance.orders.view',
+            'finance.payments.view',
+            'finance.payments.reconcile',
+            'finance.refunds.view',
+            'finance.refunds.approve',
+            'finance.refunds.reject',
+            'finance.refunds.process',
+            'finance.payouts.view',
+            'finance.payouts.approve',
+            'finance.payouts.hold',
+            'finance.payouts.reject',
+            'finance.payouts.disburse',
+            'finance.ledger.view',
+            'finance.ledger.adjust',
+            'finance.reconciliation.view',
+            'finance.reconciliation.run',
+            'finance.reconciliation.resolve',
+            'finance.reports.view',
+            'finance.reports.export',
+        ] as $permission) {
+            Gate::define($permission, fn(User $user) =>
+                $user->status === 'active' &&
+                ($user->hasPermission($permission) || $user->hasRole('super_admin'))
+            );
+        }
 
         // 3. Domain Admin Gates
         Gate::define('products.manage', function (User $user) {

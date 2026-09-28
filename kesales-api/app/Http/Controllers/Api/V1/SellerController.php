@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Storage;
 
 class SellerController extends BaseController
 {
@@ -66,6 +67,7 @@ class SellerController extends BaseController
     public function storeProduct(Request $request): JsonResponse
     {
         $seller = $this->getSeller($request);
+        abort_unless($seller->status === 'approved', 403, 'Seller approval is required before listing products.');
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -89,8 +91,8 @@ class SellerController extends BaseController
             'slug' => $slug,
             'sku' => $sku,
             'description' => $validated['description'],
-            'status' => 'active',
-            'published_at' => now(),
+            'status' => 'pending_approval',
+            'published_at' => null,
         ]);
 
         $variant = ProductVariant::create([
@@ -111,7 +113,7 @@ class SellerController extends BaseController
         ]);
 
         return response()->json([
-            'message' => 'Product published successfully',
+            'message' => 'Product submitted for catalog approval',
             'product' => $product->load('variants'),
         ], 201);
     }
@@ -132,7 +134,19 @@ class SellerController extends BaseController
         $seller = $this->getSeller($request);
         $product = Product::where('seller_id', $seller->id)->where('id', $id)->firstOrFail();
 
-        $product->update($request->only(['name', 'description', 'category_id', 'brand_id', 'status']));
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'category_id' => 'sometimes|required|integer|exists:categories,id',
+            'brand_id' => 'sometimes|nullable|integer|exists:brands,id',
+        ]);
+
+        if ($validated !== []) {
+            $product->update(array_merge($validated, [
+                'status' => 'pending_approval',
+                'published_at' => null,
+            ]));
+        }
 
         return response()->json([
             'message' => 'Product updated successfully',
@@ -313,19 +327,32 @@ class SellerController extends BaseController
 
         $validated = $request->validate([
             'document_type' => 'required|string|in:national_id,passport,business_permit,cr12,tax_compliance,bank_statement',
-            'file_path' => 'required|string',
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'document_number' => 'nullable|string',
         ]);
 
-        $doc = SellerDocument::create([
-            'id' => (string) Str::uuid(),
-            'seller_id' => $seller->id,
-            'document_type' => $validated['document_type'],
-            'document_number' => $validated['document_number'] ?? null,
-            'file_path' => $validated['file_path'],
-            'status' => 'pending',
-            'created_at' => now(),
-        ]);
+        $filePath = $request->file('file')->store('seller-kyc/'.$seller->id, 'local');
+        if (!$filePath) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The document could not be stored securely.',
+            ], 500);
+        }
+
+        try {
+            $doc = SellerDocument::create([
+                'id' => (string) Str::uuid(),
+                'seller_id' => $seller->id,
+                'document_type' => $validated['document_type'],
+                'document_number' => $validated['document_number'] ?? null,
+                'file_path' => $filePath,
+                'status' => 'pending',
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete($filePath);
+            throw $exception;
+        }
 
         return response()->json([
             'message' => 'Document submitted for compliance review',

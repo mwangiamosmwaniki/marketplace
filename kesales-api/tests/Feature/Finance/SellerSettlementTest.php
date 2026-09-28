@@ -7,6 +7,7 @@ use App\Models\Seller;
 use App\Models\Order;
 use App\Models\SellerOrder;
 use App\Models\Payout;
+use App\Models\User;
 use App\Domain\Settlement\Services\SellerSettlementService;
 use Illuminate\Support\Str;
 
@@ -20,6 +21,7 @@ class SellerSettlementTest extends TestCase
             'user_id' => $user->id,
             'store_name' => 'Kenyatta Leather Works',
             'slug' => 'kenyatta-leather-works',
+            'legal_name' => 'Kenyatta Leather Works Limited',
             'status' => 'approved',
             'commission_rate' => 10.00,
         ]);
@@ -27,7 +29,7 @@ class SellerSettlementTest extends TestCase
         $order = Order::create([
             'id' => (string) Str::uuid(),
             'order_number' => 'KS-ORD-SETTLE-001',
-            'customer_id' => (string) Str::uuid(),
+            'customer_id' => User::factory()->create()->id,
             'currency' => 'KES',
             'subtotal' => 10000.00,
             'discount_total' => 0.00,
@@ -48,7 +50,7 @@ class SellerSettlementTest extends TestCase
             'commission_total' => 1000.00,
             'seller_net_payout' => 9000.00,
             'fulfillment_status' => 'delivered',
-            'delivered_at' => now()->subDays(20),
+            'settlement_eligible_at' => now()->subDays(20),
             'is_settled' => false,
         ]);
 

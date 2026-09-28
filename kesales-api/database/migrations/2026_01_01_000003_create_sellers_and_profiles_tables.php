@@ -69,7 +69,7 @@ return new class extends Migration
             $table->string('bank_name', 150)->nullable();
             $table->string('bank_code', 50)->nullable();
             $table->string('mpesa_number', 32)->nullable();
-            $table->string('verification_status', 50)->default('verified');
+            $table->string('verification_status', 50)->default('pending');
             $table->boolean('is_primary')->default(true);
             $table->timestamp('created_at')->useCurrent();
 

@@ -38,7 +38,7 @@ async function proxyRequest(
   const authHeader = request.headers.get("Authorization");
   if (authHeader) headers.set("Authorization", authHeader);
 
-  if (body && method !== "GET") {
+  if (body && method !== "GET" && !(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -100,8 +100,12 @@ export async function POST(
 ) {
   const { route } = await context.params;
   const path = route.join("/");
-  const body = await request.json().catch(() => ({}));
-  return proxyRequest(request, path, "POST", JSON.stringify(body));
+  const body = request.headers
+    .get("content-type")
+    ?.includes("multipart/form-data")
+    ? await request.formData()
+    : await request.text();
+  return proxyRequest(request, path, "POST", body);
 }
 
 export async function PATCH(
@@ -110,8 +114,12 @@ export async function PATCH(
 ) {
   const { route } = await context.params;
   const path = route.join("/");
-  const body = await request.json().catch(() => ({}));
-  return proxyRequest(request, path, "PATCH", JSON.stringify(body));
+  const body = request.headers
+    .get("content-type")
+    ?.includes("multipart/form-data")
+    ? await request.formData()
+    : await request.text();
+  return proxyRequest(request, path, "PATCH", body);
 }
 
 export async function DELETE(

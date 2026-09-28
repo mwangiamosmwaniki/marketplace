@@ -12,26 +12,34 @@ use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\SellerOrder;
+use App\Models\Category;
+use App\Models\User;
 use Illuminate\Support\Str;
 
 class CheckoutApiTest extends TestCase
 {
     public function test_calculate_quote_uses_database_prices_and_delivery_zone_rates(): void
     {
+        $sellerUser = User::factory()->create();
         $seller = Seller::create([
             'id' => (string) Str::uuid(),
-            'user_id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
             'store_name' => 'Safari Electronics',
             'slug' => 'safari-electronics',
+            'legal_name' => 'Safari Electronics Limited',
             'status' => 'approved',
             'commission_rate' => 10.00,
         ]);
+        $category = Category::create(['name' => 'Phones', 'slug' => 'phones-checkout-quote']);
 
         $product = Product::create([
             'id' => (string) Str::uuid(),
             'seller_id' => $seller->id,
+            'category_id' => $category->id,
             'name' => 'Smartphone Pro 256GB',
             'slug' => 'smartphone-pro-256gb',
+            'sku' => 'PHN-256-QUOTE',
+            'description' => 'Test smartphone for quote calculation.',
             'status' => 'active',
         ]);
 
@@ -47,8 +55,10 @@ class CheckoutApiTest extends TestCase
         DeliveryZone::create([
             'id' => (string) Str::uuid(),
             'county' => 'Nairobi',
+            'towns' => json_encode(['Nairobi']),
             'home_delivery_fee' => 300.00,
             'pickup_station_fee' => 150.00,
+            'estimated_days' => '1-2 days',
         ]);
 
         // Attempt quote: Note that client DOES NOT send unit_price; backend derives 45000.00
@@ -75,21 +85,27 @@ class CheckoutApiTest extends TestCase
     public function test_create_order_persists_master_order_and_master_order_items(): void
     {
         $user = $this->authenticateCustomer();
+        $sellerUser = User::factory()->create();
 
         $seller = Seller::create([
             'id' => (string) Str::uuid(),
-            'user_id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
             'store_name' => 'Nairobi Tech Hub',
             'slug' => 'nairobi-tech-hub',
+            'legal_name' => 'Nairobi Tech Hub Limited',
             'status' => 'approved',
             'commission_rate' => 12.00,
         ]);
+        $category = Category::create(['name' => 'Audio', 'slug' => 'audio-checkout-order']);
 
         $product = Product::create([
             'id' => (string) Str::uuid(),
             'seller_id' => $seller->id,
+            'category_id' => $category->id,
             'name' => 'Noise Cancelling Headphones',
             'slug' => 'noise-cancelling-headphones',
+            'sku' => 'HEAD-NC-001-PRODUCT',
+            'description' => 'Test noise cancelling headphones.',
             'status' => 'active',
         ]);
 
@@ -103,17 +119,21 @@ class CheckoutApiTest extends TestCase
 
         InventoryItem::create([
             'id' => (string) Str::uuid(),
+            'product_id' => $product->id,
             'variant_id' => $variant->id,
+            'seller_id' => $seller->id,
             'quantity_on_hand' => 10,
-            'reserved_quantity' => 0,
-            'safety_stock' => 1,
+            'quantity_reserved' => 0,
+            'reorder_level' => 1,
         ]);
 
         DeliveryZone::create([
             'id' => (string) Str::uuid(),
             'county' => 'Kiambu',
+            'towns' => json_encode(['Thika']),
             'home_delivery_fee' => 350.00,
             'pickup_station_fee' => 200.00,
+            'estimated_days' => '1-2 days',
         ]);
 
         $response = $this->postJson('/api/v1/checkout', [

@@ -11,13 +11,13 @@ Robust, high-throughput, multi-vendor marketplace backend for Kenya built with *
                         │     KESALES Web     │
                         │ React / Next.js SPA │
                         └──────────┬──────────┘
-                                   │ HTTPS / JSON (Sanctum SPA)
+                                   │ HTTPS / JSON (BFF bearer token)
                                    ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                      LARAVEL 13 API                          │
 │                                                              │
 │  AUTH & ACCESS CONTROL                                       │
-│  ├── Laravel Sanctum (Stateful Cookie-Based SPA Auth)        │
+│  ├── Laravel Sanctum (12-hour personal access tokens)        │
 │  └── Granular RBAC (Super, Seller, Product, Finance Admins)  │
 │                                                              │
 │  DOMAIN-DRIVEN MODULES                                       │
@@ -79,7 +79,8 @@ kesales-api/
 │
 ├── routes/
 │   ├── api.php                               # Versioned /api/v1/ endpoints
-│   └── webhooks.php                          # Isolated external webhooks (M-Pesa, eTIMS)
+│   ├── web.php                               # Minimal web entrypoint
+│   └── webhooks.php                          # External webhooks (M-Pesa, eTIMS)
 │
 ├── composer.json
 └── .env.example
@@ -90,12 +91,14 @@ kesales-api/
 ## 🚀 Quick Start & Installation
 
 ### 1. Requirements
-- **PHP 8.3+** with `pdo_pgsql`, `redis`, `bcmath`, `curl`, `mbstring`
+
+- **PHP 8.4+** with `pdo_pgsql`, `redis`, `bcmath`, `curl`, `mbstring`, `pcntl`, `posix`
 - **PostgreSQL 16+**
 - **Redis 7+**
 - **Composer 2+**
 
 ### 2. Environment Setup
+
 ```bash
 cd kesales-api
 cp .env.example .env
@@ -108,6 +111,7 @@ php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 ```
 
 ### 3. Database Migration
+
 ```bash
 # Create database in PostgreSQL
 createdb kesales_db
@@ -117,9 +121,15 @@ psql -U kesales_app -d kesales_db -f database/schema.sql
 
 # Or run Laravel migrations
 php artisan migrate --seed
+
+# Create the first super-admin interactively; the password is prompted and never printed
+php artisan kesales:admin:create admin@example.com --name="KESALES Administrator" --phone="+2547XXXXXXXX"
 ```
 
+The default seeders create roles, permissions, and ledger accounts only. They do not create a default administrator or embed a password.
+
 ### 4. Running the Dev Server & Horizon
+
 ```bash
 # Run API server on port 8000
 php artisan serve --port=8000
@@ -132,7 +142,7 @@ php artisan horizon
 
 ## 💳 Payment & Webhook Idempotency
 
-All Safaricom Daraja STK callbacks hit `POST /webhooks/mpesa/stk`. 
+All Safaricom Daraja STK callbacks hit `POST /webhooks/mpesa/stk`.
 
 - **Idempotency Guard**: The `StkPushService` locks the `mpesa_transactions` row with `lockForUpdate()`. If `processed_at` is already populated, subsequent duplicate callbacks from Safaricom are detected and safely skipped.
 - **Two-Leg Principal-Agent Ledger Model**: Upon verified payment, `LedgerPostingService` creates balanced journal lines:
@@ -151,6 +161,7 @@ All Safaricom Daraja STK callbacks hit `POST /webhooks/mpesa/stk`.
 ## 💸 Automated B2C Seller Payouts
 
 Sellers request payouts via `POST /api/v1/seller/payouts/request`.
+
 1. **Verification**: Payout account (M-Pesa phone or bank) must be KYC verified.
 2. **Finance Review**: Finance team reviews and approves via `POST /api/v1/finance/payouts/{id}/approve`.
 3. **Disbursement**: Calling `POST /api/v1/finance/payouts/{id}/disburse` dispatches `DisburseB2CPayoutJob`.
@@ -162,6 +173,7 @@ Sellers request payouts via `POST /api/v1/seller/payouts/request`.
 ## 🔒 Server-Authoritative Checkout
 
 The backend rejects any attempt by clients to submit unit prices, commissions, or delivery fees:
+
 - `POST /api/v1/checkout/quote` accepts only `variant_id`, `quantity`, `county`, `delivery_type`, and optional `coupon_code`.
 - `POST /api/v1/checkout` loads products and variants from PostgreSQL, checks active seller & product status, executes atomic inventory reservation with row-level locks, computes delivery fee from `delivery_zones`, applies server-validated coupons, and creates:
   - Master order snapshot in `orders`
@@ -184,6 +196,7 @@ php artisan test
 ```
 
 ### Included Test Coverage:
+
 - `tests/Unit/LedgerPostingServiceTest.php`: Double-entry balanced verification, two-leg model, payout disbursement, refund posting.
 - `tests/Unit/InventoryServiceTest.php`: Atomic reservation, safety stock locking, sale commitment, release on cancellation.
 - `tests/Unit/StkPushServiceTest.php`: Phone number normalization, Daraja payload verification, idempotent webhook processing.
@@ -199,6 +212,7 @@ php artisan test
 ## 🧾 KRA eTIMS Invoicing
 
 Every confirmed order automatically generates a compliant tax invoice via `EtimsClient`:
+
 - Computes standard **16% VAT** (`taxblAmtB` & `taxAmtB`)
 - Assigns KRA tax code `B`
 - Registers eTIMS invoice number and generates verifiable KRA QR-code metadata

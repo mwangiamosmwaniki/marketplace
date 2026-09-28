@@ -49,6 +49,20 @@ class AuthApiTest extends TestCase
             'token',
             'user',
         ]);
+
+        $token = $response->json('token');
+        $this->withToken($token)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('user.email', 'john.doe@test.kesales.ke');
+
+        $this->withToken($token)
+            ->postJson('/api/v1/auth/logout')
+            ->assertOk();
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'token' => hash('sha256', $token),
+        ]);
     }
 
     public function test_protected_routes_reject_unauthenticated_requests(): void

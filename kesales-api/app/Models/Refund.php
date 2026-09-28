@@ -26,6 +26,10 @@ class Refund extends Model
         'requested_by',
         'approved_by',
         'completed_at',
+        'provider_conversation_id',
+        'provider_request_id',
+        'provider_transaction_id',
+        'failure_reason',
     ];
 
     protected $casts = [

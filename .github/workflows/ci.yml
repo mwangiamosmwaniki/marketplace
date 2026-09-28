@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: kesales_db
+          POSTGRES_USER: kesales_app
+          POSTGRES_PASSWORD: kesales_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kesales_app -d kesales_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: kesales_db
+      DB_USERNAME: kesales_app
+      DB_PASSWORD: kesales_ci_password
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: null
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      APP_ENV: testing
+      APP_DEBUG: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: bcmath, curl, mbstring, pcntl, pdo_pgsql, posix, redis
+          coverage: none
+      - run: cp kesales-api/.env.example kesales-api/.env
+      - run: composer install --working-dir=kesales-api --no-interaction --prefer-dist --no-progress
+      - run: php artisan key:generate --force
+        working-directory: kesales-api
+      - run: php artisan migrate --force
+        working-directory: kesales-api
+      - run: php artisan route:list
+        working-directory: kesales-api
+      - run: php artisan config:cache
+        working-directory: kesales-api
+      - run: php artisan about
+        working-directory: kesales-api
+      - run: php artisan test --no-coverage
+        working-directory: kesales-api
+      - name: Verify live health endpoint
+        working-directory: kesales-api
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/kesales-api.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8000/api/v1/health > /tmp/kesales-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          jq -e '.status == "ok" and .checks.database == "ok" and .checks.redis == "ok" and .checks.queue == "ok" and .checks.storage == "ok"' /tmp/kesales-health.json

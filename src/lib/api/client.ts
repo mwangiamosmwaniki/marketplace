@@ -2,6 +2,7 @@ export type ApiError = {
   code: string;
   message: string;
   fields?: Record<string, string[] | string>;
+  status?: number;
 };
 
 export type ApiEnvelope<T = unknown> = {
@@ -37,45 +38,96 @@ function getRequestId(): string {
 export async function apiRequest<T = unknown>(
   path: string,
   method: "GET" | "POST" | "PATCH" | "DELETE" = "GET",
-  body?: Record<string, unknown>,
+  body?: Record<string, unknown> | FormData,
 ): Promise<ApiEnvelope<T>> {
   const headers = new Headers({
     Accept: "application/json",
     "X-Request-ID": getRequestId(),
   });
+  const token =
+    typeof window === "undefined"
+      ? null
+      : sessionStorage.getItem("kesales_auth_token");
 
-  if (body && method !== "GET") {
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
+  if (body && method !== "GET" && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body && method !== "GET" ? JSON.stringify(body) : undefined,
-    credentials: "include",
-  });
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body:
+        body && method !== "GET"
+          ? isFormData
+            ? body
+            : JSON.stringify(body)
+          : undefined,
+      credentials: "omit",
+    });
 
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+    const text = await response.text();
+    let payload: Record<string, unknown> = {};
 
-  if (!response.ok) {
-    const error = payload?.error ?? {
-      code: "REQUEST_FAILED",
-      message: "The request could not be completed.",
-    };
+    try {
+      payload = text ? JSON.parse(text) : {};
+    } catch {
+      return {
+        success: false,
+        error: {
+          code: "MALFORMED_RESPONSE",
+          message: "The service returned an invalid response.",
+          status: response.status,
+        },
+      };
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 && typeof window !== "undefined") {
+        sessionStorage.removeItem("kesales_auth_token");
+        window.dispatchEvent(new Event("kesales:unauthorized"));
+      }
+
+      const upstreamError = payload.error as ApiError | undefined;
+      return {
+        success: false,
+        error: {
+          code: upstreamError?.code || `HTTP_${response.status}`,
+          message:
+            upstreamError?.message ||
+            (typeof payload.message === "string"
+              ? payload.message
+              : "The request could not be completed."),
+          fields: upstreamError?.fields,
+          status: response.status,
+        },
+      };
+    }
+
+    if (payload && typeof payload === "object" && "success" in payload) {
+      return {
+        ...payload,
+        data: (payload.data ?? payload) as T,
+      } as ApiEnvelope<T>;
+    }
 
     return {
+      success: true,
+      data: payload as T,
+    };
+  } catch {
+    return {
       success: false,
-      error,
+      error: {
+        code: "NETWORK_ERROR",
+        message: "The service could not be reached.",
+      },
     };
   }
-
-  if (payload && typeof payload === "object" && "success" in payload) {
-    return payload as ApiEnvelope<T>;
-  }
-
-  return {
-    success: true,
-    data: payload as T,
-  };
 }

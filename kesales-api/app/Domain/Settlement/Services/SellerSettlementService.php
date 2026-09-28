@@ -51,9 +51,8 @@ class SellerSettlementService
 
             // Eligibility check: DELIVERED and return window expired
             $isDelivered = in_array(strtolower($order->fulfillment_status), ['delivered', 'completed']);
-            $isPastReturnWindow = $order->delivered_at 
-                ? (strtotime($order->delivered_at) <= $returnThreshold->timestamp)
-                : (strtotime($order->created_at) <= $returnThreshold->timestamp);
+            $isPastReturnWindow = $order->settlement_eligible_at !== null
+                && strtotime($order->settlement_eligible_at) <= $returnThreshold->timestamp;
 
             if ($isDelivered && $isPastReturnWindow && !$order->is_settled) {
                 $eligibleNetTotal = bcadd($eligibleNetTotal, $net, 2);

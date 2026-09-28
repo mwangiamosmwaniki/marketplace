@@ -18,6 +18,12 @@ import {
   ReturnRequest,
 } from "../types";
 
+if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") {
+  throw new Error(
+    "Demo marketplace data is disabled. Set NEXT_PUBLIC_DEMO_MODE=true to load it.",
+  );
+}
+
 export const INITIAL_CATEGORIES: Category[] = [
   {
     id: "cat-phones",
