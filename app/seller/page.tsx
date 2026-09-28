@@ -3,5 +3,5 @@
 import App from "../../src/App";
 
 export default function SellerPage() {
-  return <App />;
+  return <App initialView="seller" initialSellerTab="dashboard" />;
 }

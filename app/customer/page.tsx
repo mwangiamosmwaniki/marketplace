@@ -3,5 +3,5 @@
 import App from "../../src/App";
 
 export default function CustomerPage() {
-  return <App />;
+  return <App initialView="customer" initialCustomerTab="orders" />;
 }

@@ -19,6 +19,8 @@ import {
   Phone,
   Bell,
   ExternalLink,
+  ShieldCheck,
+  Wallet,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -35,6 +37,9 @@ interface NavbarProps {
     tab?: "login" | "register_customer" | "register_seller",
   ) => void;
   onBackToStorefront: () => void;
+  onNavigateCustomerTab?: (
+    tab: "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security",
+  ) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -47,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveView,
   onOpenAuthModal,
   onBackToStorefront,
+  onNavigateCustomerTab,
 }) => {
   const {
     authUser,
@@ -273,6 +279,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             />
           </div>
           <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            <button
+              onClick={onBackToStorefront}
+              className="hidden sm:flex items-center gap-1.5 text-neutral-300 hover:text-white px-2 py-1.5 rounded-lg hover:bg-neutral-900"
+              title="Return to customer storefront"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Storefront</span>
+            </button>
             <button className="hidden sm:flex items-center gap-1.5 text-neutral-300 hover:text-white px-2 py-1.5 rounded-lg hover:bg-neutral-900">
               <HelpCircle className="w-4 h-4" /> Help
             </button>
@@ -514,7 +528,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-3 sm:gap-4 text-[11px]">
             <button
               onClick={() => onOpenAuthModal("register_seller")}
               className="text-neutral-300 hover:text-amber-400 transition-colors font-medium flex items-center gap-1"
@@ -585,6 +599,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="btn-nav-wishlist"
               onClick={() => {
+                onNavigateCustomerTab?.("wishlist");
                 setActiveView("customer");
               }}
               className="relative p-2 rounded-lg text-neutral-700 hover:text-amber-600 hover:bg-neutral-50 transition-colors"
@@ -647,6 +662,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                     <button
                       onClick={() => {
+                        onNavigateCustomerTab?.("orders");
                         setActiveView("customer");
                         setShowAccountDropdown(false);
                       }}
@@ -657,6 +673,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
                     <button
                       onClick={() => {
+                        onNavigateCustomerTab?.("orders");
                         setActiveView("customer");
                         setShowAccountDropdown(false);
                       }}
@@ -667,6 +684,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
                     <button
                       onClick={() => {
+                        onNavigateCustomerTab?.("wishlist");
                         setActiveView("customer");
                         setShowAccountDropdown(false);
                       }}
@@ -677,6 +695,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </button>
                     <button
                       onClick={() => {
+                        onNavigateCustomerTab?.("addresses");
                         setActiveView("customer");
                         setShowAccountDropdown(false);
                       }}
@@ -688,8 +707,40 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="border-t border-neutral-100 my-1"></div>
                     <button
                       onClick={() => {
+                        setActiveView("seller");
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Store className="w-4 h-4 text-emerald-600" />
+                      <span>Seller Center</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView("admin");
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-purple-600" />
+                      <span>Admin Control Hub</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveView("finance");
+                        setShowAccountDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-neutral-50 text-neutral-700 flex items-center gap-2"
+                    >
+                      <Wallet className="w-4 h-4 text-indigo-600" />
+                      <span>Finance Console</span>
+                    </button>
+                    <div className="border-t border-neutral-100 my-1"></div>
+                    <button
+                      onClick={() => {
                         logout();
                         setActiveView("storefront");
+                        onBackToStorefront();
                         setShowAccountDropdown(false);
                       }}
                       className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 font-semibold"

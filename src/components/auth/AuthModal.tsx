@@ -19,6 +19,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const { login, registerUser, users } = useMarketplace();
   const [tab, setTab] = useState<'login' | 'register_customer' | 'register_seller'>(defaultTab);
 
+  React.useEffect(() => {
+    if (defaultTab) {
+      setTab(defaultTab);
+      setError(null);
+    }
+  }, [defaultTab, isOpen]);
+
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

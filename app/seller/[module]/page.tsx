@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import App from "../../../src/App";
 
 const tabs = {
+  dashboard: "dashboard",
   products: "products",
   inventory: "inventory",
   orders: "orders",

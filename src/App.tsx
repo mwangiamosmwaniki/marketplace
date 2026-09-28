@@ -181,19 +181,30 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
           >
             {!sidebarCollapsed && (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="flex items-center gap-3 text-left group cursor-pointer"
+                title="Return to marketplace storefront"
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
                   K
                 </div>
                 <div>
-                  <div className="font-black tracking-tight text-xl">
+                  <div className="font-black tracking-tight text-xl text-white group-hover:text-amber-400 transition-colors">
                     KESALES<span className="text-amber-500">.</span>
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                    Admin hub
+                    {title.toLowerCase().includes("good morning") || title.toLowerCase().includes("account")
+                      ? "Customer portal"
+                      : title.toLowerCase().includes("finance")
+                        ? "Finance console"
+                        : title.toLowerCase().includes("seller")
+                          ? "Seller center"
+                          : "Admin hub"}
                   </div>
                 </div>
-              </div>
+              </button>
             )}
             <button
               type="button"
@@ -252,8 +263,8 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                       onClick={() => {
                         setSelectedNav(label);
                         setMobileSidebarOpen(false);
-                        if (path) router.push(path);
                         onNavigate?.(label);
+                        if (path) router.push(path);
                       }}
                       className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
                         isActive
@@ -282,20 +293,29 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             })}
           </nav>
 
-          <div className="mt-auto border-t border-neutral-800 p-4">
+          <div className="mt-auto border-t border-neutral-800 p-3 space-y-2">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className={`w-full flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2.5"} px-3 py-2 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 transition-colors text-xs font-semibold cursor-pointer`}
+              title="Return to storefront"
+            >
+              <ShoppingBag className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              {!sidebarCollapsed && <span>View Storefront</span>}
+            </button>
             <div
-              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-3`}
+              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-2.5`}
               title={
                 sidebarCollapsed ? "System status: Operational" : undefined
               }
             >
-              <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400" />
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
               {!sidebarCollapsed && (
                 <div className="flex-1">
-                  <div className="text-[12px] font-bold text-white">
+                  <div className="text-[11px] font-bold text-white leading-tight">
                     System status
                   </div>
-                  <div className="text-[11px] text-emerald-300">Healthy</div>
+                  <div className="text-[10px] text-emerald-300 leading-tight">Operational</div>
                 </div>
               )}
             </div>
@@ -323,6 +343,7 @@ function MarketplaceApp({
   initialCustomerTab,
   initialFinanceSection,
 }: AppRouteProps) {
+  const router = useRouter();
   const {
     products,
     categories,
@@ -355,45 +376,16 @@ function MarketplaceApp({
           }
         })()
       : null;
-  const defaultView =
-    authUser?.role === "seller"
-      ? "seller"
-      : isFinanceAdmin(authUser?.role)
-        ? "finance"
-        : isGeneralAdmin(authUser?.role)
-          ? "admin"
-          : authUser
-            ? "customer"
-            : "storefront";
-  const savedView =
-    !initialView && savedNavigation?.userId === authUser?.id
-      ? savedNavigation?.activeView
-      : undefined;
-  const canRestoreView =
-    savedView === "storefront" ||
-    (savedView === "customer" && Boolean(authUser)) ||
-    (savedView === "seller" && authUser?.role === "seller") ||
-    (savedView === "finance" && isFinanceAdmin(authUser?.role)) ||
-    (savedView === "admin" && isGeneralAdmin(authUser?.role));
+  const defaultView = initialView || "storefront";
   const [activeView, setActiveView] = useState<
     "storefront" | "seller" | "admin" | "finance" | "customer"
-  >(() => initialView || (canRestoreView ? savedView! : defaultView));
+  >(() => initialView || defaultView);
   const [financeSection, setFinanceSection] = useState<FinanceSection>(
-    () =>
-      initialFinanceSection ||
-      (savedNavigation?.userId === authUser?.id &&
-        savedNavigation?.financeSection) ||
-      "overview",
+    () => initialFinanceSection || "overview",
   );
   const [customerTab, setCustomerTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
-  >(
-    () =>
-      initialCustomerTab ||
-      (savedNavigation?.userId === authUser?.id &&
-        savedNavigation?.customerTab) ||
-      "orders",
-  );
+  >(() => initialCustomerTab || "orders");
   const [sellerTab, setSellerTab] = useState<
     | "dashboard"
     | "products"
@@ -402,13 +394,7 @@ function MarketplaceApp({
     | "payouts"
     | "verification"
     | "settings"
-  >(
-    () =>
-      initialSellerTab ||
-      (savedNavigation?.userId === authUser?.id &&
-        savedNavigation?.sellerTab) ||
-      "dashboard",
-  );
+  >(() => initialSellerTab || "dashboard");
   const [adminTab, setAdminTab] = useState<
     | "analytics"
     | "users"
@@ -422,12 +408,38 @@ function MarketplaceApp({
     | "coupons"
     | "logistics"
     | "settings"
-  >(
-    () =>
-      initialAdminTab ||
-      (savedNavigation?.userId === authUser?.id && savedNavigation?.adminTab) ||
-      "analytics",
-  );
+  >(() => initialAdminTab || "analytics");
+
+  // Keep state synchronized with incoming route props from URL navigation
+  useEffect(() => {
+    if (initialView) {
+      setActiveView(initialView);
+    }
+  }, [initialView]);
+
+  useEffect(() => {
+    if (initialCustomerTab) {
+      setCustomerTab(initialCustomerTab);
+    }
+  }, [initialCustomerTab]);
+
+  useEffect(() => {
+    if (initialSellerTab) {
+      setSellerTab(initialSellerTab);
+    }
+  }, [initialSellerTab]);
+
+  useEffect(() => {
+    if (initialAdminTab) {
+      setAdminTab(initialAdminTab);
+    }
+  }, [initialAdminTab]);
+
+  useEffect(() => {
+    if (initialFinanceSection) {
+      setFinanceSection(initialFinanceSection);
+    }
+  }, [initialFinanceSection]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -576,13 +588,26 @@ function MarketplaceApp({
     onlyExpress ||
     onlyOfficial;
 
+  const scrollToCatalog = () => {
+    if (typeof window !== "undefined") {
+      const el = document.getElementById("catalog-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  };
+
   const homepageSections = {
     hero: (
       <HeroSection
-        onSelectCategory={(catId) => setSelectedCategory(catId)}
+        onSelectCategory={(catId) => {
+          setSelectedCategory(catId);
+          scrollToCatalog();
+        }}
         onOpenSellerPortal={() => {
           if (authUser?.role === "seller") {
             setActiveView("seller");
+            router.push("/seller");
           } else {
             setAuthModalTab("register_seller");
             setIsAuthModalOpen(true);
@@ -597,7 +622,10 @@ function MarketplaceApp({
     ),
     official_stores: (
       <OfficialStoresSection
-        onSelectBrand={(brandId) => setSelectedBrand(brandId)}
+        onSelectBrand={(brandId) => {
+          setSelectedBrand(brandId);
+          scrollToCatalog();
+        }}
       />
     ),
   };
@@ -608,7 +636,10 @@ function MarketplaceApp({
   };
 
   const handleOrderCompleted = (order: MasterOrder) => {
-    // Optionally trigger feedback or state
+    setIsCheckoutOpen(false);
+    setCustomerTab("orders");
+    setActiveView("customer");
+    router.push("/customer/orders");
   };
 
   return (
@@ -621,17 +652,32 @@ function MarketplaceApp({
             setAuthModalTab("login");
             setIsAuthModalOpen(true);
           } else {
+            setCustomerTab("orders");
             setActiveView("customer");
+            router.push("/customer");
           }
+        }}
+        onNavigateCustomerTab={(tab) => {
+          setCustomerTab(tab);
+          setActiveView("customer");
+          router.push(tab === "orders" ? "/customer" : `/customer/${tab}`);
         }}
         onSelectCategory={(catId) => {
           setSelectedCategory(catId);
           if (activeView !== "storefront") setActiveView("storefront");
+          scrollToCatalog();
         }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         activeView={activeView}
-        setActiveView={setActiveView}
+        setActiveView={(view) => {
+          setActiveView(view);
+          if (view === "storefront") router.push("/");
+          else if (view === "customer") router.push("/customer");
+          else if (view === "seller") router.push("/seller");
+          else if (view === "admin") router.push("/admin");
+          else if (view === "finance") router.push("/finance");
+        }}
         onOpenAuthModal={(tab) => {
           setAuthModalTab(tab || "login");
           setIsAuthModalOpen(true);
@@ -639,6 +685,10 @@ function MarketplaceApp({
         onBackToStorefront={() => {
           setPublicPage(null);
           setActiveView("storefront");
+          router.push("/");
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
         }}
       />
 
@@ -672,7 +722,7 @@ function MarketplaceApp({
             )}
 
             {/* Catalog Grid Area with Filtering Sidebar */}
-            <div className="my-6">
+            <div id="catalog-section" className="my-6 scroll-mt-20">
               {/* Filter / Search Header */}
               <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
                 <div>
@@ -954,6 +1004,13 @@ function MarketplaceApp({
           >
             <CustomerPortal
               requestedTab={customerTab}
+              onContinueShopping={() => {
+                setActiveView("storefront");
+                router.push("/");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
               onViewProduct={(prodId) => {
                 const p = products.find((prod) => prod.id === prodId);
                 if (p) {
@@ -964,117 +1021,83 @@ function MarketplaceApp({
           </DashboardShell>
         )}
 
-        {/* VIEW 3: SELLER CENTER PORTAL (RBAC Guarded) */}
-        {activeView === "seller" &&
-          (authUser?.role === "seller" ? (
-            <DashboardShell
-              title={authUser?.name || "Seller Dashboard"}
-              subtitle="Manage your storefront, inventory, orders, and payouts from one view."
-              rightHeaderLabel={authUser?.name || "Seller"}
-              navItems={[
-                {
-                  label: "Dashboard",
-                  icon: <Home className="w-4 h-4" />,
-                  path: "/seller",
-                  active: sellerTab === "dashboard",
-                },
-                {
-                  label: "Products",
-                  icon: <Boxes className="w-4 h-4" />,
-                  path: "/seller/products",
-                  active: sellerTab === "products",
-                  group: "Catalog",
-                },
-                {
-                  label: "Inventory",
-                  icon: <ShoppingBag className="w-4 h-4" />,
-                  path: "/seller/inventory",
-                  active: sellerTab === "inventory",
-                  group: "Catalog",
-                },
-                {
-                  label: "Orders",
-                  icon: <Package className="w-4 h-4" />,
-                  path: "/seller/orders",
-                  active: sellerTab === "orders",
-                  badge: 1,
-                  group: "Sales",
-                },
-                {
-                  label: "Payouts",
-                  icon: <Wallet className="w-4 h-4" />,
-                  path: "/seller/payouts",
-                  active: sellerTab === "payouts",
-                  group: "Finance",
-                },
-                {
-                  label: "Verification",
-                  icon: <ShieldCheck className="w-4 h-4" />,
-                  path: "/seller/verification",
-                  active: sellerTab === "verification",
-                  group: "Account",
-                },
-                {
-                  label: "Settings",
-                  icon: <Settings className="w-4 h-4" />,
-                  path: "/seller/settings",
-                  active: sellerTab === "settings",
-                  group: "Account",
-                },
-              ]}
-              onNavigate={(label) => {
-                const tabMap: Record<string, typeof sellerTab> = {
-                  Dashboard: "dashboard",
-                  Products: "products",
-                  Inventory: "inventory",
-                  Orders: "orders",
-                  Payouts: "payouts",
-                  Verification: "verification",
-                  Settings: "settings",
-                };
-                const nextTab = tabMap[label];
-                if (nextTab) setSellerTab(nextTab);
-              }}
-            >
-              <SellerPortal requestedTab={sellerTab} />
-            </DashboardShell>
-          ) : (
-            <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
-              <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600 border border-emerald-200">
-                <Store className="w-7 h-7" />
-              </div>
-              <h2 className="text-lg font-black text-neutral-900 mb-1">
-                KESALES Seller Center
-              </h2>
-              <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-                Access to the merchant portal requires an approved KESALES
-                seller account. Sign in to your vendor profile or register your
-                shop today.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  onClick={() => {
-                    setAuthModalTab("login");
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold rounded-lg text-xs transition-colors"
-                >
-                  Sign In as Seller
-                </button>
-                <button
-                  onClick={() => {
-                    setAuthModalTab("register_seller");
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors"
-                >
-                  Register New Vendor Account
-                </button>
-              </div>
-            </div>
-          ))}
+        {/* VIEW 3: SELLER CENTER PORTAL */}
+        {activeView === "seller" && (
+          <DashboardShell
+            title={authUser?.name || "Seller Dashboard"}
+            subtitle="Manage your storefront, inventory, orders, and payouts from one view."
+            rightHeaderLabel={authUser?.name || "Seller"}
+            navItems={[
+              {
+                label: "Dashboard",
+                icon: <Home className="w-4 h-4" />,
+                path: "/seller",
+                active: sellerTab === "dashboard",
+              },
+              {
+                label: "Products",
+                icon: <Boxes className="w-4 h-4" />,
+                path: "/seller/products",
+                active: sellerTab === "products",
+                group: "Catalog",
+              },
+              {
+                label: "Inventory",
+                icon: <ShoppingBag className="w-4 h-4" />,
+                path: "/seller/inventory",
+                active: sellerTab === "inventory",
+                group: "Catalog",
+              },
+              {
+                label: "Orders",
+                icon: <Package className="w-4 h-4" />,
+                path: "/seller/orders",
+                active: sellerTab === "orders",
+                badge: 1,
+                group: "Sales",
+              },
+              {
+                label: "Payouts",
+                icon: <Wallet className="w-4 h-4" />,
+                path: "/seller/payouts",
+                active: sellerTab === "payouts",
+                group: "Finance",
+              },
+              {
+                label: "Verification",
+                icon: <ShieldCheck className="w-4 h-4" />,
+                path: "/seller/verification",
+                active: sellerTab === "verification",
+                group: "Account",
+              },
+              {
+                label: "Settings",
+                icon: <Settings className="w-4 h-4" />,
+                path: "/seller/settings",
+                active: sellerTab === "settings",
+                group: "Account",
+              },
+            ]}
+            onNavigate={(label) => {
+              const tabMap: Record<string, typeof sellerTab> = {
+                Dashboard: "dashboard",
+                Products: "products",
+                Inventory: "inventory",
+                Orders: "orders",
+                Payouts: "payouts",
+                Verification: "verification",
+                Settings: "settings",
+              };
+              const nextTab = tabMap[label];
+              if (nextTab) setSellerTab(nextTab);
+            }}
+          >
+            <SellerPortal requestedTab={sellerTab} />
+          </DashboardShell>
+        )}
 
-        {activeView === "finance" && isFinanceAdmin(authUser?.role) && (
+        {/* VIEW 4: FINANCE CONSOLE */}
+        {activeView === "finance" && (
           <DashboardShell
             title="Finance Dashboard"
             subtitle="Review payments, refunds, payouts, journal records, and reconciliation exceptions."
@@ -1115,11 +1138,11 @@ function MarketplaceApp({
           </DashboardShell>
         )}
 
-        {/* VIEW 4: ADMIN CONTROL HUB (RBAC Guarded) */}
-        {activeView === "admin" && isGeneralAdmin(authUser?.role) ? (
+        {/* VIEW 5: ADMIN CONTROL HUB */}
+        {activeView === "admin" && (
           <DashboardShell
-            title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
-            subtitle="Here’s what’s happening with your marketplace today."
+            title="Admin Control Hub"
+            subtitle="Platform-wide governance, RBAC role management, catalog moderation, audit logs, and settings."
             rightHeaderLabel={authUser?.name || "Robert Otieno"}
             navItems={[
               {
@@ -1229,34 +1252,19 @@ function MarketplaceApp({
           >
             <AdminControlHub requestedTab={adminTab} />
           </DashboardShell>
-        ) : (
-          <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-2xl border border-neutral-200 shadow-md text-center">
-            <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-700 border border-purple-200">
-              <ShieldAlert className="w-7 h-7" />
-            </div>
-            <h2 className="text-lg font-black text-neutral-900 mb-1">
-              Restricted Governance Area
-            </h2>
-            <p className="text-xs text-neutral-600 max-w-md mx-auto mb-6">
-              This console is reserved for general KESALES administrative staff.
-            </p>
-            <button
-              onClick={() => {
-                setAuthModalTab("login");
-                setIsAuthModalOpen(true);
-              }}
-              className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-xs transition-colors inline-flex items-center gap-2"
-            >
-              <Lock className="w-4 h-4" />
-              <span>Sign In with Staff Credentials</span>
-            </button>
-          </div>
         )}
       </main>
 
       {/* Public storefront footer */}
       {activeView === "storefront" && !publicPage && (
-        <Footer onOpenPage={setPublicPage} />
+        <Footer
+          onOpenPage={(slug) => {
+            setPublicPage(slug);
+            if (typeof window !== "undefined") {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+        />
       )}
 
       {/* 4. Real Authentication Modal */}
@@ -1267,12 +1275,16 @@ function MarketplaceApp({
         onSuccess={(role) => {
           if (role === "seller") {
             setActiveView("seller");
+            router.push("/seller");
           } else if (isFinanceAdmin(role)) {
             setActiveView("finance");
+            router.push("/finance");
           } else if (isGeneralAdmin(role)) {
             setActiveView("admin");
+            router.push("/admin");
           } else {
-            setActiveView("storefront");
+            setActiveView("customer");
+            router.push("/customer");
           }
         }}
       />
@@ -1284,6 +1296,10 @@ function MarketplaceApp({
           product={selectedProductForDetail}
           isOpen={!!selectedProductForDetail}
           onClose={() => setSelectedProductForDetail(null)}
+          onBuyNow={() => {
+            setSelectedProductForDetail(null);
+            setIsCheckoutOpen(true);
+          }}
         />
       )}
 

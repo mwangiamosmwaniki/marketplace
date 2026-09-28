@@ -3,5 +3,5 @@
 import App from "../../src/App";
 
 export default function AdminPage() {
-  return <App />;
+  return <App initialView="admin" initialAdminTab="analytics" />;
 }
