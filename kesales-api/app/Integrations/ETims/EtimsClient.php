@@ -96,10 +96,9 @@ class EtimsClient
             'itemList' => $itemList,
         ];
 
-        // If in sandbox or mock, produce valid simulated KRA response
-        $simulatedQrUrl = "https://itax.kra.go.ke/KRA-Portal/invoiceConfirmation.htm?tin={$this->tinPin}&invoiceNo={$invoiceNumber}";
-
         $taxInvoiceId = Str::uuid()->toString();
+
+        // 1. Persist initial record in 'pending' status
         DB::table('tax_invoices')->insert([
             'id' => $taxInvoiceId,
             'invoice_number' => $invoiceNumber,
@@ -110,9 +109,64 @@ class EtimsClient
             'vat_amount' => $totalVat,
             'total_amount' => $order->grand_total,
             'etims_invoice_number' => $invoiceNumber,
-            'etims_qr_code' => $simulatedQrUrl,
-            'etims_status' => 'verified',
+            'etims_qr_code' => null,
+            'etims_status' => 'pending',
             'issued_at' => now(),
+            'submitted_at' => null,
+        ]);
+
+        $isProduction = config('kesales.etims.env', 'sandbox') === 'production';
+
+        if ($isProduction && !empty($this->authKey)) {
+            // Live KRA eTIMS transmission (OSCU / VSCU gateway)
+            try {
+                $response = Http::timeout(15)
+                    ->withHeaders([
+                        'tin' => $this->tinPin,
+                        'bhfId' => $this->branchId,
+                        'cmcKey' => $this->authKey,
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->post($this->baseUrl . '/etims/api/v1/invoices', $payload);
+
+                if ($response->successful()) {
+                    $kraData = $response->json();
+                    $qrCode = $kraData['qrCodeUrl'] ?? null;
+                    DB::table('tax_invoices')->where('id', $taxInvoiceId)->update([
+                        'etims_qr_code' => $qrCode,
+                        'etims_status' => 'verified',
+                        'submitted_at' => now(),
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'invoice_number' => $invoiceNumber,
+                        'qr_code_url' => $qrCode,
+                        'total_vat' => $totalVat,
+                        'taxable_amount' => $totalTaxable,
+                        'status' => 'verified',
+                        'simulated' => false,
+                    ];
+                } else {
+                    DB::table('tax_invoices')->where('id', $taxInvoiceId)->update([
+                        'etims_status' => 'failed',
+                        'submitted_at' => now(),
+                    ]);
+                    throw new Exception("KRA eTIMS API submission rejected: " . $response->body());
+                }
+            } catch (Exception $e) {
+                DB::table('tax_invoices')->where('id', $taxInvoiceId)->update([
+                    'etims_status' => 'failed',
+                ]);
+                throw $e;
+            }
+        }
+
+        // Sandbox / Non-Production Explicit Mocking (Status is 'submitted', marked simulated)
+        $simulatedQrUrl = "https://itax.kra.go.ke/KRA-Portal/invoiceConfirmation.htm?tin={$this->tinPin}&invoiceNo={$invoiceNumber}";
+        DB::table('tax_invoices')->where('id', $taxInvoiceId)->update([
+            'etims_qr_code' => $simulatedQrUrl,
+            'etims_status' => 'submitted', // Must never be 'verified' without live KRA handshake
             'submitted_at' => now(),
         ]);
 
@@ -122,6 +176,8 @@ class EtimsClient
             'qr_code_url' => $simulatedQrUrl,
             'total_vat' => $totalVat,
             'taxable_amount' => $totalTaxable,
+            'status' => 'submitted',
+            'simulated' => true,
         ];
     }
 }

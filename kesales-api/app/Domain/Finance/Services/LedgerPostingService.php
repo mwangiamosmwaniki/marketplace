@@ -27,56 +27,49 @@ class LedgerPostingService
     public const ACC_REFUND_EXPENSE = 5100;
 
     /**
-     * Record settled customer order payment
-     * Example KSh 10,000 order:
-     * DR M-Pesa Clearing (1000): 10,000
-     * CR Seller Payable (2000):    9,000
-     * CR Platform Commission (4200): 1,000
-     * Balanced: 10,000 = 10,000
+     * Record settled customer order payment using the Principal-Agent Marketplace Accounting Model:
+     * 
+     * Journal 1 - Gross Cash Settlement:
+     *   DR M-Pesa Clearing (1000):          Grand Total (KSh 10,000)
+     *   CR Marketplace Gross Sales (4000):  Order Subtotal (KSh 9,500)
+     *   CR Delivery Revenue (4100):         Delivery Fee (KSh 500)
+     * 
+     * Journal 2 - Escrow Allocation & Revenue Recognition:
+     *   DR Marketplace Gross Sales (4000):  Order Subtotal (KSh 9,500)
+     *   CR Seller Payable [Escrow] (2000):  Seller Net Amounts (KSh 8,550)
+     *   CR Platform Commission (4200):      Marketplace Take-rate (KSh 950)
+     * 
+     * Both legs strictly enforce SUM(debits) === SUM(credits).
      */
     public function postOrderPayment(
         string $orderId,
         float $grandTotal,
-        array $sellerSplits, // [ ['seller_id' => uuid, 'net_amount' => 9000], ... ]
+        array $sellerSplits, // [ ['seller_id' => uuid, 'net_amount' => 8550], ... ]
         float $commissionTotal,
         float $deliveryFee = 0.00
     ): string {
-        $lines = [];
+        $orderSubtotal = round($grandTotal - $deliveryFee, 2);
 
-        // 1. DR Cash / Clearing
-        $lines[] = [
-            'account_id' => self::ACC_MPESA_CLEARING,
-            'debit' => $grandTotal,
-            'credit' => 0.00,
-            'seller_id' => null,
-            'order_id' => $orderId,
-        ];
-
-        // 2. CR Seller Payables (Held in Escrow)
-        foreach ($sellerSplits as $split) {
-            $lines[] = [
-                'account_id' => self::ACC_SELLER_PAYABLE,
-                'debit' => 0.00,
-                'credit' => $split['net_amount'],
-                'seller_id' => $split['seller_id'],
-                'order_id' => $orderId,
-            ];
-        }
-
-        // 3. CR Platform Commission
-        if ($commissionTotal > 0) {
-            $lines[] = [
-                'account_id' => self::ACC_COMMISSION_REVENUE,
-                'debit' => 0.00,
-                'credit' => $commissionTotal,
+        // --- Leg 1: Gross Clearing & GMV Influx ---
+        $clearingLines = [
+            [
+                'account_id' => self::ACC_MPESA_CLEARING,
+                'debit' => $grandTotal,
+                'credit' => 0.00,
                 'seller_id' => null,
                 'order_id' => $orderId,
-            ];
-        }
+            ],
+            [
+                'account_id' => self::ACC_MARKETPLACE_SALES,
+                'debit' => 0.00,
+                'credit' => $orderSubtotal,
+                'seller_id' => null,
+                'order_id' => $orderId,
+            ],
+        ];
 
-        // 4. CR Delivery Revenue (if applicable)
         if ($deliveryFee > 0) {
-            $lines[] = [
+            $clearingLines[] = [
                 'account_id' => self::ACC_DELIVERY_REVENUE,
                 'debit' => 0.00,
                 'credit' => $deliveryFee,
@@ -85,13 +78,54 @@ class LedgerPostingService
             ];
         }
 
-        return $this->commitBalancedTransaction(
+        $clearingTxId = $this->commitBalancedTransaction(
             type: 'order_payment',
             referenceType: 'order',
             referenceId: $orderId,
-            description: "Order settlement collection and escrow split for order {$orderId}",
-            lines: $lines
+            description: "M-Pesa Gross Clearing & GMV settlement for order {$orderId}",
+            lines: $clearingLines
         );
+
+        // --- Leg 2: Escrow Liability Allocation & Commission Recognition ---
+        $escrowLines = [
+            [
+                'account_id' => self::ACC_MARKETPLACE_SALES,
+                'debit' => $orderSubtotal,
+                'credit' => 0.00,
+                'seller_id' => null,
+                'order_id' => $orderId,
+            ],
+        ];
+
+        foreach ($sellerSplits as $split) {
+            $escrowLines[] = [
+                'account_id' => self::ACC_SELLER_PAYABLE,
+                'debit' => 0.00,
+                'credit' => $split['net_amount'],
+                'seller_id' => $split['seller_id'],
+                'order_id' => $orderId,
+            ];
+        }
+
+        if ($commissionTotal > 0) {
+            $escrowLines[] = [
+                'account_id' => self::ACC_COMMISSION_REVENUE,
+                'debit' => 0.00,
+                'credit' => $commissionTotal,
+                'seller_id' => null,
+                'order_id' => $orderId,
+            ];
+        }
+
+        $this->commitBalancedTransaction(
+            type: 'seller_settlement',
+            referenceType: 'order',
+            referenceId: $orderId,
+            description: "Escrow allocation & platform commission booking for order {$orderId}",
+            lines: $escrowLines
+        );
+
+        return $clearingTxId;
     }
 
     /**

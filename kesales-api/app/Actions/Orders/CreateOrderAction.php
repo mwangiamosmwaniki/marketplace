@@ -170,7 +170,7 @@ class CreateOrderAction
                 $sellerIndex = chr(ord($sellerIndex) + 1);
             }
 
-            return DB::table('orders')->where('id', $orderId)->first();
+            return Order::with(['sellerOrders.items', 'address'])->findOrFail($orderId);
         });
     }
 }

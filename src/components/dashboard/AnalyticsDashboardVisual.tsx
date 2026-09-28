@@ -60,7 +60,7 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
       // ONLY fetch data for THIS specific seller
       const sellerProds = products.filter((p) => p.sellerId === effectiveSellerId);
       const sellerSubOrders = orders.flatMap((o) =>
-        (o.sellerOrders || []).filter((so) => so.sellerId === effectiveSellerId),
+        (o.sellerSubOrders || []).filter((so) => so.sellerId === effectiveSellerId),
       );
       const grossRevenue = sellerSubOrders.reduce(
         (sum, so) => sum + (so.subtotal || 0),
@@ -78,7 +78,7 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         (p) => p.sellerId === effectiveSellerId,
       );
       const totalDisbursed = sellerPayouts
-        .filter((p) => p.status === "completed")
+        .filter((p) => p.status === "processed")
         .reduce((sum, p) => sum + p.amount, 0);
 
       return {
@@ -172,7 +172,7 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
       const totalCommissions = orders.reduce(
         (sum, o) =>
           sum +
-          (o.sellerOrders || []).reduce(
+          (o.sellerSubOrders || []).reduce(
             (cSum, so) => cSum + (so.commissionTotal || 0),
             0,
           ),
@@ -183,7 +183,7 @@ export const AnalyticsDashboardVisual: React.FC<AnalyticsDashboardVisualProps> =
         0,
       );
       const totalDisbursed = payouts
-        .filter((p) => p.status === "completed")
+        .filter((p) => p.status === "processed")
         .reduce((sum, p) => sum + p.amount, 0);
 
       return {

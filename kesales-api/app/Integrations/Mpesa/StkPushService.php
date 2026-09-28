@@ -21,15 +21,56 @@ class StkPushService
 
     /**
      * Dispatch STK Push Prompt to Customer Handset
+     * Production flow:
+     * 1. Validate authenticated customer
+     * 2. Persist Payment in 'initiated' state
+     * 3. Persist M-Pesa provider transaction record
+     * 4. Call Safaricom Daraja STK Push API
+     * 5. Record CheckoutRequestID & MerchantRequestID on success, or mark failed on rejection
      */
-    public function initiate(string $orderId, string $phone, float $amount, string $accountReference): array
+    public function initiate(string $orderId, string $phone, float $amount, string $accountReference, ?string $customerId = null): array
     {
-        $timestamp = date('YmdHis');
-        $password = $this->client->generatePassword($timestamp);
-        $token = $this->client->getAccessToken();
+        $resolvedCustomerId = $customerId ?? auth()->id();
+        if (!$resolvedCustomerId) {
+            throw new \InvalidArgumentException("Payment initiation rejected: An authenticated customer ID is required.");
+        }
 
         // Format phone to 254XXXXXXXXX
         $formattedPhone = preg_replace('/^(?:\+?254|0)?/', '254', trim($phone));
+
+        // 1. Create Payment in INITIATED status first (Production compliance: no external call without local ledger intent)
+        $paymentId = Str::uuid()->toString();
+        $paymentNumber = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+
+        DB::table('payments')->insert([
+            'id' => $paymentId,
+            'payment_number' => $paymentNumber,
+            'order_id' => $orderId,
+            'customer_id' => $resolvedCustomerId,
+            'provider' => 'mpesa',
+            'method' => 'stk_push',
+            'amount' => $amount,
+            'currency' => 'KES',
+            'status' => 'initiated',
+            'provider_request_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $mpesaTxId = Str::uuid()->toString();
+        DB::table('mpesa_transactions')->insert([
+            'id' => $mpesaTxId,
+            'payment_id' => $paymentId,
+            'merchant_request_id' => 'PENDING',
+            'checkout_request_id' => 'PENDING-' . $mpesaTxId,
+            'phone_number' => $formattedPhone,
+            'amount' => $amount,
+            'created_at' => now(),
+        ]);
+
+        $timestamp = date('YmdHis');
+        $password = $this->client->generatePassword($timestamp);
+        $token = $this->client->getAccessToken();
 
         $payload = [
             'BusinessShortCode' => $this->client->getShortcode(),
@@ -45,52 +86,52 @@ class StkPushService
             'TransactionDesc' => "KESALES Order {$accountReference}",
         ];
 
-        $response = Http::withToken($token)
-            ->post($this->client->baseUrl() . '/mpesa/stkpush/v1/processrequest', $payload);
+        try {
+            $response = Http::withToken($token)
+                ->post($this->client->baseUrl() . '/mpesa/stkpush/v1/processrequest', $payload);
 
-        if ($response->failed()) {
-            throw new Exception("STK Push failed: " . $response->body());
+            if ($response->failed()) {
+                DB::table('payments')->where('id', $paymentId)->update([
+                    'status' => 'failed',
+                    'failed_at' => now(),
+                ]);
+                throw new Exception("STK Push gateway rejected: " . $response->body());
+            }
+
+            $resData = $response->json();
+            $merchantRequestId = $resData['MerchantRequestID'] ?? null;
+            $checkoutRequestId = $resData['CheckoutRequestID'] ?? null;
+
+            if (!$checkoutRequestId) {
+                DB::table('payments')->where('id', $paymentId)->update(['status' => 'failed', 'failed_at' => now()]);
+                throw new Exception("Daraja did not return a valid CheckoutRequestID: " . json_encode($resData));
+            }
+
+            // Update records with provider identifiers
+            DB::table('payments')->where('id', $paymentId)->update([
+                'provider_request_id' => $checkoutRequestId,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('mpesa_transactions')->where('id', $mpesaTxId)->update([
+                'merchant_request_id' => $merchantRequestId,
+                'checkout_request_id' => $checkoutRequestId,
+                'raw_request' => json_encode($payload),
+            ]);
+
+            return [
+                'success' => true,
+                'payment_id' => $paymentId,
+                'checkout_request_id' => $checkoutRequestId,
+                'customer_message' => $resData['CustomerMessage'] ?? 'STK prompt dispatched to your phone.',
+            ];
+        } catch (Exception $e) {
+            DB::table('payments')->where('id', $paymentId)->update([
+                'status' => 'failed',
+                'failed_at' => now(),
+            ]);
+            throw $e;
         }
-
-        $resData = $response->json();
-        $merchantRequestId = $resData['MerchantRequestID'];
-        $checkoutRequestId = $resData['CheckoutRequestID'];
-
-        // Register payment & mpesa transaction records
-        $paymentId = Str::uuid()->toString();
-        $paymentNumber = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-
-        DB::table('payments')->insert([
-            'id' => $paymentId,
-            'payment_number' => $paymentNumber,
-            'order_id' => $orderId,
-            'customer_id' => auth()->id() ?? Str::uuid()->toString(),
-            'provider' => 'mpesa',
-            'method' => 'stk_push',
-            'amount' => $amount,
-            'currency' => 'KES',
-            'status' => 'initiated',
-            'provider_request_id' => $checkoutRequestId,
-            'created_at' => now(),
-        ]);
-
-        DB::table('mpesa_transactions')->insert([
-            'id' => Str::uuid()->toString(),
-            'payment_id' => $paymentId,
-            'merchant_request_id' => $merchantRequestId,
-            'checkout_request_id' => $checkoutRequestId,
-            'phone_number' => $formattedPhone,
-            'amount' => $amount,
-            'raw_request' => json_encode($payload),
-            'created_at' => now(),
-        ]);
-
-        return [
-            'success' => true,
-            'payment_id' => $paymentId,
-            'checkout_request_id' => $checkoutRequestId,
-            'customer_message' => $resData['CustomerMessage'] ?? 'STK prompt dispatched to your phone.',
-        ];
     }
 
     /**
