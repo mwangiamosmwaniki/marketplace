@@ -31,7 +31,6 @@ import {
   SellerVerification,
 } from "../types";
 import {
-  INITIAL_USERS,
   INITIAL_CATEGORIES,
   INITIAL_BRANDS,
   INITIAL_SELLERS,
@@ -50,6 +49,7 @@ import {
   INITIAL_RETURNS,
 } from "../data/initialData";
 import { hasPermission, isGeneralAdmin } from "../config/permissions";
+import { getCurrentUser, loginUser, logoutUser, registerUser as apiRegisterUser } from "../lib/api/auth";
 
 const localStorage = {
   getItem: (key: string) =>
@@ -69,8 +69,8 @@ interface MarketplaceContextType {
   login: (
     email: string,
     password?: string,
-  ) => { success: boolean; message?: string; user?: User };
-  logout: () => void;
+  ) => Promise<{ success: boolean; message?: string; user?: User }>;
+  logout: () => Promise<void>;
   registerUser: (userData: {
     name: string;
     email: string;
@@ -78,7 +78,7 @@ interface MarketplaceContextType {
     role: Role;
     sellerBusinessName?: string;
     password?: string;
-  }) => { success: boolean; message?: string; user?: User };
+  }) => Promise<{ success: boolean; message?: string; user?: User }>;
 
   // Navigation & Role derived from authenticated user
   currentRole: Role;
@@ -297,48 +297,50 @@ const MarketplaceContext = createContext<MarketplaceContextType | undefined>(
 export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Authentication & Real User State
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  // Authentication & session state
+  const [users, setUsers] = useState<User[]>([]);
 
-  const [authUser, setAuthUser] = useState<User | null>(INITIAL_USERS[0]);
+  const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const savedUsers = localStorage.getItem("kesales_users");
-    if (savedUsers) {
-      try {
-        setUsers(JSON.parse(savedUsers) as User[]);
-      } catch {
-        localStorage.removeItem("kesales_users");
-      }
-    }
-
-    const saved = localStorage.getItem("kesales_auth_user");
-    if (!saved) {
-      setAuthUser(INITIAL_USERS[0]);
-      return;
-    }
-
-    try {
-      const persistedUser = JSON.parse(saved) as User;
-      const currentUsers = localStorage.getItem("kesales_users");
-      const storedUsers = currentUsers
-        ? (JSON.parse(currentUsers) as User[])
-        : INITIAL_USERS;
-      const currentUser = storedUsers.find(
-        (user) => user.id === persistedUser.id,
-      );
-      if (!currentUser || currentUser.status === "suspended") {
-        localStorage.removeItem("kesales_auth_user");
-        localStorage.removeItem("kesales_navigation");
+    const restoreSession = async () => {
+      const token = sessionStorage.getItem("kesales_auth_token");
+      if (!token) {
         setAuthUser(null);
         return;
       }
-      setAuthUser(currentUser);
-    } catch {
-      localStorage.removeItem("kesales_auth_user");
-      localStorage.removeItem("kesales_navigation");
-      setAuthUser(null);
-    }
+
+      const response = await getCurrentUser();
+      if (!response.success || !response.data?.user) {
+        sessionStorage.removeItem("kesales_auth_token");
+        setAuthUser(null);
+        return;
+      }
+
+      const backendUser = response.data.user;
+      const mappedUser: User = {
+        id: backendUser.id,
+        name: backendUser.name,
+        email: backendUser.email,
+        phone: backendUser.phone,
+        role: (backendUser.roles?.[0]?.slug as Role) || "customer",
+        permissions: [],
+        status: backendUser.status === "active" ? "active" : "suspended",
+        createdAt: backendUser.created_at || new Date().toISOString(),
+      };
+
+      setAuthUser(mappedUser);
+      setUsers((prev) => {
+        if (prev.some((user) => user.id === mappedUser.id)) {
+          return prev.map((user) =>
+            user.id === mappedUser.id ? mappedUser : user,
+          );
+        }
+        return [mappedUser, ...prev];
+      });
+    };
+
+    restoreSession();
   }, []);
 
   // Current view state derived from authenticated user
@@ -513,38 +515,49 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   // Authentication methods
-  const login = (email: string, password?: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const found = users.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (!found) {
+  const login = async (email: string, password?: string) => {
+    if (!email || !password) {
       return {
         success: false,
-        message: "Account not found. Please verify your email or register.",
+        message: "Email and password are required.",
       };
-    }
-    if (found.status === "suspended") {
-      return {
-        success: false,
-        message: "Your account has been suspended by marketplace compliance.",
-      };
-    }
-    if (!password || password.length === 0 || found.email === cleanEmail) {
-      setAuthUser(found);
-      localStorage.setItem("kesales_auth_user", JSON.stringify(found));
-      return { success: true, user: found };
     }
 
-    setAuthUser(found);
-    localStorage.setItem("kesales_auth_user", JSON.stringify(found));
-    return { success: true, user: found };
+    const response = await loginUser({ email, password });
+    if (!response.success || !response.data?.token || !response.data?.user) {
+      return {
+        success: false,
+        message: response.error?.message || "Invalid email or password.",
+      };
+    }
+
+    const user: User = {
+      id: response.data.user.id,
+      name: response.data.user.name,
+      email: response.data.user.email,
+      phone: response.data.user.phone,
+      role: (response.data.user.roles?.[0]?.slug as Role) || "customer",
+      permissions: [],
+      status: response.data.user.status === "active" ? "active" : "suspended",
+      createdAt: response.data.user.created_at || new Date().toISOString(),
+    };
+
+    sessionStorage.setItem("kesales_auth_token", response.data.token);
+    setAuthUser(user);
+    setUsers((prev) => (prev.some((item) => item.id === user.id) ? prev : [user, ...prev]));
+    return { success: true, user };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const token = sessionStorage.getItem("kesales_auth_token");
+    if (token) {
+      await logoutUser();
+    }
+    sessionStorage.removeItem("kesales_auth_token");
     setAuthUser(null);
-    localStorage.removeItem("kesales_auth_user");
   };
 
-  const registerUser = (userData: {
+  const registerUser = async (userData: {
     name: string;
     email: string;
     phone: string;
@@ -552,85 +565,43 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     sellerBusinessName?: string;
     password?: string;
   }) => {
-    const cleanEmail = userData.email.trim().toLowerCase();
-    const existing = users.some((u) => u.email.toLowerCase() === cleanEmail);
-    if (existing) {
+    if (!userData.password) {
       return {
         success: false,
-        message: "An account with this email address already exists.",
+        message: "Password is required to register.",
       };
     }
 
-    let sellerId: string | undefined = undefined;
-    if (userData.role === "seller") {
-      sellerId = `seller-${Date.now()}`;
-      const newSeller: Seller = {
-        id: sellerId,
-        userId: `user-${Date.now()}`,
-        businessName: userData.sellerBusinessName || `${userData.name} Store`,
-        slug: (userData.sellerBusinessName || userData.name)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-"),
-        ownerName: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        county: "Nairobi",
-        town: "Nairobi CBD",
-        address: "Nairobi, Kenya",
-        taxPin: "P051" + Math.floor(100000 + Math.random() * 900000) + "X",
-        businessRegNumber: "BN-" + Math.floor(100000 + Math.random() * 900000),
-        logo: "https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=150&auto=format&fit=crop&q=80",
-        banner:
-          "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&auto=format&fit=crop&q=80",
-        description: "New verified vendor on KESALES marketplace.",
-        status: "approved",
-        commissionRate: 10,
-        rating: 5.0,
-        totalSalesCount: 0,
-        pendingBalance: 0,
-        availableBalance: 0,
-        totalPayouts: 0,
-        payoutMethod: "mpesa",
-        payoutAccount: userData.phone,
-        createdAt: new Date().toISOString(),
-      };
-      setSellers((prev) => [newSeller, ...prev]);
-    }
-
-    const newUser: User = {
-      id: `user-${Date.now()}`,
+    const response = await apiRegisterUser({
       name: userData.name,
       email: userData.email,
       phone: userData.phone,
+      password: userData.password,
       role: userData.role,
-      sellerId,
-      permissions:
-        userData.role === "customer"
-          ? [
-              "orders.view",
-              "orders.create",
-              "reviews.create",
-              "wishlist.manage",
-            ]
-          : [
-              "products.manage",
-              "orders.fulfill",
-              "payouts.request",
-              "inventory.manage",
-            ],
-      status: "active",
-      createdAt: new Date().toISOString(),
-    };
-
-    setUsers((prev) => {
-      const updated = [...prev, newUser];
-      localStorage.setItem("kesales_users", JSON.stringify(updated));
-      return updated;
     });
 
-    setAuthUser(newUser);
-    localStorage.setItem("kesales_auth_user", JSON.stringify(newUser));
-    return { success: true, user: newUser };
+    if (!response.success || !response.data?.token || !response.data?.user) {
+      return {
+        success: false,
+        message: response.error?.message || "Registration failed.",
+      };
+    }
+
+    const user: User = {
+      id: response.data.user.id,
+      name: response.data.user.name,
+      email: response.data.user.email,
+      phone: response.data.user.phone,
+      role: (response.data.user.roles?.[0]?.slug as Role) || userData.role,
+      permissions: [],
+      status: response.data.user.status === "active" ? "active" : "suspended",
+      createdAt: response.data.user.created_at || new Date().toISOString(),
+    };
+
+    localStorage.setItem("kesales_auth_token", response.data.token);
+    setAuthUser(user);
+    setUsers((prev) => (prev.some((item) => item.id === user.id) ? prev : [user, ...prev]));
+    return { success: true, user };
   };
 
   // Sync state to LocalStorage

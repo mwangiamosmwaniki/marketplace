@@ -37,35 +37,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
-      setLoading(false);
+    try {
+      const result = await login(email, password);
       if (result.success && result.user) {
         if (onSuccess) onSuccess(result.user.role);
         onClose();
       } else {
         setError(result.message || 'Invalid credentials.');
       }
-    }, 300);
-  };
-
-  const handleQuickLogin = (targetEmail: string) => {
-    setError(null);
-    const result = login(targetEmail);
-    if (result.success && result.user) {
-      if (onSuccess) onSuccess(result.user.role);
-      onClose();
-    } else {
-      setError(result.message || 'Unable to sign in.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegister = (e: React.FormEvent, role: 'customer' | 'seller') => {
+  const handleRegister = async (e: React.FormEvent, role: 'customer' | 'seller') => {
     e.preventDefault();
     setError(null);
     if (!fullName || !email || !phone) {
@@ -78,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const result = registerUser({
+    try {
+      const result = await registerUser({
         name: fullName,
         email,
         phone,
@@ -87,14 +79,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         sellerBusinessName: role === 'seller' ? businessName : undefined,
         password,
       });
-      setLoading(false);
       if (result.success && result.user) {
         if (onSuccess) onSuccess(result.user.role);
         onClose();
       } else {
         setError(result.message || 'Registration failed.');
       }
-    }, 400);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -227,46 +222,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
 
-              {/* Quick account presets */}
-              <div className="pt-4 border-t border-neutral-100">
-                <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
-                  Select Account:
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('jane.wambui@kesales.ke')}
-                    className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
-                  >
-                    <div className="font-bold text-neutral-900">Jane Wambui</div>
-                    <div className="text-[10px] text-neutral-500">Customer</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('seller@techpoint.co.ke')}
-                    className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
-                  >
-                    <div className="font-bold text-neutral-900">Tech Point Kenya</div>
-                    <div className="text-[10px] text-emerald-600 font-semibold">Electronics Seller</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('admin@kesales.ke')}
-                    className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
-                  >
-                    <div className="font-bold text-neutral-900">Robert Otieno</div>
-                    <div className="text-[10px] text-purple-600 font-semibold">Super Admin</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('finance@kesales.ke')}
-                    className="text-left p-2 rounded-lg border border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
-                  >
-                    <div className="font-bold text-neutral-900">Faith Muthoni</div>
-                    <div className="text-[10px] text-indigo-600 font-semibold">Finance Admin</div>
-                  </button>
-                </div>
-              </div>
             </form>
           )}
 
