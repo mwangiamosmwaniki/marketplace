@@ -367,7 +367,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       currentSellerId !== "" &&
       currentSellerId === product.sellerId);
 
-  // Datasets initialized from storage or defaults
+  // Business datasets are server-authoritative. Only UI preferences may remain in localStorage.
   const [categories, setCategories] = useState<Category[]>(() => {
     const saved = localStorage.getItem("kesales_categories");
     return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
@@ -376,91 +376,31 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     const saved = localStorage.getItem("kesales_brands");
     return saved ? JSON.parse(saved) : INITIAL_BRANDS;
   });
-  const [sellers, setSellers] = useState<Seller[]>(() => {
-    const saved = localStorage.getItem("kesales_sellers");
-    return saved ? JSON.parse(saved) : INITIAL_SELLERS;
-  });
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem("kesales_products");
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-  const [orders, setOrders] = useState<MasterOrder[]>(() => {
-    const saved = localStorage.getItem("kesales_orders");
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
-  });
-  const [ledger, setLedger] = useState<FinancialLedgerEntry[]>(() => {
-    const saved = localStorage.getItem("kesales_ledger");
-    return saved ? JSON.parse(saved) : INITIAL_LEDGER;
-  });
-  const [payouts, setPayouts] = useState<SellerPayoutRequest[]>(() => {
-    const saved = localStorage.getItem("kesales_payouts");
-    return saved ? JSON.parse(saved) : INITIAL_PAYOUTS;
-  });
-  const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem("kesales_coupons");
-    return saved ? JSON.parse(saved) : INITIAL_COUPONS;
-  });
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem("kesales_audit_logs");
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-  });
-  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(() => {
-    const saved = localStorage.getItem("kesales_delivery_zones");
-    return saved ? JSON.parse(saved) : INITIAL_DELIVERY_ZONES;
-  });
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<MasterOrder[]>([]);
+  const [ledger, setLedger] = useState<FinancialLedgerEntry[]>([]);
+  const [payouts, setPayouts] = useState<SellerPayoutRequest[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [settings, setSettings] = useState<SystemSettings>(() => {
     const saved = localStorage.getItem("kesales_settings");
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem("kesales_support_tickets");
-    return saved ? JSON.parse(saved) : INITIAL_SUPPORT_TICKETS;
-  });
-  const [promotions, setPromotions] = useState<Promotion[]>(() => {
-    const saved = localStorage.getItem("kesales_promotions");
-    return saved ? JSON.parse(saved) : INITIAL_PROMOTIONS;
-  });
-  const [flashSales, setFlashSales] = useState<FlashSaleCampaign[]>(() => {
-    const saved = localStorage.getItem("kesales_flash_sales");
-    return saved ? JSON.parse(saved) : INITIAL_FLASH_SALES;
-  });
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [flashSales, setFlashSales] = useState<FlashSaleCampaign[]>([]);
   const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(
     () => {
       const saved = localStorage.getItem("kesales_homepage_settings");
       return saved ? JSON.parse(saved) : INITIAL_HOMEPAGE_SETTINGS;
     },
   );
-  const [returns, setReturns] = useState<ReturnRequest[]>(() => {
-    const saved = localStorage.getItem("kesales_returns");
-    return saved ? JSON.parse(saved) : INITIAL_RETURNS;
-  });
+  const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [addresses, setAddresses] = useState<DeliveryAddress[]>(() => {
     const saved = localStorage.getItem("kesales_addresses");
-    return saved
-      ? JSON.parse(saved)
-      : [
-          {
-            id: "addr-1",
-            fullName: "Jane Wambui",
-            phone: "+254 712 345678",
-            county: "Nairobi",
-            town: "Westlands / Parklands",
-            streetAddress: "Mpaka Road, Woodvale Grove, Apt 4B",
-            deliveryInstructions: "Ring bell 4B or leave at gate security",
-            isDefault: true,
-          },
-          {
-            id: "addr-2",
-            fullName: "Jane Wambui",
-            phone: "+254 712 345678",
-            county: "Nairobi",
-            town: "Kilimani / Kileleshwa",
-            streetAddress: "Argwings Kodhek Road, Landmark Plaza, 3rd Floor",
-            deliveryInstructions:
-              "Reception desk during business hours (8am - 5pm)",
-            isDefault: false,
-          },
-        ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Cart & Wishlist
@@ -598,100 +538,140 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: response.data.user.created_at || new Date().toISOString(),
     };
 
-    localStorage.setItem("kesales_auth_token", response.data.token);
+    sessionStorage.setItem("kesales_auth_token", response.data.token);
     setAuthUser(user);
     setUsers((prev) => (prev.some((item) => item.id === user.id) ? prev : [user, ...prev]));
     return { success: true, user };
   };
 
-  // Sync state to LocalStorage
+  // Business data is server-authoritative. Keep only client-side UI preferences in localStorage.
   useEffect(() => {
-    localStorage.setItem("kesales_users", JSON.stringify(users));
+    if (users.length > 0) {
+      localStorage.setItem("kesales_users", JSON.stringify(users));
+    }
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_sellers", JSON.stringify(sellers));
+    if (sellers.length > 0) {
+      localStorage.setItem("kesales_sellers", JSON.stringify(sellers));
+    }
   }, [sellers]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_products", JSON.stringify(products));
+    if (products.length > 0) {
+      localStorage.setItem("kesales_products", JSON.stringify(products));
+    }
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_orders", JSON.stringify(orders));
+    if (orders.length > 0) {
+      localStorage.setItem("kesales_orders", JSON.stringify(orders));
+    }
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_ledger", JSON.stringify(ledger));
+    if (ledger.length > 0) {
+      localStorage.setItem("kesales_ledger", JSON.stringify(ledger));
+    }
   }, [ledger]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_payouts", JSON.stringify(payouts));
+    if (payouts.length > 0) {
+      localStorage.setItem("kesales_payouts", JSON.stringify(payouts));
+    }
   }, [payouts]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_coupons", JSON.stringify(coupons));
+    if (coupons.length > 0) {
+      localStorage.setItem("kesales_coupons", JSON.stringify(coupons));
+    }
   }, [coupons]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_cart", JSON.stringify(cart));
+    if (cart.length > 0) {
+      localStorage.setItem("kesales_cart", JSON.stringify(cart));
+    }
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_wishlist", JSON.stringify(wishlist));
+    if (wishlist.length > 0) {
+      localStorage.setItem("kesales_wishlist", JSON.stringify(wishlist));
+    }
   }, [wishlist]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_audit_logs", JSON.stringify(auditLogs));
+    if (auditLogs.length > 0) {
+      localStorage.setItem("kesales_audit_logs", JSON.stringify(auditLogs));
+    }
   }, [auditLogs]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_categories", JSON.stringify(categories));
+    if (categories.length > 0) {
+      localStorage.setItem("kesales_categories", JSON.stringify(categories));
+    }
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_brands", JSON.stringify(brands));
+    if (brands.length > 0) {
+      localStorage.setItem("kesales_brands", JSON.stringify(brands));
+    }
   }, [brands]);
 
   useEffect(() => {
-    localStorage.setItem(
-      "kesales_delivery_zones",
-      JSON.stringify(deliveryZones),
-    );
+    if (deliveryZones.length > 0) {
+      localStorage.setItem(
+        "kesales_delivery_zones",
+        JSON.stringify(deliveryZones),
+      );
+    }
   }, [deliveryZones]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_settings", JSON.stringify(settings));
+    if (settings) {
+      localStorage.setItem("kesales_settings", JSON.stringify(settings));
+    }
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem(
-      "kesales_support_tickets",
-      JSON.stringify(supportTickets),
-    );
+    if (supportTickets.length > 0) {
+      localStorage.setItem(
+        "kesales_support_tickets",
+        JSON.stringify(supportTickets),
+      );
+    }
   }, [supportTickets]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_promotions", JSON.stringify(promotions));
+    if (promotions.length > 0) {
+      localStorage.setItem("kesales_promotions", JSON.stringify(promotions));
+    }
   }, [promotions]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_flash_sales", JSON.stringify(flashSales));
+    if (flashSales.length > 0) {
+      localStorage.setItem("kesales_flash_sales", JSON.stringify(flashSales));
+    }
   }, [flashSales]);
 
   useEffect(() => {
-    localStorage.setItem(
-      "kesales_homepage_settings",
-      JSON.stringify(homepageSettings),
-    );
+    if (homepageSettings) {
+      localStorage.setItem(
+        "kesales_homepage_settings",
+        JSON.stringify(homepageSettings),
+      );
+    }
   }, [homepageSettings]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_returns", JSON.stringify(returns));
+    if (returns.length > 0) {
+      localStorage.setItem("kesales_returns", JSON.stringify(returns));
+    }
   }, [returns]);
 
   useEffect(() => {
-    localStorage.setItem("kesales_addresses", JSON.stringify(addresses));
+    if (addresses.length > 0) {
+      localStorage.setItem("kesales_addresses", JSON.stringify(addresses));
+    }
   }, [addresses]);
 
   // Current logged in seller object

@@ -1,0 +1,1 @@
+{"version":"pest_5.2.1","defects":[],"times":{"Tests\\Feature\\AuthApiTest::test_protected_routes_reject_unauthenticated_requests":0.06,"Tests\\Feature\\AuthApiTest::test_customer_can_register_and_receive_sanctum_token":0.341,"Tests\\Feature\\AuthApiTest::test_user_can_login_with_valid_credentials":0.383}}

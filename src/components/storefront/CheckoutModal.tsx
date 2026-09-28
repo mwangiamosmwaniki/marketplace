@@ -57,8 +57,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     'home_delivery'
   );
 
-  const activeZone = deliveryZones.find((z) => z.county === address.county) || deliveryZones[0];
-  const [selectedPickupStation, setSelectedPickupStation] = useState(activeZone.pickupStations[0]);
+  const activeZone =
+    deliveryZones.find((z) => z.county === address.county) ||
+    deliveryZones[0] ||
+    {
+      county: address.county || 'Nairobi',
+      towns: [address.town || 'Nairobi'],
+      homeDeliveryFee: 0,
+      pickupStationFee: 0,
+      estimatedDays: '2-5 days',
+      pickupStations: [],
+    };
+  const [selectedPickupStation, setSelectedPickupStation] = useState<string | undefined>(
+    activeZone.pickupStations[0],
+  );
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa_stk');
@@ -75,14 +87,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   if (!isOpen) return null;
 
   const handleCountyChange = (county: string) => {
-    const zone = deliveryZones.find((z) => z.county === county);
+    const zone = deliveryZones.find((z) => z.county === county) || activeZone;
     setAddress((prev) => ({
       ...prev,
       county,
-      town: zone?.towns[0] || 'CBD',
+      town: zone?.towns[0] || prev.town || 'CBD',
     }));
     if (zone && zone.pickupStations.length > 0) {
       setSelectedPickupStation(zone.pickupStations[0]);
+    } else {
+      setSelectedPickupStation(undefined);
     }
   };
 

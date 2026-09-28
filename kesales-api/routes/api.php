@@ -20,6 +20,19 @@ use App\Http\Controllers\Api\V1\AdminController;
 */
 
 Route::prefix('v1')->group(function () {
+    Route::get('/health', function () {
+        return response()->json([
+            'success' => true,
+            'status' => 'ok',
+            'service' => 'kesales-api',
+            'timestamp' => now()->toISOString(),
+            'checks' => [
+                'app' => 'ok',
+                'database' => config('database.default') ? 'configured' : 'missing',
+                'cache' => config('cache.default') ? 'configured' : 'missing',
+            ],
+        ]);
+    });
 
     // ========================================================================
     // 1. PUBLIC STOREFRONT & CATALOG ENDPOINTS

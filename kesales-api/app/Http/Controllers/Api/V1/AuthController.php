@@ -41,6 +41,7 @@ class AuthController extends BaseController
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
+            'success' => true,
             'message' => 'Registration successful',
             'user' => $user->load('roles'),
             'token' => $token,
@@ -72,8 +73,9 @@ class AuthController extends BaseController
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
+            'success' => true,
             'message' => 'Login successful',
-            'user' => $user,
+            'user' => $user->load('roles'),
             'token' => $token,
         ]);
     }
@@ -81,6 +83,7 @@ class AuthController extends BaseController
     public function me(Request $request): JsonResponse
     {
         return response()->json([
+            'success' => true,
             'user' => $request->user()->load(['roles.permissions', 'seller']),
         ]);
     }
@@ -90,6 +93,7 @@ class AuthController extends BaseController
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
+            'success' => true,
             'message' => 'Logged out successfully',
         ]);
     }
@@ -98,6 +102,7 @@ class AuthController extends BaseController
     {
         $request->validate(['email' => 'required|email']);
         return response()->json([
+            'success' => true,
             'message' => 'Password reset instructions dispatched to email.',
         ]);
     }
@@ -111,6 +116,7 @@ class AuthController extends BaseController
         ]);
 
         return response()->json([
+            'success' => true,
             'message' => 'Password has been successfully updated.',
         ]);
     }
@@ -122,6 +128,7 @@ class AuthController extends BaseController
         $user->save();
 
         return response()->json([
+            'success' => true,
             'message' => 'Email verified successfully.',
         ]);
     }
@@ -134,6 +141,7 @@ class AuthController extends BaseController
         $user->save();
 
         return response()->json([
+            'success' => true,
             'message' => 'Phone number verified successfully.',
         ]);
     }
