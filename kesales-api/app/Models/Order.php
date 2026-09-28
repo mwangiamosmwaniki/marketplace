@@ -46,6 +46,11 @@ class Order extends Model
         return $this->hasOne(OrderAddress::class, 'order_id');
     }
 
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id');
+    }
+
     public function sellerOrders()
     {
         return $this->hasMany(SellerOrder::class, 'order_id');

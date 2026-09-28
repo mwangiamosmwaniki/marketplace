@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Domain\Finance\Services\LedgerPostingService;
+use App\Domain\Inventory\Services\InventoryService;
 use Exception;
 
 /**
@@ -16,7 +17,8 @@ class StkPushService
 {
     public function __construct(
         protected MpesaClient $client,
-        protected LedgerPostingService $ledgerService
+        protected LedgerPostingService $ledgerService,
+        protected InventoryService $inventoryService
     ) {}
 
     /**
@@ -219,7 +221,13 @@ class StkPushService
                         'updated_at' => now(),
                     ]);
 
-                // 4. Double-Entry Financial Ledger Settlement
+                // 4. Commit reserved inventory to permanent sales
+                $orderItems = DB::table('order_items')->where('order_id', $order->id)->get();
+                foreach ($orderItems as $item) {
+                    $this->inventoryService->commitStockSale($item->variant_id, $item->quantity, $order->id);
+                }
+
+                // 5. Double-Entry Financial Ledger Settlement
                 $subOrders = DB::table('seller_orders')
                     ->where('order_id', $order->id)
                     ->get();

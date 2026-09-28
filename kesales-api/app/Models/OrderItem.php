@@ -9,36 +9,37 @@ class OrderItem extends Model
 {
     use HasUuids;
 
-    protected $table = 'seller_order_items';
+    protected $table = 'order_items';
     protected $keyType = 'string';
     public $incrementing = false;
     public $timestamps = false;
 
     protected $fillable = [
         'id',
-        'seller_order_id',
+        'order_id',
         'product_id',
         'variant_id',
+        'seller_id',
         'product_name',
         'sku',
         'quantity',
         'unit_price',
-        'commission_rate',
-        'commission_amount',
-        'seller_net_amount',
+        'discount',
+        'tax',
+        'line_total',
     ];
 
     protected $casts = [
         'unit_price' => 'float',
-        'commission_rate' => 'float',
-        'commission_amount' => 'float',
-        'seller_net_amount' => 'float',
+        'discount' => 'float',
+        'tax' => 'float',
+        'line_total' => 'float',
         'quantity' => 'integer',
     ];
 
-    public function sellerOrder()
+    public function order()
     {
-        return $this->belongsTo(SellerOrder::class, 'seller_order_id');
+        return $this->belongsTo(Order::class, 'order_id');
     }
 
     public function product()
@@ -49,5 +50,10 @@ class OrderItem extends Model
     public function variant()
     {
         return $this->belongsTo(ProductVariant::class, 'variant_id');
+    }
+
+    public function seller()
+    {
+        return $this->belongsTo(Seller::class, 'seller_id');
     }
 }

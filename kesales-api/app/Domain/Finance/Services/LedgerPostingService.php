@@ -166,7 +166,7 @@ class LedgerPostingService
      * DR Refund Expense / Liability: KSh 2,000
      * CR M-Pesa Clearing:            KSh 2,000
      */
-    public function postCustomerRefund(string $refundId, string $orderId, float $amount): string
+    public function postCustomerRefund(string $refundId, string $orderId, float $amount, ?string $customerId = null): string
     {
         $lines = [
             [

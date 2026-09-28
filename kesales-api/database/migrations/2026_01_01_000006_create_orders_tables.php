@@ -40,6 +40,28 @@ return new class extends Migration
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
         });
 
+        // Master Order Items Snapshot
+        Schema::create('order_items', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('order_id');
+            $table->uuid('product_id');
+            $table->uuid('variant_id');
+            $table->uuid('seller_id');
+            $table->string('product_name');
+            $table->string('sku', 120);
+            $table->integer('quantity');
+            $table->decimal('unit_price', 12, 2);
+            $table->decimal('discount', 12, 2)->default(0.00);
+            $table->decimal('tax', 12, 2)->default(0.00);
+            $table->decimal('line_total', 12, 2);
+            $table->timestamp('created_at')->useCurrent();
+
+            $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
+            $table->foreign('product_id')->references('id')->on('products');
+            $table->foreign('variant_id')->references('id')->on('product_variants');
+            $table->foreign('seller_id')->references('id')->on('sellers');
+        });
+
         Schema::create('seller_orders', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('order_id');
@@ -56,6 +78,7 @@ return new class extends Migration
 
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
             $table->foreign('seller_id')->references('id')->on('sellers')->onDelete('restrict');
+            $table->unique(['order_id', 'seller_id']);
         });
 
         Schema::create('seller_order_items', function (Blueprint $table) {
@@ -81,6 +104,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('seller_order_items');
         Schema::dropIfExists('seller_orders');
+        Schema::dropIfExists('order_items');
         Schema::dropIfExists('order_addresses');
         Schema::dropIfExists('orders');
     }

@@ -28,6 +28,10 @@ return [
         'b2c_shortcode' => env('MPESA_B2C_SHORTCODE', ''),
         'b2c_initiator' => env('MPESA_B2C_INITIATOR_NAME', ''),
         'b2c_security_credential' => env('MPESA_B2C_SECURITY_CREDENTIAL', ''),
+        'b2c_result_url' => env('MPESA_B2C_RESULT_URL', 'https://api.kesales.ke/webhooks/mpesa/b2c/result'),
+        'b2c_timeout_url' => env('MPESA_B2C_TIMEOUT_URL', 'https://api.kesales.ke/webhooks/mpesa/b2c/timeout'),
+        'c2b_validation_url' => env('MPESA_C2B_VALIDATION_URL', 'https://api.kesales.ke/webhooks/mpesa/c2b/validation'),
+        'c2b_confirmation_url' => env('MPESA_C2B_CONFIRMATION_URL', 'https://api.kesales.ke/webhooks/mpesa/c2b/confirmation'),
     ],
 
     // KRA eTIMS Tax Invoicing

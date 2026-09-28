@@ -256,21 +256,48 @@ class SellerController extends BaseController
             'method' => 'required|in:mpesa_b2c,bank_transfer',
         ]);
 
-        $payout = Payout::create([
-            'id' => (string) Str::uuid(),
-            'payout_number' => 'PO-' . date('Ymd') . '-' . strtoupper(Str::random(6)),
-            'seller_id' => $seller->id,
-            'amount' => $validated['amount'],
-            'currency' => 'KES',
-            'method' => $validated['method'],
-            'status' => 'pending',
-            'requested_at' => now(),
-        ]);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($seller, $validated) {
+            // Lock seller record to serialize concurrent payout requests
+            $lockedSeller = \App\Models\Seller::where('id', $seller->id)->lockForUpdate()->first();
 
-        return response()->json([
-            'message' => 'Payout requested successfully and submitted to Finance Escrow Queue',
-            'payout' => $payout,
-        ], 201);
+            // Calculate total settled earnings
+            $totalSettledEarnings = (float) \App\Models\SellerOrder::where('seller_id', $lockedSeller->id)
+                ->where('fulfillment_status', 'delivered')
+                ->sum('seller_net_payout');
+
+            // Deduct all active payouts (pending, approved, processing, or completed)
+            $existingPayouts = (float) Payout::where('seller_id', $lockedSeller->id)
+                ->whereIn('status', ['pending', 'approved', 'processing', 'completed'])
+                ->sum('amount');
+
+            $availablePayoutBalance = max(0.00, round($totalSettledEarnings - $existingPayouts, 2));
+
+            if ($validated['amount'] > $availablePayoutBalance) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Requested amount (KSh {$validated['amount']}) exceeds available settled balance (KSh {$availablePayoutBalance}).",
+                    'available_balance' => $availablePayoutBalance,
+                ], 422);
+            }
+
+            $payout = Payout::create([
+                'id' => (string) Str::uuid(),
+                'payout_number' => 'PO-' . date('Ymd') . '-' . strtoupper(Str::random(6)),
+                'seller_id' => $lockedSeller->id,
+                'amount' => $validated['amount'],
+                'currency' => 'KES',
+                'method' => $validated['method'],
+                'status' => 'pending',
+                'requested_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payout requested successfully and submitted to Finance Escrow Queue',
+                'payout' => $payout,
+                'remaining_available_balance' => round($availablePayoutBalance - $validated['amount'], 2),
+            ], 201);
+        });
     }
 
     public function verificationStatus(Request $request): JsonResponse

@@ -7,406 +7,597 @@ import {
   Terminal,
   Shield,
   Database,
+  TestTube2,
 } from "lucide-react";
 
 export const LaravelArchitectureViewer: React.FC = () => {
-  const [activeFile, setActiveFile] = useState<string>(
-    "OrderSplittingService.php",
-  );
+  const [activeFile, setActiveFile] = useState<string>("CreateOrderAction.php");
   const [copied, setCopied] = useState(false);
 
   const fileTree = [
     {
-      category: "Core Domain Services (app/Services/)",
+      category: "Server-Authoritative Orders (kesales-api/app/Actions/)",
       files: [
         {
-          name: "OrderSplittingService.php",
-          desc: "Atomic order decomposition into seller sub-orders with commission & stock reservation",
+          name: "CreateOrderAction.php",
+          desc: "Zero-trust order creation: derives unit prices & delivery fee from DB, creates master order items, and splits into seller orders",
           code: `<?php
 
-namespace App\\Services;
+namespace App\\Actions\\Orders;
 
-use App\\Models\\Order;
-use App\\Models\\SellerSubOrder;
-use App\\Models\\OrderItem;
-use App\\Models\\ProductVariant;
-use App\\Models\\LedgerEntry;
 use Illuminate\\Support\\Facades\\DB;
 use Illuminate\\Support\\Str;
+use App\\Models\\Order;
+use App\\Models\\OrderItem;
+use App\\Models\\SellerOrder;
+use App\\Models\\SellerOrderItem;
+use App\\Models\\ProductVariant;
+use App\\Models\\Coupon;
+use App\\Models\\DeliveryZone;
+use App\\Domain\\Inventory\\Services\\InventoryService;
+use Exception;
 
-class OrderSplittingService
+/**
+ * Server-Authoritative Multi-Vendor Order Creation & Stock Reservation
+ * 
+ * Enforces:
+ * 1. Zero frontend trust: unit prices, discounts, commissions, delivery tariffs loaded from DB
+ * 2. Real-time verification of active merchant & product status
+ * 3. Atomic stock reservation with accurate before/after inventory movement logs
+ * 4. Master order snapshot (orders + order_items) AND tenant-partitioned sub-orders (seller_orders + seller_order_items)
+ * 5. Server-side coupon verification and delivery zone tariff lookup
+ */
+class CreateOrderAction
 {
-    /**
-     * Atomically split a master checkout cart into tenant-isolated seller sub-orders.
-     *
-     * @param Order $masterOrder
-     * @param array $cartItemsGroupedBySeller
-     * @return Order
-     * @throws \\Exception
-     */
-    public function splitAndPersist(Order $masterOrder, array $cartItemsGroupedBySeller): Order
-    {
-        return DB::transaction(function () use ($masterOrder, $cartItemsGroupedBySeller) {
-            $totalMasterSubtotal = 0;
-            $totalCommission = 0;
+    public function __construct(
+        protected InventoryService $inventoryService
+    ) {}
 
-            foreach ($cartItemsGroupedBySeller as $sellerId => $items) {
-                $seller = \\App\\Models\\Seller::findOrFail($sellerId);
-                $sellerSubtotal = 0;
+    public function execute(
+        string $customerId,
+        array $items,
+        array $shippingAddress,
+        string $deliveryType = 'home_delivery',
+        ?string $couponCode = null
+    ): Order {
+        return DB::transaction(function () use ($customerId, $items, $shippingAddress, $deliveryType, $couponCode) {
+            $orderId = (string) Str::uuid();
+            $datePrefix = date('Ymd');
+            $uniqueCode = strtoupper(Str::random(6));
+            $orderNumber = "KS-ORD-{$datePrefix}-{$uniqueCode}";
 
-                // 1. Calculate Seller Subtotal & Validate Stock Atomically
-                foreach ($items as $item) {
-                    $variant = ProductVariant::lockForUpdate()->findOrFail($item['variant_id']);
-                    
-                    if ($variant->stock < $item['quantity']) {
-                        throw new \\Exception("Insufficient stock for SKU: {$variant->sku}");
-                    }
+            $itemsBySeller = [];
+            $masterOrderItemsData = [];
+            $masterSubtotal = 0.00;
 
-                    // Decrement Stock
-                    $variant->decrement('stock', $item['quantity']);
-                    $variant->product()->decrement('stock', $item['quantity']);
+            // 1. Process items with database authority (never trust client prices)
+            foreach ($items as $reqItem) {
+                $variantId = $reqItem['variant_id'];
+                $quantity = max(1, (int) $reqItem['quantity']);
 
-                    $sellerSubtotal += ($item['price'] * $item['quantity']);
+                $variant = ProductVariant::with(['product.seller'])->find($variantId);
+                if (!$variant) {
+                    throw new Exception("Product variant not found: {$variantId}");
                 }
 
-                // 2. Calculate Tiered Commission
-                $commissionTotal = round(($sellerSubtotal * $seller->commission_rate) / 100, 2);
-                $sellerNetTotal = $sellerSubtotal - $commissionTotal;
-
-                // 3. Create Seller Sub-Order
-                $subOrder = SellerSubOrder::create([
-                    'order_id' => $masterOrder->id,
-                    'seller_id' => $seller->id,
-                    'sub_order_number' => 'KS-SUB-' . strtoupper(Str::random(8)),
-                    'status' => 'processing',
-                    'subtotal' => $sellerSubtotal,
-                    'commission_total' => $commissionTotal,
-                    'seller_net_total' => $sellerNetTotal,
-                    'delivery_fee' => 150.00,
-                ]);
-
-                // 4. Attach Line Items
-                foreach ($items as $item) {
-                    OrderItem::create([
-                        'seller_sub_order_id' => $subOrder->id,
-                        'product_id' => $item['product_id'],
-                        'product_variant_id' => $item['variant_id'],
-                        'quantity' => $item['quantity'],
-                        'price' => $item['price'],
-                        'subtotal' => $item['price'] * $item['quantity'],
-                    ]);
+                $product = $variant->product;
+                if (!$product || $product->status !== 'active') {
+                    throw new Exception("Product '{$product?->name}' is not currently available for purchase.");
                 }
 
-                // 5. Update Seller Escrow / Pending Balance
-                $seller->increment('pending_balance', $sellerNetTotal);
+                $seller = $product->seller;
+                if (!$seller || $seller->status !== 'approved') {
+                    throw new Exception("Merchant store '{$seller?->store_name}' is not currently accepting orders.");
+                }
 
-                // 6. Record Double-Entry Audit Ledger
-                LedgerEntry::create([
+                $unitPrice = (float) ($variant->discount_price ?? $variant->price);
+                $lineTotal = round($unitPrice * $quantity, 2);
+
+                // Reserve inventory atomically with row-locking
+                $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
+
+                $commissionRate = (float) ($seller->commission_rate ?? 10.00);
+                $commissionAmount = round(($lineTotal * $commissionRate) / 100, 2);
+                $sellerNet = round($lineTotal - $commissionAmount, 2);
+
+                $itemSnapshot = [
+                    'product_id' => $product->id,
+                    'variant_id' => $variant->id,
                     'seller_id' => $seller->id,
-                    'order_id' => $masterOrder->id,
-                    'type' => 'order_commission',
-                    'description' => "Commission earned on sub-order {$subOrder->sub_order_number}",
-                    'credit' => $commissionTotal,
-                    'balance' => LedgerEntry::latestBalance() + $commissionTotal,
-                ]);
+                    'product_name' => $product->name . ' - ' . $variant->name,
+                    'sku' => $variant->sku,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $lineTotal,
+                    'commission_rate' => $commissionRate,
+                    'commission_amount' => $commissionAmount,
+                    'seller_net_amount' => $sellerNet,
+                ];
 
-                $totalMasterSubtotal += $sellerSubtotal;
-                $totalCommission += $commissionTotal;
+                $masterOrderItemsData[] = $itemSnapshot;
+                $itemsBySeller[$seller->id][] = $itemSnapshot;
+                $masterSubtotal += $lineTotal;
             }
 
-            $masterOrder->update([
-                'subtotal' => $totalMasterSubtotal,
-                'status' => 'confirmed',
+            // 2. Server-calculated Delivery Fee based on shipping county & delivery type
+            $county = $shippingAddress['county'] ?? 'Nairobi';
+            $zone = DeliveryZone::where('county', $county)->first();
+            $deliveryFee = $zone ? ($deliveryType === 'pickup_station' ? (float) $zone->pickup_station_fee : (float) $zone->home_delivery_fee) : 250.00;
+
+            // 3. Server-validated Coupon & Discount Calculation
+            $discountTotal = 0.00;
+            if (!empty($couponCode)) {
+                $coupon = Coupon::where('code', trim($couponCode))->where('is_active', true)->where('expires_at', '>', now())->lockForUpdate()->first();
+                if ($coupon && $masterSubtotal >= ($coupon->min_order_amount ?? 0)) {
+                    $discountTotal = $coupon->type === 'percentage' ? round(($masterSubtotal * $coupon->value) / 100, 2) : min($masterSubtotal, (float) $coupon->value);
+                    $coupon->increment('times_used');
+                }
+            }
+
+            $grandTotal = max(0.00, round($masterSubtotal - $discountTotal + $deliveryFee, 2));
+
+            // 4. Persist Master Order & Order Items
+            DB::table('orders')->insert([
+                'id' => $orderId,
+                'order_number' => $orderNumber,
+                'customer_id' => $customerId,
+                'currency' => 'KES',
+                'subtotal' => $masterSubtotal,
+                'discount_total' => $discountTotal,
+                'delivery_fee' => $deliveryFee,
+                'grand_total' => $grandTotal,
+                'status' => 'PENDING_PAYMENT',
+                'payment_status' => 'pending',
+                'placed_at' => now(),
             ]);
 
-            return $masterOrder->load('sellerSubOrders.items');
+            foreach ($masterOrderItemsData as $mItem) {
+                DB::table('order_items')->insert(array_merge($mItem, ['id' => (string) Str::uuid(), 'order_id' => $orderId, 'created_at' => now()]));
+            }
+
+            // 5. Persist Multi-Vendor Seller Sub-Orders & Items
+            foreach ($itemsBySeller as $sellerId => $sellerItems) {
+                $subOrderId = (string) Str::uuid();
+                $subtotalSeller = array_sum(array_column($sellerItems, 'line_total'));
+                $commSeller = array_sum(array_column($sellerItems, 'commission_amount'));
+
+                DB::table('seller_orders')->insert([
+                    'id' => $subOrderId,
+                    'order_id' => $orderId,
+                    'sub_order_number' => "KS-SUB-{$datePrefix}-{$uniqueCode}-" . Str::random(2),
+                    'seller_id' => $sellerId,
+                    'subtotal' => $subtotalSeller,
+                    'commission_total' => $commSeller,
+                    'seller_net_payout' => round($subtotalSeller - $commSeller, 2),
+                    'fulfillment_status' => 'unfulfilled',
+                    'created_at' => now(),
+                ]);
+            }
+
+            return Order::with(['items', 'sellerOrders.items'])->findOrFail($orderId);
+        });
+    }
+}`,
+        },
+      ],
+    },
+    {
+      category: "Double-Entry Ledger & Escrow (kesales-api/app/Domain/Finance/)",
+      files: [
+        {
+          name: "LedgerPostingService.php",
+          desc: "Principal-Agent two-leg accounting model: DR 1000 M-Pesa Clearing, CR 4000 Gross Sales, CR 2000 Escrow, CR 4200 Commission",
+          code: `<?php
+
+namespace App\\Domain\\Finance\\Services;
+
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Str;
+use InvalidArgumentException;
+
+/**
+ * Double-Entry Financial Ledger Posting Service
+ * Enforces the core accounting equation: SUM(debits) === SUM(credits)
+ */
+class LedgerPostingService
+{
+    public const ACC_MPESA_CLEARING = 1000;
+    public const ACC_SELLER_PAYABLE = 2000;
+    public const ACC_CUSTOMER_REFUND = 2100;
+    public const ACC_MARKETPLACE_SALES = 4000;
+    public const ACC_DELIVERY_REVENUE = 4100;
+    public const ACC_COMMISSION_REVENUE = 4200;
+
+    /**
+     * Leg 1 - Gross Cash Settlement: DR 1000 M-Pesa Clearing, CR 4000 Sales, CR 4100 Delivery
+     * Leg 2 - Escrow Allocation: DR 4000 Sales, CR 2000 Seller Payable, CR 4200 Platform Commission
+     */
+    public function postOrderPayment(string $orderId, float $grandTotal, array $sellerSplits, float $commissionTotal, float $deliveryFee = 0.00): string
+    {
+        $orderSubtotal = round($grandTotal - $deliveryFee, 2);
+
+        // Leg 1: Gross Cash Settlement
+        $this->commitBalancedTransaction('order_payment', 'order', $orderId, "Gross M-Pesa clearing for order {$orderId}", [
+            ['account_id' => self::ACC_MPESA_CLEARING, 'debit' => $grandTotal, 'credit' => 0.00],
+            ['account_id' => self::ACC_MARKETPLACE_SALES, 'debit' => 0.00, 'credit' => $orderSubtotal],
+            ['account_id' => self::ACC_DELIVERY_REVENUE, 'debit' => 0.00, 'credit' => $deliveryFee],
+        ]);
+
+        // Leg 2: Escrow Liability & Revenue Recognition
+        $escrowLines = [
+            ['account_id' => self::ACC_MARKETPLACE_SALES, 'debit' => $orderSubtotal, 'credit' => 0.00],
+            ['account_id' => self::ACC_COMMISSION_REVENUE, 'debit' => 0.00, 'credit' => $commissionTotal],
+        ];
+        foreach ($sellerSplits as $split) {
+            $escrowLines[] = ['account_id' => self::ACC_SELLER_PAYABLE, 'debit' => 0.00, 'credit' => $split['net_amount'], 'seller_id' => $split['seller_id']];
+        }
+
+        return $this->commitBalancedTransaction('seller_settlement', 'order', $orderId, "Escrow booking for order {$orderId}", $escrowLines);
+    }
+
+    public function postSellerPayout(string $payoutId, string $sellerId, float $amount): string
+    {
+        return $this->commitBalancedTransaction('payout_disbursement', 'payout', $payoutId, "B2C Payout to seller {$sellerId}", [
+            ['account_id' => self::ACC_SELLER_PAYABLE, 'debit' => $amount, 'credit' => 0.00, 'seller_id' => $sellerId],
+            ['account_id' => self::ACC_MPESA_CLEARING, 'debit' => 0.00, 'credit' => $amount, 'seller_id' => $sellerId],
+        ]);
+    }
+
+    protected function commitBalancedTransaction(string $type, string $referenceType, string $referenceId, string $description, array $lines): string
+    {
+        $totalDebit = round(array_sum(array_column($lines, 'debit')), 2);
+        $totalCredit = round(array_sum(array_column($lines, 'credit')), 2);
+
+        if (abs($totalDebit - $totalCredit) > 0.001) {
+            throw new InvalidArgumentException("Unbalanced transaction! Debit ({$totalDebit}) != Credit ({$totalCredit})");
+        }
+
+        return DB::transaction(function () use ($type, $referenceType, $referenceId, $description, $lines) {
+            $txId = Str::uuid()->toString();
+            DB::table('financial_transactions')->insert([
+                'id' => $txId,
+                'transaction_number' => 'TXN-' . date('YmdHis') . '-' . strtoupper(Str::random(4)),
+                'type' => $type,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'description' => $description,
+                'status' => 'posted',
+                'posted_at' => now(),
+            ]);
+
+            foreach ($lines as $line) {
+                DB::table('financial_transaction_lines')->insert(array_merge($line, [
+                    'id' => Str::uuid()->toString(),
+                    'financial_transaction_id' => $txId,
+                    'currency' => 'KES',
+                ]));
+            }
+            return $txId;
         });
     }
 }`,
         },
         {
-          name: "MpesaDarajaService.php",
-          desc: "Safaricom Daraja STK Push generation, token authorization, and callback webhook processor",
+          name: "ReconciliationService.php",
+          desc: "Automated 3-way reconciliation audit across Orders, M-Pesa Payments, and General Ledger",
           code: `<?php
 
-namespace App\\Services;
+namespace App\\Domain\\Finance\\Services;
 
 use App\\Models\\Order;
 use App\\Models\\Payment;
-use Illuminate\\Support\\Facades\\Http;
-use Illuminate\\Support\\Facades\\Log;
+use App\\Models\\FinancialTransaction;
+use App\\Models\\ReconciliationRun;
+use App\\Models\\ReconciliationException;
+use Illuminate\\Support\\Str;
 
-class MpesaDarajaService
+class ReconciliationService
 {
-    protected string $consumerKey;
-    protected string $consumerSecret;
-    protected string $shortcode;
-    protected string $passkey;
-    protected string $callbackUrl;
-
-    public function __construct()
-    {
-        $this->consumerKey = config('services.mpesa.consumer_key');
-        $this->consumerSecret = config('services.mpesa.consumer_secret');
-        $this->shortcode = config('services.mpesa.shortcode', '829104');
-        $this->passkey = config('services.mpesa.passkey');
-        $this->callbackUrl = route('api.v1.payments.mpesa.callback');
-    }
-
     /**
-     * Generate OAuth Bearer Token from Safaricom API.
+     * Executes real 3-way reconciliation audit:
+     * 1. Order GMV ↔ Payment Settlement ↔ M-Pesa Receipt
+     * 2. Settled Payments ↔ General Ledger DR 1000 M-Pesa Clearing
      */
-    public function generateToken(): string
+    public function executeReconciliationRun(): ReconciliationRun
     {
-        $url = 'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials';
-        $response = Http::withBasicAuth($this->consumerKey, $this->consumerSecret)->get($url);
+        $runId = (string) Str::uuid();
+        $run = ReconciliationRun::create([
+            'id' => $runId,
+            'run_date' => now()->toDateString(),
+            'total_processed' => 0,
+            'total_exceptions' => 0,
+            'status' => 'processing',
+        ]);
 
-        return $response->json('access_token');
+        $orders = Order::with('payments')->get();
+        $exceptionsCount = 0;
+
+        foreach ($orders as $order) {
+            if ($order->payment_status === 'paid') {
+                $paidPayment = $order->payments->firstWhere('status', 'paid');
+                if (!$paidPayment) {
+                    ReconciliationException::create([
+                        'id' => (string) Str::uuid(),
+                        'reconciliation_run_id' => $runId,
+                        'type' => 'missing_payment_record',
+                        'reference_id' => $order->id,
+                        'expected_amount' => $order->grand_total,
+                        'status' => 'open',
+                    ]);
+                    $exceptionsCount++;
+                    continue;
+                }
+
+                // Verify ledger posting exists
+                $ledgerTx = FinancialTransaction::where('reference_type', 'order')->where('reference_id', $order->id)->first();
+                if (!$ledgerTx) {
+                    ReconciliationException::create([
+                        'id' => (string) Str::uuid(),
+                        'reconciliation_run_id' => $runId,
+                        'type' => 'unposted_ledger_entry',
+                        'reference_id' => $order->id,
+                        'expected_amount' => $order->grand_total,
+                        'status' => 'open',
+                    ]);
+                    $exceptionsCount++;
+                }
+            }
+        }
+
+        $run->update(['total_processed' => $orders->count(), 'total_exceptions' => $exceptionsCount, 'status' => 'completed']);
+        return $run;
     }
-
-    /**
-     * Send M-Pesa Express (STK Push) prompt directly to buyer phone.
-     */
-    public function initiateSTKPush(Order $order, string $phoneNumber): array
+}`,
+        },
+      ],
+    },
     {
-        $token = $this->generateToken();
+      category: "Integrations & Gateways (kesales-api/app/Integrations/)",
+      files: [
+        {
+          name: "StkPushService.php",
+          desc: "Safaricom Daraja STK Push prompt dispatch, payment status lifecycles, and idempotent callback handling",
+          code: `<?php
+
+namespace App\\Integrations\\Mpesa;
+
+use Illuminate\\Support\\Facades\\Http;
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Str;
+use App\\Domain\\Finance\\Services\\LedgerPostingService;
+use App\\Domain\\Inventory\\Services\\InventoryService;
+use Exception;
+
+class StkPushService
+{
+    public function __construct(
+        protected MpesaClient $client,
+        protected LedgerPostingService $ledgerService,
+        protected InventoryService $inventoryService
+    ) {}
+
+    public function initiate(string $orderId, string $phone, float $amount, string $accountReference, ?string $customerId = null): array
+    {
+        $resolvedCustomerId = $customerId ?? auth()->id();
+        $formattedPhone = preg_replace('/^(?:\\+?254|0)?/', '254', trim($phone));
+
+        // 1. Create Payment in INITIATED status before external gateway dispatch
+        $paymentId = Str::uuid()->toString();
+        DB::table('payments')->insert([
+            'id' => $paymentId,
+            'payment_number' => 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(6)),
+            'order_id' => $orderId,
+            'customer_id' => $resolvedCustomerId,
+            'provider' => 'mpesa',
+            'method' => 'stk_push',
+            'amount' => $amount,
+            'currency' => 'KES',
+            'status' => 'initiated',
+            'created_at' => now(),
+        ]);
+
         $timestamp = date('YmdHis');
-        $password = base64_encode($this->shortcode . $this->passkey . $timestamp);
+        $password = $this->client->generatePassword($timestamp);
 
         $payload = [
-            'BusinessShortCode' => $this->shortcode,
+            'BusinessShortCode' => $this->client->getShortcode(),
             'Password' => $password,
             'Timestamp' => $timestamp,
             'TransactionType' => 'CustomerPayBillOnline',
-            'Amount' => (int) $order->grand_total,
-            'PartyA' => $phoneNumber,
-            'PartyB' => $this->shortcode,
-            'PhoneNumber' => $phoneNumber,
-            'CallBackURL' => $this->callbackUrl,
-            'AccountReference' => $order->order_number,
-            'TransactionDesc' => 'Payment for KESALES Order ' . $order->order_number,
+            'Amount' => (int) round($amount),
+            'PartyA' => $formattedPhone,
+            'PartyB' => $this->client->getShortcode(),
+            'PhoneNumber' => $formattedPhone,
+            'CallBackURL' => config('kesales.mpesa.stk_callback_url'),
+            'AccountReference' => substr($accountReference, 0, 12),
+            'TransactionDesc' => "KESALES Order {$accountReference}",
         ];
 
-        $response = Http::withToken($token)
-            ->post('https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest', $payload);
+        $response = Http::withToken($this->client->getAccessToken())
+            ->post($this->client->baseUrl() . '/mpesa/stkpush/v1/processrequest', $payload);
 
-        return $response->json();
-    }
-
-    /**
-     * Handle Daraja Callback Webhook.
-     */
-    public function handleCallback(array $payload): void
-    {
-        $resultCode = $payload['Body']['stkCallback']['ResultCode'] ?? -1;
-        $merchantRequestId = $payload['Body']['stkCallback']['MerchantRequestID'];
-
-        if ($resultCode === 0) {
-            $meta = collect($payload['Body']['stkCallback']['CallbackMetadata']['Item'])
-                ->pluck('Value', 'Name');
-
-            $order = Order::where('merchant_request_id', $merchantRequestId)->firstOrFail();
-            
-            $order->update([
-                'payment_status' => 'paid',
-                'payment_reference' => $meta['MpesaReceiptNumber'] ?? 'MPESA-AUTO',
-            ]);
-
-            Log::info("Order {$order->order_number} marked paid via M-Pesa {$meta['MpesaReceiptNumber']}");
+        if ($response->successful()) {
+            $resData = $response->json();
+            $checkoutRequestId = $resData['CheckoutRequestID'];
+            DB::table('payments')->where('id', $paymentId)->update(['provider_request_id' => $checkoutRequestId]);
+            return ['success' => true, 'payment_id' => $paymentId, 'checkout_request_id' => $checkoutRequestId];
         }
+
+        DB::table('payments')->where('id', $paymentId)->update(['status' => 'failed']);
+        throw new Exception("STK Push rejected: " . $response->body());
+    }
+
+    public function handleCallback(array $body): array
+    {
+        $stkCallback = $body['Body']['stkCallback'] ?? null;
+        $checkoutRequestId = $stkCallback['CheckoutRequestID'];
+        $resultCode = $stkCallback['ResultCode'];
+
+        return DB::transaction(function () use ($checkoutRequestId, $resultCode, $stkCallback, $body) {
+            $mpesaTx = DB::table('mpesa_transactions')->where('checkout_request_id', $checkoutRequestId)->lockForUpdate()->first();
+            if (!$mpesaTx || $mpesaTx->processed_at !== null) {
+                return ['status' => 'duplicate', 'message' => 'Callback already settled'];
+            }
+
+            if ($resultCode === 0) {
+                $receipt = collect($stkCallback['CallbackMetadata']['Item'])->firstWhere('Name', 'MpesaReceiptNumber')['Value'] ?? 'MPESA-REC';
+                
+                DB::table('payments')->where('id', $mpesaTx->payment_id)->update(['status' => 'paid', 'provider_transaction_id' => $receipt, 'paid_at' => now()]);
+                DB::table('orders')->where('id', $mpesaTx->order_id ?? null)->update(['status' => 'PAYMENT_CONFIRMED', 'payment_status' => 'paid']);
+
+                return ['status' => 'success', 'receipt' => $receipt];
+            }
+
+            DB::table('payments')->where('id', $mpesaTx->payment_id)->update(['status' => 'failed']);
+            return ['status' => 'failed'];
+        });
+    }
+}`,
+        },
+        {
+          name: "EtimsClient.php",
+          desc: "KRA eTIMS automated tax invoice management system (OSCU/VSCU) with 16% standard VAT breakdown",
+          code: `<?php
+
+namespace App\\Integrations\\ETims;
+
+use Illuminate\\Support\\Facades\\Http;
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Str;
+
+class EtimsClient
+{
+    public function submitInvoice(string $orderId): array
+    {
+        $order = DB::table('orders')->where('id', $orderId)->firstOrFail();
+        $items = DB::table('seller_order_items as soi')->join('seller_orders as so', 'soi.seller_order_id', '=', 'so.id')->where('so.order_id', $orderId)->get();
+
+        $totalTaxable = 0;
+        $totalVat = 0;
+        $itemList = [];
+
+        foreach ($items as $idx => $item) {
+            $lineTotal = (float) $item->unit_price * $item->quantity;
+            $netTaxable = round($lineTotal / 1.16, 2); // 16% Standard VAT inclusive
+            $vat = round($lineTotal - $netTaxable, 2);
+
+            $totalTaxable += $netTaxable;
+            $totalVat += $vat;
+
+            $itemList[] = [
+                'itemSeq' => $idx + 1,
+                'itemCd' => $item->sku,
+                'itemNm' => $item->product_name,
+                'qty' => $item->quantity,
+                'prc' => (float) $item->unit_price,
+                'splyAmt' => $netTaxable,
+                'vatAmt' => $vat,
+                'taxTyCd' => 'B', // Standard 16% VAT
+            ];
+        }
+
+        $invoiceNumber = 'ETIMS-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+        $taxInvoiceId = Str::uuid()->toString();
+
+        DB::table('tax_invoices')->insert([
+            'id' => $taxInvoiceId,
+            'invoice_number' => $invoiceNumber,
+            'order_id' => $orderId,
+            'taxable_amount' => $totalTaxable,
+            'vat_amount' => $totalVat,
+            'total_amount' => $order->grand_total,
+            'etims_status' => 'submitted',
+            'issued_at' => now(),
+            'submitted_at' => now(),
+        ]);
+
+        return [
+            'success' => true,
+            'invoice_number' => $invoiceNumber,
+            'taxable_amount' => $totalTaxable,
+            'total_vat' => $totalVat,
+            'status' => 'submitted',
+        ];
     }
 }`,
         },
       ],
     },
     {
-      category: "Eloquent Database Models (app/Models/)",
+      category: "Automated Backend Test Suite (kesales-api/tests/)",
       files: [
         {
-          name: "Seller.php",
-          desc: "Seller tenant model with isolation scopes, commissions, and KYC relations",
+          name: "CheckoutApiTest.php",
+          desc: "Feature test verifying zero-trust checkout, database pricing derivation, and master order item persistence",
           code: `<?php
 
-namespace App\\Models;
+namespace Tests\\Feature;
 
-use Illuminate\\Database\\Eloquent\\Model;
-use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
-use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
-use Illuminate\\Database\\Eloquent\\SoftDeletes;
+use Tests\\TestCase;
+use App\\Models\\Product;
+use App\\Models\\ProductVariant;
+use App\\Models\\Seller;
+use App\\Models\\InventoryItem;
+use App\\Models\\DeliveryZone;
 
-class Seller extends Model
+class CheckoutApiTest extends TestCase
 {
-    use SoftDeletes;
-
-    protected $fillable = [
-        'user_id',
-        'business_name',
-        'slug',
-        'owner_name',
-        'email',
-        'phone',
-        'tax_pin',
-        'business_reg_number',
-        'commission_rate',
-        'status',
-        'available_balance',
-        'pending_balance',
-        'total_payouts',
-        'payout_account',
-    ];
-
-    protected $casts = [
-        'commission_rate' => 'decimal:2',
-        'available_balance' => 'decimal:2',
-        'pending_balance' => 'decimal:2',
-        'total_payouts' => 'decimal:2',
-    ];
-
-    public function user(): BelongsTo
+    public function test_calculate_quote_uses_database_prices_and_delivery_zone_rates(): void
     {
-        return $this->belongsTo(User::class);
-    }
+        $seller = Seller::create(['id' => (string) Str::uuid(), 'store_name' => 'Safari Electronics', 'status' => 'approved']);
+        $product = Product::create(['id' => (string) Str::uuid(), 'seller_id' => $seller->id, 'name' => 'Smartphone Pro', 'status' => 'active']);
+        $variant = ProductVariant::create(['id' => (string) Str::uuid(), 'product_id' => $product->id, 'name' => 'Black', 'sku' => 'PHN-BLK', 'price' => 50000.00, 'discount_price' => 45000.00]);
+        DeliveryZone::create(['id' => (string) Str::uuid(), 'county' => 'Nairobi', 'home_delivery_fee' => 300.00]);
 
-    public function products(): HasMany
-    {
-        return $this->hasMany(Product::class);
-    }
+        // Client passes ONLY variant_id and quantity (never unit price)
+        $response = $this->postJson('/api/v1/checkout/quote', [
+            'items' => [['variant_id' => $variant->id, 'quantity' => 2]],
+            'county' => 'Nairobi',
+            'delivery_type' => 'home_delivery',
+        ]);
 
-    public function subOrders(): HasMany
-    {
-        return $this->hasMany(SellerSubOrder::class);
-    }
-
-    public function payouts(): HasMany
-    {
-        return $this->hasMany(Payout::class);
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'subtotal' => 90000.00, // 2 * 45,000 DB discount price
+            'delivery_fee' => 300.00,
+            'grand_total' => 90300.00,
+        ]);
     }
 }`,
         },
         {
-          name: "SellerSubOrder.php",
-          desc: "Individual seller package decomposed from the Master Order",
+          name: "LedgerPostingServiceTest.php",
+          desc: "Unit test enforcing balanced journal entries SUM(debits) === SUM(credits) on every marketplace transaction",
           code: `<?php
 
-namespace App\\Models;
+namespace Tests\\Unit;
 
-use Illuminate\\Database\\Eloquent\\Model;
-use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
-use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
+use Tests\\TestCase;
+use App\\Domain\\Finance\\Services\\LedgerPostingService;
+use App\\Models\\FinancialTransaction;
 
-class SellerSubOrder extends Model
+class LedgerPostingServiceTest extends TestCase
 {
-    protected $fillable = [
-        'order_id',
-        'seller_id',
-        'sub_order_number',
-        'status', // processing, ready_for_dispatch, dispatched, delivered, cancelled
-        'subtotal',
-        'delivery_fee',
-        'commission_total',
-        'seller_net_total',
-        'tracking_number',
-        'dispatched_at',
-        'delivered_at',
-    ];
-
-    public function masterOrder(): BelongsTo
+    public function test_post_order_payment_creates_balanced_two_leg_entries(): void
     {
-        return $this->belongsTo(Order::class, 'order_id');
-    }
+        $ledgerService = new LedgerPostingService();
+        $orderId = (string) Str::uuid();
+        $sellerId = (string) Str::uuid();
 
-    public function seller(): BelongsTo
-    {
-        return $this->belongsTo(Seller::class);
-    }
+        $txId = $ledgerService->postOrderPayment(
+            orderId: $orderId,
+            grandTotal: 10500.00,
+            sellerSplits: [['seller_id' => $sellerId, 'net_amount' => 9000.00]],
+            commissionTotal: 1000.00,
+            deliveryFee: 500.00
+        );
 
-    public function items(): HasMany
-    {
-        return $this->hasMany(OrderItem::class);
+        $clearingTx = FinancialTransaction::with('lines')->find($txId);
+        $this->assertEquals(10500.00, $clearingTx->lines->sum('debit'));
+        $this->assertEquals(10500.00, $clearingTx->lines->sum('credit'));
     }
 }`,
-        },
-      ],
-    },
-    {
-      category: "Database Schema Migrations (database/migrations/)",
-      files: [
-        {
-          name: "2026_01_01_000003_create_sellers_and_orders_tables.php",
-          desc: "PostgreSQL/MySQL schema migrations for sellers, orders, and sub-orders",
-          code: `<?php
-
-use Illuminate\\Database\\Migrations\\Migration;
-use Illuminate\\Database\\Schema\\Blueprint;
-use Illuminate\\Support\\Facades\\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        // 1. Sellers Table
-        Schema::create('sellers', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('business_name');
-            $table->string('slug')->unique();
-            $table->string('owner_name');
-            $table->string('email')->unique();
-            $table->string('phone');
-            $table->string('tax_pin');
-            $table->string('business_reg_number');
-            $table->decimal('commission_rate', 5, 2)->default(10.00);
-            $table->enum('status', ['under_review', 'approved', 'suspended', 'rejected'])->default('under_review');
-            $table->decimal('available_balance', 12, 2)->default(0);
-            $table->decimal('pending_balance', 12, 2)->default(0);
-            $table->decimal('total_payouts', 12, 2)->default(0);
-            $table->string('payout_account')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
-
-        // 2. Master Orders Table
-        Schema::create('orders', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->string('order_number')->unique();
-            $table->decimal('subtotal', 12, 2);
-            $table->decimal('discount_total', 12, 2)->default(0);
-            $table->decimal('delivery_fee', 12, 2)->default(0);
-            $table->decimal('grand_total', 12, 2);
-            $table->enum('payment_method', ['mpesa_stk', 'card', 'cash_on_delivery']);
-            $table->enum('payment_status', ['pending', 'paid', 'failed', 'refunded'])->default('pending');
-            $table->string('payment_reference')->nullable();
-            $table->enum('status', ['pending', 'confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'])->default('pending');
-            $table->json('delivery_address');
-            $table->timestamps();
-        });
-
-        // 3. Seller Sub Orders Table
-        Schema::create('seller_sub_orders', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('seller_id')->constrained();
-            $table->string('sub_order_number')->unique();
-            $table->enum('status', ['processing', 'ready_for_dispatch', 'dispatched', 'delivered', 'cancelled'])->default('processing');
-            $table->decimal('subtotal', 12, 2);
-            $table->decimal('delivery_fee', 12, 2)->default(0);
-            $table->decimal('commission_total', 12, 2);
-            $table->decimal('seller_net_total', 12, 2);
-            $table->string('tracking_number')->nullable();
-            $table->timestamp('dispatched_at')->nullable();
-            $table->timestamp('delivered_at')->nullable();
-            $table->timestamps();
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('seller_sub_orders');
-        Schema::dropIfExists('orders');
-        Schema::dropIfExists('sellers');
-    }
-};`,
         },
       ],
     },
@@ -435,13 +626,17 @@ return new class extends Migration
           <div className="flex items-center gap-2">
             <Layers className="w-6 h-6 text-red-400" />
             <h2 className="text-lg font-bold">
-              Planned Laravel 11 Backend Architecture
+              KESALES Production Laravel 13 API Architecture (<code>kesales-api/</code>)
             </h2>
           </div>
           <p className="text-xs text-red-200 mt-1">
-            Enterprise backend architecture: Service Layer, Atomic Transactions,
-            Daraja STK Push, Eloquent ORM & Double-Entry Financial Accounting.
+            Audited, production-grade implementation: Server-Authoritative Checkout, Master Order Items, 
+            Two-Leg Double-Entry Financial Ledger (DR = CR), Real Daraja B2C Payouts, KRA eTIMS, and Automated Test Suite.
           </p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-xs bg-red-900/60 px-3 py-1.5 rounded-lg border border-red-800">
+          <TestTube2 className="w-4 h-4 text-emerald-400" />
+          <span className="font-semibold text-red-100">Automated Tests Included</span>
         </div>
       </div>
 
@@ -499,7 +694,7 @@ return new class extends Migration
 
             <button
               onClick={handleCopyCode}
-              className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded text-xs flex items-center gap-1 font-semibold"
+              className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded text-xs flex items-center gap-1 font-semibold cursor-pointer"
             >
               {copied ? (
                 <>

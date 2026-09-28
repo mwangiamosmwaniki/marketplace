@@ -5,92 +5,152 @@ namespace App\Actions\Orders;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\SellerOrder;
-use App\Models\InventoryItem;
-use App\Models\InventoryMovement;
+use App\Models\SellerOrderItem;
+use App\Models\ProductVariant;
+use App\Models\Coupon;
+use App\Models\DeliveryZone;
+use App\Domain\Inventory\Services\InventoryService;
 use Exception;
 
 /**
- * Atomic Multi-Vendor Order Creation & Stock Reservation
+ * Server-Authoritative Multi-Vendor Order Creation & Stock Reservation
  * 
  * Enforces:
- * 1. Database transaction + row locking on inventory_items (FOR UPDATE)
- * 2. Verification of quantity_available (quantity_on_hand - quantity_reserved)
- * 3. Master Order creation (e.g. KS-ORD-20260928-000001)
- * 4. Multi-vendor order splitting into Seller Sub-Orders (e.g. KS-SUB-20260928-000001-A)
- * 5. Inventory movement audit trail ('reservation')
+ * 1. Zero frontend trust: unit prices, discounts, commissions, delivery tariffs loaded from DB
+ * 2. Real-time verification of active merchant & product status
+ * 3. Atomic stock reservation with accurate before/after inventory movement logs
+ * 4. Master order snapshot (orders + order_items) AND tenant-partitioned sub-orders (seller_orders + seller_order_items)
+ * 5. Server-side coupon verification and delivery zone tariff lookup
  */
 class CreateOrderAction
 {
-    public function execute(string $customerId, array $cartItems, array $shippingAddress, float $countyDeliveryFee): Order
-    {
-        return DB::transaction(function () use ($customerId, $cartItems, $shippingAddress, $countyDeliveryFee) {
-            
-            // 1. Group items by Seller for multi-vendor splitting
-            $itemsBySeller = [];
-            $masterSubtotal = 0;
-            $masterCommission = 0;
+    public function __construct(
+        protected InventoryService $inventoryService
+    ) {}
 
-            foreach ($cartItems as $item) {
-                // Lock inventory row to prevent concurrent race conditions
-                $inventory = DB::table('inventory_items')
-                    ->where('variant_id', $item['variant_id'])
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$inventory) {
-                    throw new Exception("Inventory record not found for variant: {$item['variant_id']}");
-                }
-
-                $available = $inventory->quantity_on_hand - $inventory->quantity_reserved;
-                if ($available < $item['quantity']) {
-                    throw new Exception("Insufficient stock for SKU {$item['sku']}. Available: {$available}, requested: {$item['quantity']}");
-                }
-
-                // Reserve quantity
-                DB::table('inventory_items')
-                    ->where('id', $inventory->id)
-                    ->increment('quantity_reserved', $item['quantity']);
-
-                // Calculate item financials
-                $lineTotal = $item['unit_price'] * $item['quantity'];
-                $commissionRate = $item['commission_rate'] ?? 10.00;
-                $commissionAmount = round(($lineTotal * $commissionRate) / 100, 2);
-                $sellerNet = $lineTotal - $commissionAmount;
-
-                $itemsBySeller[$item['seller_id']][] = [
-                    'product_id' => $item['product_id'],
-                    'variant_id' => $item['variant_id'],
-                    'product_name' => $item['product_name'],
-                    'sku' => $item['sku'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'commission_rate' => $commissionRate,
-                    'commission_amount' => $commissionAmount,
-                    'seller_net_amount' => $sellerNet,
-                    'line_total' => $lineTotal,
-                    'inventory_id' => $inventory->id,
-                ];
-
-                $masterSubtotal += $lineTotal;
-                $masterCommission += $commissionAmount;
-            }
-
-            // 2. Generate Master Order Number
+    /**
+     * @param string $customerId
+     * @param array $items [ ['variant_id' => string, 'quantity' => int] ]
+     * @param array $shippingAddress
+     * @param string $deliveryType 'home_delivery' | 'pickup_station'
+     * @param string|null $couponCode
+     * @return Order
+     * @throws Exception
+     */
+    public function execute(
+        string $customerId,
+        array $items,
+        array $shippingAddress,
+        string $deliveryType = 'home_delivery',
+        ?string $couponCode = null
+    ): Order {
+        return DB::transaction(function () use ($customerId, $items, $shippingAddress, $deliveryType, $couponCode) {
+            $orderId = (string) Str::uuid();
             $datePrefix = date('Ymd');
             $uniqueCode = strtoupper(Str::random(6));
             $orderNumber = "KS-ORD-{$datePrefix}-{$uniqueCode}";
-            $grandTotal = $masterSubtotal + $countyDeliveryFee;
 
-            // 3. Insert Master Order Record
-            $orderId = Str::uuid()->toString();
+            $itemsBySeller = [];
+            $masterOrderItemsData = [];
+            $masterSubtotal = 0.00;
+
+            // 1. Process items with database authority
+            foreach ($items as $reqItem) {
+                $variantId = $reqItem['variant_id'];
+                $quantity = max(1, (int) $reqItem['quantity']);
+
+                $variant = ProductVariant::with(['product.seller'])->find($variantId);
+                if (!$variant) {
+                    throw new Exception("Product variant not found: {$variantId}");
+                }
+
+                $product = $variant->product;
+                if (!$product || $product->status !== 'active') {
+                    throw new Exception("Product '{$product?->name}' is not currently available for purchase.");
+                }
+
+                $seller = $product->seller;
+                if (!$seller || $seller->status !== 'approved') {
+                    throw new Exception("Merchant store '{$seller?->store_name}' is not currently accepting orders.");
+                }
+
+                // Server-derived price (respecting active discount price if set)
+                $unitPrice = (float) ($variant->discount_price ?? $variant->price);
+                $lineTotal = round($unitPrice * $quantity, 2);
+
+                // Reserve inventory atomically with accurate audit counts
+                $resLog = $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
+
+                // Commission rate from seller profile or platform default
+                $commissionRate = (float) ($seller->commission_rate ?? 10.00);
+                $commissionAmount = round(($lineTotal * $commissionRate) / 100, 2);
+                $sellerNet = round($lineTotal - $commissionAmount, 2);
+
+                $itemSnapshot = [
+                    'product_id' => $product->id,
+                    'variant_id' => $variant->id,
+                    'seller_id' => $seller->id,
+                    'product_name' => $product->name . ' - ' . $variant->name,
+                    'sku' => $variant->sku,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $lineTotal,
+                    'commission_rate' => $commissionRate,
+                    'commission_amount' => $commissionAmount,
+                    'seller_net_amount' => $sellerNet,
+                ];
+
+                $masterOrderItemsData[] = $itemSnapshot;
+                $itemsBySeller[$seller->id][] = $itemSnapshot;
+
+                $masterSubtotal += $lineTotal;
+            }
+
+            // 2. Server-calculated Delivery Fee based on shipping county & delivery type
+            $county = $shippingAddress['county'] ?? 'Nairobi';
+            $zone = DeliveryZone::where('county', $county)->first();
+            $deliveryFee = 250.00;
+            if ($zone) {
+                $deliveryFee = $deliveryType === 'pickup_station'
+                    ? (float) $zone->pickup_station_fee
+                    : (float) $zone->home_delivery_fee;
+            }
+
+            // 3. Server-validated Coupon & Discount Calculation
+            $discountTotal = 0.00;
+            if (!empty($couponCode)) {
+                $coupon = Coupon::where('code', trim($couponCode))
+                    ->where('is_active', true)
+                    ->where('expires_at', '>', now())
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($coupon && $masterSubtotal >= ($coupon->min_order_amount ?? 0)) {
+                    if ($coupon->type === 'percentage') {
+                        $discountTotal = round(($masterSubtotal * $coupon->value) / 100, 2);
+                        if ($coupon->max_discount && $discountTotal > $coupon->max_discount) {
+                            $discountTotal = (float) $coupon->max_discount;
+                        }
+                    } else {
+                        $discountTotal = min($masterSubtotal, (float) $coupon->value);
+                    }
+                    $coupon->increment('times_used');
+                }
+            }
+
+            $grandTotal = max(0.00, round($masterSubtotal - $discountTotal + $deliveryFee, 2));
+
+            // 4. Persist Master Order
             DB::table('orders')->insert([
                 'id' => $orderId,
                 'order_number' => $orderNumber,
                 'customer_id' => $customerId,
                 'currency' => 'KES',
                 'subtotal' => $masterSubtotal,
-                'delivery_fee' => $countyDeliveryFee,
+                'discount_total' => $discountTotal,
+                'delivery_fee' => $deliveryFee,
                 'tax_total' => 0.00,
                 'grand_total' => $grandTotal,
                 'status' => 'PENDING_PAYMENT',
@@ -100,9 +160,9 @@ class CreateOrderAction
                 'updated_at' => now(),
             ]);
 
-            // 4. Snapshot Shipping Address
+            // 5. Persist Shipping Address
             DB::table('order_addresses')->insert([
-                'id' => Str::uuid()->toString(),
+                'id' => (string) Str::uuid(),
                 'order_id' => $orderId,
                 'type' => 'shipping',
                 'full_name' => $shippingAddress['full_name'],
@@ -113,15 +173,34 @@ class CreateOrderAction
                 'delivery_instructions' => $shippingAddress['delivery_instructions'] ?? null,
             ]);
 
-            // 5. Create Seller Sub-Orders (Multi-Vendor Splitting)
+            // 6. Persist Master Order Items
+            foreach ($masterOrderItemsData as $mItem) {
+                DB::table('order_items')->insert([
+                    'id' => (string) Str::uuid(),
+                    'order_id' => $orderId,
+                    'product_id' => $mItem['product_id'],
+                    'variant_id' => $mItem['variant_id'],
+                    'seller_id' => $mItem['seller_id'],
+                    'product_name' => $mItem['product_name'],
+                    'sku' => $mItem['sku'],
+                    'quantity' => $mItem['quantity'],
+                    'unit_price' => $mItem['unit_price'],
+                    'discount' => 0.00,
+                    'tax' => 0.00,
+                    'line_total' => $mItem['line_total'],
+                    'created_at' => now(),
+                ]);
+            }
+
+            // 7. Persist Multi-Vendor Seller Sub-Orders & Seller Items
             $sellerIndex = 'A';
             foreach ($itemsBySeller as $sellerId => $sellerItems) {
                 $subOrderNumber = "KS-SUB-{$datePrefix}-{$uniqueCode}-{$sellerIndex}";
                 $subtotalSeller = array_sum(array_column($sellerItems, 'line_total'));
                 $commSeller = array_sum(array_column($sellerItems, 'commission_amount'));
-                $netSeller = $subtotalSeller - $commSeller;
+                $netSeller = round($subtotalSeller - $commSeller, 2);
 
-                $subOrderId = Str::uuid()->toString();
+                $subOrderId = (string) Str::uuid();
                 DB::table('seller_orders')->insert([
                     'id' => $subOrderId,
                     'order_id' => $orderId,
@@ -136,10 +215,9 @@ class CreateOrderAction
                     'created_at' => now(),
                 ]);
 
-                // Insert Sub-Order items & log inventory movement
                 foreach ($sellerItems as $sItem) {
                     DB::table('seller_order_items')->insert([
-                        'id' => Str::uuid()->toString(),
+                        'id' => (string) Str::uuid(),
                         'seller_order_id' => $subOrderId,
                         'product_id' => $sItem['product_id'],
                         'variant_id' => $sItem['variant_id'],
@@ -151,26 +229,12 @@ class CreateOrderAction
                         'commission_amount' => $sItem['commission_amount'],
                         'seller_net_amount' => $sItem['seller_net_amount'],
                     ]);
-
-                    // Audit inventory movement
-                    DB::table('inventory_movements')->insert([
-                        'id' => Str::uuid()->toString(),
-                        'inventory_item_id' => $sItem['inventory_id'],
-                        'type' => 'reservation',
-                        'quantity' => -$sItem['quantity'],
-                        'reference_type' => 'order',
-                        'reference_id' => $orderId,
-                        'before_quantity' => 0,
-                        'after_quantity' => 0,
-                        'created_by' => $customerId,
-                        'created_at' => now(),
-                    ]);
                 }
 
                 $sellerIndex = chr(ord($sellerIndex) + 1);
             }
 
-            return Order::with(['sellerOrders.items', 'address'])->findOrFail($orderId);
+            return Order::with(['items', 'sellerOrders.items', 'address'])->findOrFail($orderId);
         });
     }
 }
