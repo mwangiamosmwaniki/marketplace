@@ -43,12 +43,15 @@ async function proxyRequest(
   }
 
   try {
-    const upstream = await fetch(`${LARAVEL_API_URL}/api/v1/${path}${request.nextUrl.search}`, {
-      method,
-      headers,
-      body,
-      cache: "no-store",
-    });
+    const upstream = await fetch(
+      `${LARAVEL_API_URL}/api/v1/${path}${request.nextUrl.search}`,
+      {
+        method,
+        headers,
+        body,
+        cache: "no-store",
+      },
+    );
 
     const text = await upstream.text();
     const payload = text ? JSON.parse(text) : {};

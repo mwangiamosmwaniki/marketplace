@@ -49,7 +49,12 @@ import {
   INITIAL_RETURNS,
 } from "../data/initialData";
 import { hasPermission, isGeneralAdmin } from "../config/permissions";
-import { getCurrentUser, loginUser, logoutUser, registerUser as apiRegisterUser } from "../lib/api/auth";
+import {
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  registerUser as apiRegisterUser,
+} from "../lib/api/auth";
 
 const localStorage = {
   getItem: (key: string) =>
@@ -484,7 +489,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
     sessionStorage.setItem("kesales_auth_token", response.data.token);
     setAuthUser(user);
-    setUsers((prev) => (prev.some((item) => item.id === user.id) ? prev : [user, ...prev]));
+    setUsers((prev) =>
+      prev.some((item) => item.id === user.id) ? prev : [user, ...prev],
+    );
     return { success: true, user };
   };
 
@@ -540,7 +547,9 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
     sessionStorage.setItem("kesales_auth_token", response.data.token);
     setAuthUser(user);
-    setUsers((prev) => (prev.some((item) => item.id === user.id) ? prev : [user, ...prev]));
+    setUsers((prev) =>
+      prev.some((item) => item.id === user.id) ? prev : [user, ...prev],
+    );
     return { success: true, user };
   };
 

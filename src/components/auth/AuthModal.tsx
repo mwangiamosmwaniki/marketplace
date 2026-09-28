@@ -1,23 +1,36 @@
-import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
-import { Role } from '../../types';
-import { X, Lock, Mail, User as UserIcon, Phone, Store, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
+import { Role } from "../../types";
+import {
+  X,
+  Lock,
+  Mail,
+  User as UserIcon,
+  Phone,
+  Store,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'login' | 'register_customer' | 'register_seller';
+  defaultTab?: "login" | "register_customer" | "register_seller";
   onSuccess?: (role: Role) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  defaultTab = 'login',
+  defaultTab = "login",
   onSuccess,
 }) => {
   const { login, registerUser, users } = useMarketplace();
-  const [tab, setTab] = useState<'login' | 'register_customer' | 'register_seller'>(defaultTab);
+  const [tab, setTab] = useState<
+    "login" | "register_customer" | "register_seller"
+  >(defaultTab);
 
   React.useEffect(() => {
     if (defaultTab) {
@@ -27,11 +40,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   }, [defaultTab, isOpen]);
 
   // Form states
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [businessName, setBusinessName] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,24 +61,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (onSuccess) onSuccess(result.user.role);
         onClose();
       } else {
-        setError(result.message || 'Invalid credentials.');
+        setError(result.message || "Invalid credentials.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in.');
+      setError(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async (e: React.FormEvent, role: 'customer' | 'seller') => {
+  const handleRegister = async (
+    e: React.FormEvent,
+    role: "customer" | "seller",
+  ) => {
     e.preventDefault();
     setError(null);
     if (!fullName || !email || !phone) {
-      setError('Please fill in all required fields.');
+      setError("Please fill in all required fields.");
       return;
     }
-    if (role === 'seller' && !businessName) {
-      setError('Please enter your business or shop name.');
+    if (role === "seller" && !businessName) {
+      setError("Please enter your business or shop name.");
       return;
     }
 
@@ -76,17 +92,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         email,
         phone,
         role,
-        sellerBusinessName: role === 'seller' ? businessName : undefined,
+        sellerBusinessName: role === "seller" ? businessName : undefined,
         password,
       });
       if (result.success && result.user) {
         if (onSuccess) onSuccess(result.user.role);
         onClose();
       } else {
-        setError(result.message || 'Registration failed.');
+        setError(result.message || "Registration failed.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed.');
+      setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
       setLoading(false);
     }
@@ -103,11 +119,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-neutral-900 leading-tight">
-                {tab === 'login' && 'Sign in to KESALES'}
-                {tab === 'register_customer' && 'Create Customer Account'}
-                {tab === 'register_seller' && 'Register as KESALES Seller'}
+                {tab === "login" && "Sign in to KESALES"}
+                {tab === "register_customer" && "Create Customer Account"}
+                {tab === "register_seller" && "Register as KESALES Seller"}
               </h3>
-              <p className="text-xs text-neutral-500">Kenya's premier multi-vendor marketplace</p>
+              <p className="text-xs text-neutral-500">
+                Kenya's premier multi-vendor marketplace
+              </p>
             </div>
           </div>
           <button
@@ -122,39 +140,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="flex border-b border-neutral-200 bg-neutral-50 text-xs font-bold text-neutral-600">
           <button
             onClick={() => {
-              setTab('login');
+              setTab("login");
               setError(null);
             }}
             className={`flex-1 py-3 px-2 text-center border-b-2 transition-colors ${
-              tab === 'login'
-                ? 'border-amber-500 text-amber-900 bg-white'
-                : 'border-transparent hover:text-neutral-900'
+              tab === "login"
+                ? "border-amber-500 text-amber-900 bg-white"
+                : "border-transparent hover:text-neutral-900"
             }`}
           >
             Sign In
           </button>
           <button
             onClick={() => {
-              setTab('register_customer');
+              setTab("register_customer");
               setError(null);
             }}
             className={`flex-1 py-3 px-2 text-center border-b-2 transition-colors ${
-              tab === 'register_customer'
-                ? 'border-amber-500 text-amber-900 bg-white'
-                : 'border-transparent hover:text-neutral-900'
+              tab === "register_customer"
+                ? "border-amber-500 text-amber-900 bg-white"
+                : "border-transparent hover:text-neutral-900"
             }`}
           >
             Register
           </button>
           <button
             onClick={() => {
-              setTab('register_seller');
+              setTab("register_seller");
               setError(null);
             }}
             className={`flex-1 py-3 px-2 text-center border-b-2 transition-colors ${
-              tab === 'register_seller'
-                ? 'border-amber-500 text-amber-900 bg-white'
-                : 'border-transparent hover:text-neutral-900'
+              tab === "register_seller"
+                ? "border-amber-500 text-amber-900 bg-white"
+                : "border-transparent hover:text-neutral-900"
             }`}
           >
             Sell on KESALES
@@ -170,7 +188,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* SIGN IN FORM */}
-          {tab === 'login' && (
+          {tab === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
@@ -191,10 +209,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-neutral-700">Password</label>
+                  <label className="text-xs font-bold text-neutral-700">
+                    Password
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setError('Enter your email address and submit the form to request a password reset link.')}
+                    onClick={() =>
+                      setError(
+                        "Enter your email address and submit the form to request a password reset link.",
+                      )
+                    }
                     className="text-[11px] text-amber-600 hover:underline"
                   >
                     Forgot password?
@@ -218,18 +242,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold py-2.5 rounded-lg text-xs shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? "Authenticating..." : "Sign In"}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-
             </form>
           )}
 
           {/* REGISTER CUSTOMER */}
-          {tab === 'register_customer' && (
-            <form onSubmit={(e) => handleRegister(e, 'customer')} className="space-y-3">
+          {tab === "register_customer" && (
+            <form
+              onSubmit={(e) => handleRegister(e, "customer")}
+              className="space-y-3"
+            >
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Full Name</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Full Name
+                </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -244,7 +272,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Email Address
+                </label>
                 <div className="relative">
                   <input
                     type="email"
@@ -259,7 +289,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Phone Number (M-Pesa)</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Phone Number (M-Pesa)
+                </label>
                 <div className="relative">
                   <input
                     type="tel"
@@ -274,7 +306,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Password</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     type="password"
@@ -293,16 +327,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-600 text-neutral-950 font-bold py-2.5 rounded-lg text-xs shadow-xs transition-colors disabled:opacity-50 mt-2"
               >
-                {loading ? 'Creating Account...' : 'Complete Registration'}
+                {loading ? "Creating Account..." : "Complete Registration"}
               </button>
             </form>
           )}
 
           {/* REGISTER SELLER */}
-          {tab === 'register_seller' && (
-            <form onSubmit={(e) => handleRegister(e, 'seller')} className="space-y-3">
+          {tab === "register_seller" && (
+            <form
+              onSubmit={(e) => handleRegister(e, "seller")}
+              className="space-y-3"
+            >
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Shop / Business Name</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Shop / Business Name
+                </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -317,7 +356,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Contact Person Name</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Contact Person Name
+                </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -332,7 +373,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Business Email</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Business Email
+                </label>
                 <div className="relative">
                   <input
                     type="email"
@@ -347,7 +390,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Disbursement Phone (M-Pesa)</label>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Disbursement Phone (M-Pesa)
+                </label>
                 <div className="relative">
                   <input
                     type="tel"
@@ -366,7 +411,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Instant Verification</span>
                 </div>
-                Your merchant account will be activated with default 10% commission on orders.
+                Your merchant account will be activated with default 10%
+                commission on orders.
               </div>
 
               <button
@@ -374,7 +420,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-xs shadow-xs transition-colors disabled:opacity-50 mt-2"
               >
-                {loading ? 'Registering Store...' : 'Launch Seller Account'}
+                {loading ? "Registering Store..." : "Launch Seller Account"}
               </button>
             </form>
           )}

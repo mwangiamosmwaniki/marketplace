@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
+import React, { useState } from "react";
+import { useMarketplace } from "../../context/MarketplaceContext";
 import {
   X,
   MapPin,
@@ -13,8 +13,8 @@ import {
   FileText,
   AlertCircle,
   Smartphone,
-} from 'lucide-react';
-import { DeliveryAddress, PaymentMethod, MasterOrder } from '../../types';
+} from "lucide-react";
+import { DeliveryAddress, PaymentMethod, MasterOrder } from "../../types";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -45,42 +45,41 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Address state
   const [address, setAddress] = useState<DeliveryAddress>({
-    fullName: 'Jane Wambui',
-    phone: '+254712345678',
-    county: 'Nairobi',
-    town: 'Westlands',
-    streetAddress: 'Rhapta Road, Apartment 4B',
-    deliveryInstructions: 'Ring bell 4B or leave at reception.',
+    fullName: "Jane Wambui",
+    phone: "+254712345678",
+    county: "Nairobi",
+    town: "Westlands",
+    streetAddress: "Rhapta Road, Apartment 4B",
+    deliveryInstructions: "Ring bell 4B or leave at reception.",
   });
 
-  const [deliveryType, setDeliveryType] = useState<'home_delivery' | 'pickup_station'>(
-    'home_delivery'
-  );
+  const [deliveryType, setDeliveryType] = useState<
+    "home_delivery" | "pickup_station"
+  >("home_delivery");
 
-  const activeZone =
-    deliveryZones.find((z) => z.county === address.county) ||
-    deliveryZones[0] ||
-    {
-      county: address.county || 'Nairobi',
-      towns: [address.town || 'Nairobi'],
+  const activeZone = deliveryZones.find((z) => z.county === address.county) ||
+    deliveryZones[0] || {
+      county: address.county || "Nairobi",
+      towns: [address.town || "Nairobi"],
       homeDeliveryFee: 0,
       pickupStationFee: 0,
-      estimatedDays: '2-5 days',
+      estimatedDays: "2-5 days",
       pickupStations: [],
     };
-  const [selectedPickupStation, setSelectedPickupStation] = useState<string | undefined>(
-    activeZone.pickupStations[0],
-  );
+  const [selectedPickupStation, setSelectedPickupStation] = useState<
+    string | undefined
+  >(activeZone.pickupStations[0]);
 
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa_stk');
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("mpesa_stk");
   const [mpesaPhone, setMpesaPhone] = useState(address.phone);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
 
   // Simulated M-Pesa STK Push prompt state
   const [showMpesaPrompt, setShowMpesaPrompt] = useState(false);
-  const [mpesaPin, setMpesaPin] = useState('');
+  const [mpesaPin, setMpesaPin] = useState("");
   const [mpesaProcessing, setMpesaProcessing] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<MasterOrder | null>(null);
 
@@ -91,7 +90,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setAddress((prev) => ({
       ...prev,
       county,
-      town: zone?.towns[0] || prev.town || 'CBD',
+      town: zone?.towns[0] || prev.town || "CBD",
     }));
     if (zone && zone.pickupStations.length > 0) {
       setSelectedPickupStation(zone.pickupStations[0]);
@@ -103,7 +102,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const handleContinueToPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!address.fullName || !address.phone || !address.streetAddress) {
-      setOrderError('Please fill in all delivery details.');
+      setOrderError("Please fill in all delivery details.");
       return;
     }
     setOrderError(null);
@@ -113,7 +112,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const handleInitiatePayment = async () => {
     setOrderError(null);
 
-    if (paymentMethod === 'mpesa_stk') {
+    if (paymentMethod === "mpesa_stk") {
       // Trigger simulated interactive M-Pesa USSD STK Push prompt
       setShowMpesaPrompt(true);
       return;
@@ -129,7 +128,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const order = await createOrder({
         address,
         deliveryType,
-        pickupStation: deliveryType === 'pickup_station' ? selectedPickupStation : undefined,
+        pickupStation:
+          deliveryType === "pickup_station" ? selectedPickupStation : undefined,
         paymentMethod,
       });
 
@@ -137,7 +137,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setStep(3);
       onOrderCompleted(order);
     } catch (err: any) {
-      setOrderError(err.message || 'Failed to complete order. Please try again.');
+      setOrderError(
+        err.message || "Failed to complete order. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -145,7 +147,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleMpesaPinSubmit = async () => {
     if (mpesaPin.length < 4) {
-      setOrderError('Please enter a 4-digit M-Pesa PIN');
+      setOrderError("Please enter a 4-digit M-Pesa PIN");
       return;
     }
     setMpesaProcessing(true);
@@ -183,7 +185,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 Secure Marketplace Checkout
               </h2>
               <p className="text-[11px] text-neutral-500">
-                Step {step} of 3: {step === 1 ? 'Delivery Information' : step === 2 ? 'Payment Method' : 'Order Confirmed'}
+                Step {step} of 3:{" "}
+                {step === 1
+                  ? "Delivery Information"
+                  : step === 2
+                    ? "Payment Method"
+                    : "Order Confirmed"}
               </p>
             </div>
           </div>
@@ -214,11 +221,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div
-                    onClick={() => setDeliveryType('home_delivery')}
+                    onClick={() => setDeliveryType("home_delivery")}
                     className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
-                      deliveryType === 'home_delivery'
-                        ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-500'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      deliveryType === "home_delivery"
+                        ? "border-amber-600 bg-amber-50/60 ring-1 ring-amber-500"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs text-neutral-900 mb-1">
@@ -229,16 +236,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       Delivered directly to your residence or office.
                     </p>
                     <div className="mt-2 text-xs font-semibold text-neutral-800">
-                      Fee: {formatKSh(activeZone.homeDeliveryFee)} ({activeZone.estimatedDays})
+                      Fee: {formatKSh(activeZone.homeDeliveryFee)} (
+                      {activeZone.estimatedDays})
                     </div>
                   </div>
 
                   <div
-                    onClick={() => setDeliveryType('pickup_station')}
+                    onClick={() => setDeliveryType("pickup_station")}
                     className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
-                      deliveryType === 'pickup_station'
-                        ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-500'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      deliveryType === "pickup_station"
+                        ? "border-amber-600 bg-amber-50/60 ring-1 ring-amber-500"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs text-neutral-900 mb-1">
@@ -249,14 +257,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       Collect at a designated secure neighborhood hub.
                     </p>
                     <div className="mt-2 text-xs font-semibold text-neutral-800">
-                      Fee: {formatKSh(activeZone.pickupStationFee)} (Save KSh 150)
+                      Fee: {formatKSh(activeZone.pickupStationFee)} (Save KSh
+                      150)
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Pickup Station Dropdown if selected */}
-              {deliveryType === 'pickup_station' && (
+              {deliveryType === "pickup_station" && (
                 <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
                   <label className="block text-xs font-bold text-neutral-700 mb-1">
                     Select Convenient Pickup Hub ({address.county})
@@ -289,7 +298,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       type="text"
                       required
                       value={address.fullName}
-                      onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
+                      onChange={(e) =>
+                        setAddress({ ...address, fullName: e.target.value })
+                      }
                       className="w-full text-xs p-2 border border-neutral-300 rounded bg-white"
                     />
                   </div>
@@ -311,7 +322,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-neutral-600 mb-1">County *</label>
+                    <label className="block text-[11px] text-neutral-600 mb-1">
+                      County *
+                    </label>
                     <select
                       value={address.county}
                       onChange={(e) => handleCountyChange(e.target.value)}
@@ -326,10 +339,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-neutral-600 mb-1">Town / Area *</label>
+                    <label className="block text-[11px] text-neutral-600 mb-1">
+                      Town / Area *
+                    </label>
                     <select
                       value={address.town}
-                      onChange={(e) => setAddress({ ...address, town: e.target.value })}
+                      onChange={(e) =>
+                        setAddress({ ...address, town: e.target.value })
+                      }
                       className="w-full text-xs p-2 border border-neutral-300 rounded bg-white"
                     >
                       {activeZone.towns.map((t) => (
@@ -350,7 +367,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     required
                     placeholder="e.g. Rhapta Road, Court 3, Apt 4B"
                     value={address.streetAddress}
-                    onChange={(e) => setAddress({ ...address, streetAddress: e.target.value })}
+                    onChange={(e) =>
+                      setAddress({ ...address, streetAddress: e.target.value })
+                    }
                     className="w-full text-xs p-2 border border-neutral-300 rounded bg-white"
                   />
                 </div>
@@ -362,9 +381,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <input
                     type="text"
                     placeholder="e.g. Gate code, call when nearby"
-                    value={address.deliveryInstructions || ''}
+                    value={address.deliveryInstructions || ""}
                     onChange={(e) =>
-                      setAddress({ ...address, deliveryInstructions: e.target.value })
+                      setAddress({
+                        ...address,
+                        deliveryInstructions: e.target.value,
+                      })
                     }
                     className="w-full text-xs p-2 border border-neutral-300 rounded bg-white"
                   />
@@ -374,8 +396,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* Order Package Preview by Vendor */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
-                  3. Order Package Summary ({cartGroupedBySeller.length} Vendor Package
-                  {cartGroupedBySeller.length > 1 ? 's' : ''})
+                  3. Order Package Summary ({cartGroupedBySeller.length} Vendor
+                  Package
+                  {cartGroupedBySeller.length > 1 ? "s" : ""})
                 </label>
                 <div className="space-y-2">
                   {cartGroupedBySeller.map(({ seller, items, subtotal }) => (
@@ -389,11 +412,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           Package from {seller.businessName}
                         </span>
                         <p className="text-[11px] text-neutral-500">
-                          {items.reduce((s, i) => s + i.quantity, 0)} item(s):{' '}
-                          {items.map((i) => i.name).join(', ')}
+                          {items.reduce((s, i) => s + i.quantity, 0)} item(s):{" "}
+                          {items.map((i) => i.name).join(", ")}
                         </p>
                       </div>
-                      <span className="font-bold text-neutral-900">{formatKSh(subtotal)}</span>
+                      <span className="font-bold text-neutral-900">
+                        {formatKSh(subtotal)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -403,7 +428,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200 text-xs space-y-1.5">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-semibold">{formatKSh(cartSubtotal)}</span>
+                  <span className="font-semibold">
+                    {formatKSh(cartSubtotal)}
+                  </span>
                 </div>
                 {cartDiscount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-medium">
@@ -413,11 +440,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
                 <div className="flex justify-between">
                   <span>Delivery Fee</span>
-                  <span className="font-semibold">{formatKSh(cartDeliveryFee)}</span>
+                  <span className="font-semibold">
+                    {formatKSh(cartDeliveryFee)}
+                  </span>
                 </div>
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-baseline font-bold text-sm">
                   <span>Total Payable</span>
-                  <span className="text-amber-600 text-base">{formatKSh(cartGrandTotal)}</span>
+                  <span className="text-amber-600 text-base">
+                    {formatKSh(cartGrandTotal)}
+                  </span>
                 </div>
               </div>
 
@@ -451,11 +482,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <div className="space-y-3">
                   {/* M-Pesa STK Push */}
                   <div
-                    onClick={() => setPaymentMethod('mpesa_stk')}
+                    onClick={() => setPaymentMethod("mpesa_stk")}
                     className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      paymentMethod === 'mpesa_stk'
-                        ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-500'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      paymentMethod === "mpesa_stk"
+                        ? "border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-500"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -470,10 +501,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500 mb-3">
-                      A prompt will be sent directly to your Safaricom phone. Simply enter your M-Pesa PIN to complete payment.
+                      A prompt will be sent directly to your Safaricom phone.
+                      Simply enter your M-Pesa PIN to complete payment.
                     </p>
 
-                    {paymentMethod === 'mpesa_stk' && (
+                    {paymentMethod === "mpesa_stk" && (
                       <div className="mt-2 pt-2 border-t border-emerald-100">
                         <label className="block text-[11px] text-neutral-600 font-semibold mb-1">
                           M-Pesa Mobile Number
@@ -493,11 +525,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* Card Payment */}
                   <div
-                    onClick={() => setPaymentMethod('card')}
+                    onClick={() => setPaymentMethod("card")}
                     className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      paymentMethod === 'card'
-                        ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-500'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      paymentMethod === "card"
+                        ? "border-blue-600 bg-blue-50/50 ring-1 ring-blue-500"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -507,17 +539,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500">
-                      Encrypted 3D-Secure card processing with zero transaction fee.
+                      Encrypted 3D-Secure card processing with zero transaction
+                      fee.
                     </p>
                   </div>
 
                   {/* Cash on Delivery */}
                   <div
-                    onClick={() => setPaymentMethod('cash_on_delivery')}
+                    onClick={() => setPaymentMethod("cash_on_delivery")}
                     className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      paymentMethod === 'cash_on_delivery'
-                        ? 'border-neutral-800 bg-neutral-100 ring-1 ring-neutral-700'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      paymentMethod === "cash_on_delivery"
+                        ? "border-neutral-800 bg-neutral-100 ring-1 ring-neutral-700"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -544,7 +577,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <div className="flex justify-between text-neutral-600">
                   <span>Method:</span>
                   <span className="font-semibold text-neutral-800 capitalize">
-                    {deliveryType.replace('_', ' ')}
+                    {deliveryType.replace("_", " ")}
                   </span>
                 </div>
                 <div className="flex justify-between text-neutral-600">
@@ -576,7 +609,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold py-3 px-8 rounded-lg shadow-sm flex items-center gap-2 disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4" />
-                  {paymentMethod === 'mpesa_stk' ? 'Prompt M-Pesa Payment' : 'Complete & Pay Order'}
+                  {paymentMethod === "mpesa_stk"
+                    ? "Prompt M-Pesa Payment"
+                    : "Complete & Pay Order"}
                 </button>
               </div>
             </div>
@@ -590,10 +625,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-neutral-900">Order Confirmed!</h3>
+                <h3 className="text-xl font-bold text-neutral-900">
+                  Order Confirmed!
+                </h3>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Thank you, <span className="font-semibold">{createdOrder.customerName}</span>. Your order reference is{' '}
-                  <span className="font-mono font-bold text-neutral-800">{createdOrder.orderNumber}</span>.
+                  Thank you,{" "}
+                  <span className="font-semibold">
+                    {createdOrder.customerName}
+                  </span>
+                  . Your order reference is{" "}
+                  <span className="font-mono font-bold text-neutral-800">
+                    {createdOrder.orderNumber}
+                  </span>
+                  .
                 </p>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
                   Payment Reference: {createdOrder.paymentReference}
@@ -603,7 +647,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* Vendor Sub-Orders Transparency */}
               <div className="text-left bg-neutral-50 rounded-lg p-4 border border-neutral-200">
                 <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider mb-2">
-                  Fulfillment & Seller Sub-Orders ({createdOrder.sellerSubOrders.length})
+                  Fulfillment & Seller Sub-Orders (
+                  {createdOrder.sellerSubOrders.length})
                 </h4>
                 <div className="space-y-3">
                   {createdOrder.sellerSubOrders.map((sub) => (
@@ -623,7 +668,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="text-[11px] text-neutral-600">
                         {sub.items.map((it) => (
                           <div key={it.id}>
-                            • {it.quantity}x {it.productName} ({formatKSh(it.subtotal)})
+                            • {it.quantity}x {it.productName} (
+                            {formatKSh(it.subtotal)})
                           </div>
                         ))}
                       </div>
@@ -632,7 +678,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           Status: Processing & Packing
                         </span>
                         <span className="font-bold text-neutral-800">
-                          Package Subtotal: {formatKSh(sub.subtotal + sub.deliveryFee)}
+                          Package Subtotal:{" "}
+                          {formatKSh(sub.subtotal + sub.deliveryFee)}
                         </span>
                       </div>
                     </div>
@@ -674,8 +721,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               SIM TOOLKIT / M-PESA
             </h4>
             <p className="text-xs text-neutral-300 mb-4">
-              Do you want to pay <span className="text-white font-bold">{formatKSh(cartGrandTotal)}</span> to{' '}
-              <span className="text-emerald-300 font-bold">KESALES</span>?
+              Do you want to pay{" "}
+              <span className="text-white font-bold">
+                {formatKSh(cartGrandTotal)}
+              </span>{" "}
+              to <span className="text-emerald-300 font-bold">KESALES</span>?
             </p>
 
             <div className="bg-neutral-800 p-3 rounded-lg border border-neutral-700 mb-4 text-left font-mono text-xs text-neutral-300 space-y-1">
@@ -711,7 +761,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 disabled={mpesaProcessing}
                 className="flex-1 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center justify-center gap-1.5"
               >
-                {mpesaProcessing ? 'Verifying Callback...' : 'Send / OK'}
+                {mpesaProcessing ? "Verifying Callback..." : "Send / OK"}
               </button>
             </div>
           </div>

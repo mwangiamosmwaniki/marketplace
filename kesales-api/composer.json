@@ -2,7 +2,15 @@
   "name": "kesales/kesales-api",
   "type": "project",
   "description": "KESALES Multi-Vendor Marketplace Laravel 13 API Backend",
-  "keywords": ["laravel", "marketplace", "e-commerce", "mpesa", "etims", "daraja", "kenya"],
+  "keywords": [
+    "laravel",
+    "marketplace",
+    "e-commerce",
+    "mpesa",
+    "etims",
+    "daraja",
+    "kenya"
+  ],
   "license": "proprietary",
   "require": {
     "php": "^8.3",
