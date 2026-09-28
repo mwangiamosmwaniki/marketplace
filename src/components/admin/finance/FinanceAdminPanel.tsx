@@ -10,6 +10,7 @@ import {
 import { useMarketplace } from "../../../context/MarketplaceContext";
 import { SellerPayoutRequest } from "../../../types";
 import { FINANCE_NAV, hasPermission } from "../../../config/permissions";
+import { AnalyticsDashboardVisual } from "../../dashboard/AnalyticsDashboardVisual";
 
 export type FinanceSection = (typeof FINANCE_NAV)[number]["section"];
 
@@ -24,8 +25,12 @@ const statusClass = (status: string) => {
   return "bg-amber-100 text-amber-800";
 };
 
-export const FinanceAdminPanel: React.FC<{ section?: FinanceSection }> = ({
+export const FinanceAdminPanel: React.FC<{
+  section?: FinanceSection;
+  onNavigateSection?: (section: FinanceSection) => void;
+}> = ({
   section = "overview",
+  onNavigateSection,
 }) => {
   const {
     authUser,
@@ -93,72 +98,10 @@ export const FinanceAdminPanel: React.FC<{ section?: FinanceSection }> = ({
       </div>
 
       {section === "overview" && (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            {[
-              ["Payments received", formatKSh(paymentsReceived)],
-              ["Platform commission", formatKSh(commissions)],
-              [
-                "Seller payable",
-                formatKSh(
-                  payouts.reduce((sum, payout) => sum + payout.amount, 0),
-                ),
-              ],
-              ["Refunds", String(refundQueue.length)],
-              ["Pending reconciliation", String(exceptions.length)],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="bg-white border border-neutral-200 rounded-xl p-4"
-              >
-                <span className="text-neutral-500">{label}</span>
-                <strong className="block text-lg mt-1">{value}</strong>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white border border-neutral-200 rounded-xl p-4">
-              <h3 className="font-bold text-sm mb-3">Needs attention</h3>
-              <div className="space-y-2">
-                {[
-                  ["Payouts awaiting approval", payoutQueue.length],
-                  ["Refunds awaiting review", refundQueue.length],
-                  ["Payment exceptions", exceptions.length],
-                  ["Held settlements", 0],
-                ].map(([label, value]) => (
-                  <div
-                    key={String(label)}
-                    className="w-full flex justify-between p-3 rounded-lg bg-neutral-50"
-                  >
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-white border border-neutral-200 rounded-xl p-4">
-              <h3 className="font-bold text-sm mb-3">Finance data status</h3>
-              <div className="space-y-2 text-neutral-600">
-                <div className="flex justify-between">
-                  <span>Dataset</span>
-                  <strong className="text-neutral-900">Demo data</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Payment records</span>
-                  <strong className="text-neutral-900">{orders.length}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Journal entries</span>
-                  <strong className="text-neutral-900">{ledger.length}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Provider reconciliation</span>
-                  <strong className="text-amber-700">Not connected</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <AnalyticsDashboardVisual
+          mode="finance"
+          onNavigateTab={(tab) => onNavigateSection?.(tab as any)}
+        />
       )}
 
       {section === "payments" && (

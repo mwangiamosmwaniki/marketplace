@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
 import { useDialog } from "../../context/DialogContext";
 import { ImageUploadField } from "../ImageUploadField";
+import { AnalyticsDashboardVisual } from "../dashboard/AnalyticsDashboardVisual";
 import {
   LayoutDashboard,
   Package,
@@ -368,136 +369,11 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
 
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Gross Product Sales
-                </span>
-                <div className="text-2xl font-extrabold text-neutral-900 mt-1">
-                  {formatKSh(totalSalesRevenue)}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1 flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>
-                    Across {sellerSubOrders.length} customer shipments
-                  </span>
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Platform Commission ({currentSeller.commissionRate}%)
-                </span>
-                <div className="text-2xl font-extrabold text-amber-600 mt-1">
-                  {formatKSh(totalCommissionDeducted)}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  Calculated server-side on net vendor orders
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Pending Settlement Balance
-                </span>
-                <div className="text-2xl font-extrabold text-blue-600 mt-1">
-                  {formatKSh(currentSeller.pendingBalance)}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  Unlocks when return period lapses post-delivery
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Pending Dispatch Orders
-                </span>
-                <div className="text-2xl font-extrabold text-neutral-900 mt-1">
-                  {pendingOrdersCount}
-                </div>
-                <p className="text-[11px] text-amber-600 mt-1 font-semibold">
-                  Requires warehouse packing & handover
-                </p>
-              </div>
-            </div>
-
-            {/* Recent Orders Queue */}
-            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-              <div className="p-4 bg-neutral-50 border-b border-neutral-200 flex justify-between items-center">
-                <h3 className="font-bold text-sm text-neutral-900">
-                  Recent Sub-Orders for {currentSeller.businessName}
-                </h3>
-                <button
-                  onClick={() => setActiveTab("orders")}
-                  className="text-xs font-semibold text-amber-600 hover:text-amber-700"
-                >
-                  View all orders
-                </button>
-              </div>
-
-              <div className="divide-y divide-neutral-100">
-                {sellerSubOrders.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-neutral-500">
-                    No orders placed for this vendor yet.
-                  </div>
-                ) : (
-                  sellerSubOrders.slice(0, 5).map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="p-4 flex flex-wrap items-center justify-between gap-4 text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-neutral-900 font-mono">
-                            {sub.subOrderNumber}
-                          </span>
-                          <span
-                            className={`font-semibold px-2 py-0.5 rounded text-[10px] uppercase ${
-                              sub.status === "delivered"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : sub.status === "dispatched"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {sub.status.replace("_", " ")}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-neutral-500 mt-0.5">
-                          {sub.items.length} item(s):{" "}
-                          {sub.items.map((i) => i.productName).join(", ")}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <span className="font-bold text-neutral-900 block">
-                            Net: {formatKSh(sub.sellerNetTotal)}
-                          </span>
-                          <span className="text-[10px] text-neutral-400">
-                            (Comm: {formatKSh(sub.commissionTotal)})
-                          </span>
-                        </div>
-
-                        {sub.status === "processing" && (
-                          <button
-                            onClick={() =>
-                              updateSubOrderStatus(sub.id, "ready_for_dispatch")
-                            }
-                            className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded"
-                          >
-                            Mark Ready
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
+          <AnalyticsDashboardVisual
+            mode="seller"
+            sellerId={currentSeller.id}
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+          />
         )}
 
         {/* PRODUCTS TAB */}
