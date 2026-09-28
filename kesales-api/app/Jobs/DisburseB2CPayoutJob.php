@@ -65,6 +65,9 @@ class DisburseB2CPayoutJob implements ShouldQueue
                 $originatorConversationId = $res['OriginatorConversationID'] ?? null;
 
                 $payout->update([
+                    'provider' => 'mpesa',
+                    'provider_conversation_id' => $conversationId,
+                    'provider_request_id' => $originatorConversationId,
                     'notes' => json_encode([
                         'conversation_id' => $conversationId,
                         'originator_conversation_id' => $originatorConversationId,

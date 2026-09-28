@@ -9,6 +9,7 @@ use App\Models\InventoryMovement;
 use App\Models\SellerOrder;
 use App\Models\Payout;
 use App\Models\SellerDocument;
+use App\Domain\Settlement\Services\SellerSettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -16,6 +17,9 @@ use Illuminate\Routing\Controller as BaseController;
 
 class SellerController extends BaseController
 {
+    public function __construct(
+        protected SellerSettlementService $settlementService
+    ) {}
     protected function getSeller(Request $request)
     {
         $seller = $request->user()->seller;
@@ -239,12 +243,16 @@ class SellerController extends BaseController
     public function payouts(Request $request): JsonResponse
     {
         $seller = $this->getSeller($request);
+        $balances = $this->settlementService->calculateSellerBalances($seller->id);
         $payouts = Payout::with('items')
             ->where('seller_id', $seller->id)
             ->orderBy('requested_at', 'desc')
             ->get();
 
-        return response()->json(['payouts' => $payouts]);
+        return response()->json([
+            'balances' => $balances,
+            'payouts' => $payouts,
+        ]);
     }
 
     public function requestPayout(Request $request): JsonResponse
@@ -257,26 +265,15 @@ class SellerController extends BaseController
         ]);
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($seller, $validated) {
-            // Lock seller record to serialize concurrent payout requests
             $lockedSeller = \App\Models\Seller::where('id', $seller->id)->lockForUpdate()->first();
+            $balances = $this->settlementService->calculateSellerBalances($lockedSeller->id);
 
-            // Calculate total settled earnings
-            $totalSettledEarnings = (float) \App\Models\SellerOrder::where('seller_id', $lockedSeller->id)
-                ->where('fulfillment_status', 'delivered')
-                ->sum('seller_net_payout');
-
-            // Deduct all active payouts (pending, approved, processing, or completed)
-            $existingPayouts = (float) Payout::where('seller_id', $lockedSeller->id)
-                ->whereIn('status', ['pending', 'approved', 'processing', 'completed'])
-                ->sum('amount');
-
-            $availablePayoutBalance = max(0.00, round($totalSettledEarnings - $existingPayouts, 2));
-
-            if ($validated['amount'] > $availablePayoutBalance) {
+            $isValid = $this->settlementService->validatePayoutRequest($lockedSeller->id, (float) $validated['amount']);
+            if (!$isValid) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Requested amount (KSh {$validated['amount']}) exceeds available settled balance (KSh {$availablePayoutBalance}).",
-                    'available_balance' => $availablePayoutBalance,
+                    'message' => "Requested amount (KSh {$validated['amount']}) exceeds available settled balance (KSh {$balances['available_balance']}) or minimum payout threshold (KSh 500).",
+                    'available_balance' => $balances['available_balance'],
                 ], 422);
             }
 
@@ -293,9 +290,8 @@ class SellerController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Payout requested successfully and submitted to Finance Escrow Queue',
+                'message' => 'Payout request submitted for finance compliance review',
                 'payout' => $payout,
-                'remaining_available_balance' => round($availablePayoutBalance - $validated['amount'], 2),
             ], 201);
         });
     }

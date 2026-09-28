@@ -4,41 +4,79 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Orders\CreateOrderAction;
 use App\Models\Order;
+use App\Models\Cart;
 use App\Models\ProductVariant;
 use App\Models\DeliveryZone;
 use App\Models\Coupon;
 use App\Models\CustomerAddress;
+use App\Models\IdempotencyKey;
+use App\Domain\Tax\Services\TaxCalculationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Str;
 use Exception;
 
 class CheckoutController extends BaseController
 {
     public function __construct(
-        protected CreateOrderAction $createOrderAction
+        protected CreateOrderAction $createOrderAction,
+        protected TaxCalculationService $taxService
     ) {}
 
     /**
      * Calculate an authoritative quote without trusting any client-submitted prices or delivery rates.
+     * Supports both source: 'cart' and source: 'buy_now'.
      */
     public function calculateQuote(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.variant_id' => 'required|string|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'source' => 'nullable|in:cart,buy_now',
+            'items' => 'required_if:source,buy_now|array',
+            'items.*.variant_id' => 'required_with:items|string|exists:product_variants,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
             'county' => 'required|string',
             'delivery_type' => 'required|in:home_delivery,pickup_station',
             'coupon_code' => 'nullable|string',
         ]);
 
-        $subtotal = 0.00;
-        foreach ($validated['items'] as $item) {
-            $variant = ProductVariant::find($item['variant_id']);
-            if ($variant) {
-                $price = (float) ($variant->discount_price ?? $variant->price);
-                $subtotal += round($price * (int) $item['quantity'], 2);
+        $source = $validated['source'] ?? (!empty($validated['items']) ? 'buy_now' : 'cart');
+        $resolvedItems = [];
+
+        if ($source === 'cart') {
+            $user = $request->user();
+            $sessionId = $request->header('X-Cart-Session') ?? $request->cookie('cart_session');
+            $cart = Cart::where(function ($q) use ($user, $sessionId) {
+                if ($user) $q->where('user_id', $user->id);
+                elseif ($sessionId) $q->where('session_id', $sessionId);
+            })->with('items.variant')->first();
+
+            if (!$cart || $cart->items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cart is empty. Cannot generate checkout quote.',
+                ], 422);
+            }
+
+            foreach ($cart->items as $cItem) {
+                if ($cItem->variant) {
+                    $resolvedItems[] = [
+                        'variant_id' => $cItem->variant_id,
+                        'quantity' => $cItem->quantity,
+                        'unit_price' => (float) ($cItem->variant->discount_price ?? $cItem->variant->price),
+                    ];
+                }
+            }
+        } else {
+            foreach ($validated['items'] as $item) {
+                $variant = ProductVariant::find($item['variant_id']);
+                if ($variant) {
+                    $resolvedItems[] = [
+                        'variant_id' => $variant->id,
+                        'quantity' => (int) $item['quantity'],
+                        'unit_price' => (float) ($variant->discount_price ?? $variant->price),
+                    ];
+                }
             }
         }
 
@@ -49,6 +87,12 @@ class CheckoutController extends BaseController
             $deliveryFee = $validated['delivery_type'] === 'pickup_station' 
                 ? (float) $zone->pickup_station_fee 
                 : (float) $zone->home_delivery_fee;
+        }
+
+        // Subtotal and raw tax calculation
+        $subtotal = 0.00;
+        foreach ($resolvedItems as $rItem) {
+            $subtotal += round($rItem['unit_price'] * $rItem['quantity'], 2);
         }
 
         // Server-validated coupon discount
@@ -71,27 +115,56 @@ class CheckoutController extends BaseController
             }
         }
 
-        $grandTotal = max(0.00, round($subtotal - $discount + $deliveryFee, 2));
+        $totals = $this->taxService->calculateOrderTotals(
+            lineItems: $resolvedItems,
+            deliveryFee: $deliveryFee,
+            discount: $discount
+        );
 
         return response()->json([
             'success' => true,
-            'subtotal' => $subtotal,
-            'discount' => $discount,
-            'delivery_fee' => $deliveryFee,
-            'grand_total' => $grandTotal,
+            'source' => $source,
+            'subtotal' => (float) $totals['subtotal'],
+            'discount' => (float) $totals['discount_total'],
+            'delivery_fee' => (float) $totals['delivery_fee'],
+            'taxable_amount' => (float) $totals['taxable_total'],
+            'tax_total' => (float) $totals['tax_total'],
+            'grand_total' => (float) $totals['grand_total'],
             'currency' => 'KES',
+            'items' => $resolvedItems,
         ]);
     }
 
     /**
-     * Server-Authoritative Checkout: Only variant_id, quantity, and delivery parameters accepted.
+     * Server-Authoritative Checkout:
+     * - Idempotency-Key header support
+     * - source: 'cart' | 'buy_now'
+     * - Zero client pricing trust
      */
     public function createOrder(Request $request): JsonResponse
     {
+        $idempotencyKey = $request->header('Idempotency-Key') ?? $request->input('idempotency_key');
+        $user = $request->user();
+
+        // Check idempotency cache
+        if ($idempotencyKey && $user) {
+            $cached = IdempotencyKey::where('user_id', $user->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($cached && $cached->response_body) {
+                return response()->json(
+                    $cached->response_body,
+                    $cached->response_code ?? 200
+                )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+            }
+        }
+
         $validated = $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.variant_id' => 'required|string|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'source' => 'nullable|in:cart,buy_now',
+            'items' => 'required_if:source,buy_now|array',
+            'items.*.variant_id' => 'required_with:items|string|exists:product_variants,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
             'shipping_address_id' => 'nullable|string|exists:customer_addresses,id',
             'shipping_address' => 'required_without:shipping_address_id|array',
             'shipping_address.full_name' => 'required_without:shipping_address_id|string',
@@ -104,9 +177,31 @@ class CheckoutController extends BaseController
             'coupon_code' => 'nullable|string',
         ]);
 
+        $source = $validated['source'] ?? (!empty($validated['items']) ? 'buy_now' : 'cart');
+        $checkoutItems = [];
+
+        if ($source === 'cart') {
+            $cart = Cart::where('user_id', $user->id)->with('items.variant')->first();
+            if (!$cart || $cart->items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cart is empty. Cannot checkout from cart.',
+                ], 422);
+            }
+
+            foreach ($cart->items as $cItem) {
+                $checkoutItems[] = [
+                    'variant_id' => $cItem->variant_id,
+                    'quantity' => $cItem->quantity,
+                ];
+            }
+        } else {
+            $checkoutItems = $validated['items'];
+        }
+
         $shippingAddress = [];
         if (!empty($validated['shipping_address_id'])) {
-            $savedAddr = CustomerAddress::where('user_id', $request->user()->id)
+            $savedAddr = CustomerAddress::where('user_id', $user->id)
                 ->where('id', $validated['shipping_address_id'])
                 ->firstOrFail();
 
@@ -124,18 +219,40 @@ class CheckoutController extends BaseController
 
         try {
             $order = $this->createOrderAction->execute(
-                customerId: $request->user()->id,
-                items: $validated['items'],
+                customerId: $user->id,
+                items: $checkoutItems,
                 shippingAddress: $shippingAddress,
                 deliveryType: $validated['delivery_type'] ?? 'home_delivery',
                 couponCode: $validated['coupon_code'] ?? null
             );
 
-            return response()->json([
+            // If checked out from cart, clear cart
+            if ($source === 'cart') {
+                Cart::where('user_id', $user->id)->first()?->items()->delete();
+            }
+
+            $responsePayload = [
                 'success' => true,
                 'message' => 'Order created successfully',
                 'order' => $order,
-            ], 201);
+            ];
+
+            // Cache response for idempotency
+            if ($idempotencyKey && $user) {
+                IdempotencyKey::create([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $user->id,
+                    'idempotency_key' => $idempotencyKey,
+                    'request_path' => $request->path(),
+                    'request_hash' => md5($request->path() . '|' . json_encode($request->all())),
+                    'response_code' => 201,
+                    'response_body' => $responsePayload,
+                    'created_at' => now(),
+                    'expires_at' => now()->addHours(24),
+                ]);
+            }
+
+            return response()->json($responsePayload, 201);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -152,7 +269,6 @@ class CheckoutController extends BaseController
         $query = Order::with(['items', 'sellerOrders.items', 'address', 'payments'])
             ->where('order_number', $orderNumber);
 
-        // Enforce ownership: customer must match, or user must have admin/finance permissions
         $user = $request->user();
         if ($user) {
             $isStaff = $user->hasRole('super_admin') || $user->hasRole('finance_admin');

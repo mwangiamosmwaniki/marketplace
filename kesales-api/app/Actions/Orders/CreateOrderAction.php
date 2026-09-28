@@ -12,6 +12,7 @@ use App\Models\ProductVariant;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
 use App\Domain\Inventory\Services\InventoryService;
+use App\Domain\Tax\Services\TaxCalculationService;
 use Exception;
 
 /**
@@ -22,12 +23,13 @@ use Exception;
  * 2. Real-time verification of active merchant & product status
  * 3. Atomic stock reservation with accurate before/after inventory movement logs
  * 4. Master order snapshot (orders + order_items) AND tenant-partitioned sub-orders (seller_orders + seller_order_items)
- * 5. Server-side coupon verification and delivery zone tariff lookup
+ * 5. Authoritative Tax calculation (16% VAT standard) and per-customer coupon usage tracking
  */
 class CreateOrderAction
 {
     public function __construct(
-        protected InventoryService $inventoryService
+        protected InventoryService $inventoryService,
+        protected TaxCalculationService $taxService
     ) {}
 
     /**
@@ -54,7 +56,8 @@ class CreateOrderAction
 
             $itemsBySeller = [];
             $masterOrderItemsData = [];
-            $masterSubtotal = 0.00;
+            $masterSubtotal = '0.00';
+            $masterTaxTotal = '0.00';
 
             // 1. Process items with database authority
             foreach ($items as $reqItem) {
@@ -78,15 +81,24 @@ class CreateOrderAction
 
                 // Server-derived price (respecting active discount price if set)
                 $unitPrice = (float) ($variant->discount_price ?? $variant->price);
-                $lineTotal = round($unitPrice * $quantity, 2);
+                
+                // Authoritative line tax breakdown
+                $lineTax = $this->taxService->calculateLineTax(
+                    unitPrice: $unitPrice,
+                    quantity: $quantity,
+                    taxType: 'standard'
+                );
+
+                $lineTotal = $lineTax['line_total'];
+                $taxAmount = $lineTax['tax_amount'];
 
                 // Reserve inventory atomically with accurate audit counts
-                $resLog = $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
+                $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
 
                 // Commission rate from seller profile or platform default
                 $commissionRate = (float) ($seller->commission_rate ?? 10.00);
-                $commissionAmount = round(($lineTotal * $commissionRate) / 100, 2);
-                $sellerNet = round($lineTotal - $commissionAmount, 2);
+                $commissionAmount = number_format(($lineTotal * $commissionRate) / 100, 2, '.', '');
+                $sellerNet = number_format($lineTotal - $commissionAmount, 2, '.', '');
 
                 $itemSnapshot = [
                     'product_id' => $product->id,
@@ -96,30 +108,34 @@ class CreateOrderAction
                     'sku' => $variant->sku,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
-                    'line_total' => $lineTotal,
+                    'tax' => (float) $taxAmount,
+                    'line_total' => (float) $lineTotal,
                     'commission_rate' => $commissionRate,
-                    'commission_amount' => $commissionAmount,
-                    'seller_net_amount' => $sellerNet,
+                    'commission_amount' => (float) $commissionAmount,
+                    'seller_net_amount' => (float) $sellerNet,
                 ];
 
                 $masterOrderItemsData[] = $itemSnapshot;
                 $itemsBySeller[$seller->id][] = $itemSnapshot;
 
-                $masterSubtotal += $lineTotal;
+                $masterSubtotal = bcadd($masterSubtotal, $lineTotal, 2);
+                $masterTaxTotal = bcadd($masterTaxTotal, $taxAmount, 2);
             }
 
             // 2. Server-calculated Delivery Fee based on shipping county & delivery type
             $county = $shippingAddress['county'] ?? 'Nairobi';
             $zone = DeliveryZone::where('county', $county)->first();
-            $deliveryFee = 250.00;
+            $deliveryFee = '250.00';
             if ($zone) {
                 $deliveryFee = $deliveryType === 'pickup_station'
-                    ? (float) $zone->pickup_station_fee
-                    : (float) $zone->home_delivery_fee;
+                    ? number_format((float) $zone->pickup_station_fee, 2, '.', '')
+                    : number_format((float) $zone->home_delivery_fee, 2, '.', '');
             }
 
-            // 3. Server-validated Coupon & Discount Calculation
-            $discountTotal = 0.00;
+            // 3. Server-validated Coupon & Discount Calculation with per-customer limit
+            $discountTotal = '0.00';
+            $appliedCoupon = null;
+
             if (!empty($couponCode)) {
                 $coupon = Coupon::where('code', trim($couponCode))
                     ->where('is_active', true)
@@ -127,20 +143,34 @@ class CreateOrderAction
                     ->lockForUpdate()
                     ->first();
 
-                if ($coupon && $masterSubtotal >= ($coupon->min_order_amount ?? 0)) {
-                    if ($coupon->type === 'percentage') {
-                        $discountTotal = round(($masterSubtotal * $coupon->value) / 100, 2);
-                        if ($coupon->max_discount && $discountTotal > $coupon->max_discount) {
-                            $discountTotal = (float) $coupon->max_discount;
+                if ($coupon && (float) $masterSubtotal >= (float) ($coupon->min_order_amount ?? 0)) {
+                    // Check per-customer usage limit
+                    $existingUses = DB::table('coupon_usages')
+                        ->where('coupon_id', $coupon->id)
+                        ->where('user_id', $customerId)
+                        ->count();
+
+                    if ($existingUses < ($coupon->per_customer_limit ?? 1)) {
+                        if ($coupon->type === 'percentage') {
+                            $discount = number_format(((float) $masterSubtotal * (float) $coupon->value) / 100, 2, '.', '');
+                            if ($coupon->max_discount && (float) $discount > (float) $coupon->max_discount) {
+                                $discount = number_format((float) $coupon->max_discount, 2, '.', '');
+                            }
+                            $discountTotal = $discount;
+                        } else {
+                            $discountTotal = number_format(min((float) $masterSubtotal, (float) $coupon->value), 2, '.', '');
                         }
-                    } else {
-                        $discountTotal = min($masterSubtotal, (float) $coupon->value);
+
+                        $coupon->increment('times_used');
+                        $appliedCoupon = $coupon;
                     }
-                    $coupon->increment('times_used');
                 }
             }
 
-            $grandTotal = max(0.00, round($masterSubtotal - $discountTotal + $deliveryFee, 2));
+            $grandTotal = bcadd(bcsub($masterSubtotal, $discountTotal, 2), $deliveryFee, 2);
+            if (bccomp($grandTotal, '0.00', 2) < 0) {
+                $grandTotal = '0.00';
+            }
 
             // 4. Persist Master Order
             DB::table('orders')->insert([
@@ -148,11 +178,11 @@ class CreateOrderAction
                 'order_number' => $orderNumber,
                 'customer_id' => $customerId,
                 'currency' => 'KES',
-                'subtotal' => $masterSubtotal,
-                'discount_total' => $discountTotal,
-                'delivery_fee' => $deliveryFee,
-                'tax_total' => 0.00,
-                'grand_total' => $grandTotal,
+                'subtotal' => (float) $masterSubtotal,
+                'discount_total' => (float) $discountTotal,
+                'delivery_fee' => (float) $deliveryFee,
+                'tax_total' => (float) $masterTaxTotal,
+                'grand_total' => (float) $grandTotal,
                 'status' => 'PENDING_PAYMENT',
                 'payment_status' => 'pending',
                 'placed_at' => now(),
@@ -160,7 +190,18 @@ class CreateOrderAction
                 'updated_at' => now(),
             ]);
 
-            // 5. Persist Shipping Address
+            // 5. Persist Coupon Usage if coupon was applied
+            if ($appliedCoupon) {
+                DB::table('coupon_usages')->insert([
+                    'id' => (string) Str::uuid(),
+                    'coupon_id' => $appliedCoupon->id,
+                    'user_id' => $customerId,
+                    'order_id' => $orderId,
+                    'used_at' => now(),
+                ]);
+            }
+
+            // 6. Persist Shipping Address
             DB::table('order_addresses')->insert([
                 'id' => (string) Str::uuid(),
                 'order_id' => $orderId,
@@ -173,7 +214,7 @@ class CreateOrderAction
                 'delivery_instructions' => $shippingAddress['delivery_instructions'] ?? null,
             ]);
 
-            // 6. Persist Master Order Items
+            // 7. Persist Master Order Items
             foreach ($masterOrderItemsData as $mItem) {
                 DB::table('order_items')->insert([
                     'id' => (string) Str::uuid(),
@@ -186,13 +227,13 @@ class CreateOrderAction
                     'quantity' => $mItem['quantity'],
                     'unit_price' => $mItem['unit_price'],
                     'discount' => 0.00,
-                    'tax' => 0.00,
+                    'tax' => $mItem['tax'],
                     'line_total' => $mItem['line_total'],
                     'created_at' => now(),
                 ]);
             }
 
-            // 7. Persist Multi-Vendor Seller Sub-Orders & Seller Items
+            // 8. Persist Multi-Vendor Seller Sub-Orders & Seller Items
             $sellerIndex = 'A';
             foreach ($itemsBySeller as $sellerId => $sellerItems) {
                 $subOrderNumber = "KS-SUB-{$datePrefix}-{$uniqueCode}-{$sellerIndex}";

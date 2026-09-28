@@ -13,6 +13,8 @@ use App\Jobs\DisburseB2CPayoutJob;
 use App\Domain\Finance\Services\LedgerPostingService;
 use App\Domain\Finance\Services\ReconciliationService;
 use App\Domain\Finance\Services\FinanceReportService;
+use App\Domain\Finance\Services\RefundProcessorService;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -24,7 +26,8 @@ class FinanceController extends BaseController
     public function __construct(
         protected LedgerPostingService $ledgerService,
         protected ReconciliationService $reconciliationService,
-        protected FinanceReportService $reportService
+        protected FinanceReportService $reportService,
+        protected RefundProcessorService $refundProcessor
     ) {}
 
     public function overviewMetrics(): JsonResponse
@@ -78,12 +81,65 @@ class FinanceController extends BaseController
 
     public function reconcilePayment(Request $request, string $paymentId): JsonResponse
     {
-        $payment = Payment::findOrFail($paymentId);
+        $validated = $request->validate([
+            'provider_transaction_id' => 'required|string|min:6',
+            'reason' => 'required|string|min:10',
+            'evidence_reference' => 'nullable|string',
+        ]);
+
+        $payment = Payment::with('order.sellerOrders')->findOrFail($paymentId);
+        $oldValues = $payment->toArray();
+
         $payment->status = 'paid';
+        $payment->provider_transaction_id = $validated['provider_transaction_id'];
         $payment->paid_at = now();
         $payment->save();
 
-        return response()->json(['message' => 'Payment reconciled manually', 'payment' => $payment]);
+        // Audit this sensitive financial override
+        AuditService::log(
+            action: 'manual_payment_reconciliation',
+            module: 'finance',
+            entityType: 'payment',
+            entityId: $payment->id,
+            oldValues: ['status' => $oldValues['status']],
+            newValues: [
+                'status' => 'paid',
+                'provider_transaction_id' => $validated['provider_transaction_id'],
+                'reason' => $validated['reason'],
+                'evidence' => $validated['evidence_reference'] ?? null,
+            ],
+            actorId: $request->user()->id
+        );
+
+        // Ensure order is updated and posted to ledger if not previously posted
+        if ($payment->order && $payment->order->payment_status !== 'paid') {
+            $payment->order->update([
+                'status' => 'PAYMENT_CONFIRMED',
+                'payment_status' => 'paid',
+            ]);
+
+            $sellerSplits = [];
+            foreach ($payment->order->sellerOrders as $so) {
+                $sellerSplits[] = [
+                    'seller_id' => $so->seller_id,
+                    'net_amount' => (float) $so->seller_net_payout,
+                ];
+            }
+
+            $this->ledgerService->postOrderPayment(
+                orderId: $payment->order->id,
+                grandTotal: (float) $payment->order->grand_total,
+                sellerSplits: $sellerSplits,
+                commissionTotal: (float) $payment->order->sellerOrders->sum('commission_total'),
+                deliveryFee: (float) $payment->order->delivery_fee
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment reconciled manually with full audit trail',
+            'payment' => $payment,
+        ]);
     }
 
     public function refunds(Request $request): JsonResponse
@@ -102,6 +158,15 @@ class FinanceController extends BaseController
         $refund->approved_by = $request->user()->id;
         $refund->save();
 
+        AuditService::log(
+            action: 'approve_refund',
+            module: 'finance',
+            entityType: 'refund',
+            entityId: $refund->id,
+            newValues: ['approved_by' => $request->user()->id, 'amount' => $refund->amount],
+            actorId: $request->user()->id
+        );
+
         return response()->json(['message' => 'Refund approved', 'refund' => $refund]);
     }
 
@@ -116,24 +181,19 @@ class FinanceController extends BaseController
 
     public function processRefundPayout(Request $request, string $refundId): JsonResponse
     {
-        $refund = Refund::findOrFail($refundId);
-        
         try {
-            $this->ledgerService->postCustomerRefund(
-                refundId: $refund->id,
-                orderId: $refund->order_id,
-                amount: (float) $refund->amount,
-                customerId: $refund->customer_id
-            );
+            $result = $this->refundProcessor->processRefund($refundId);
+            return response()->json([
+                'success' => true,
+                'message' => 'Refund payout processed through payment gateway and general ledger.',
+                'result' => $result,
+            ]);
         } catch (Exception $e) {
-            return response()->json(['message' => 'Ledger refund posting error: ' . $e->getMessage()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Refund payout processing error: ' . $e->getMessage(),
+            ], 422);
         }
-
-        $refund->status = 'completed';
-        $refund->completed_at = now();
-        $refund->save();
-
-        return response()->json(['message' => 'Refund processed and ledger updated', 'refund' => $refund]);
     }
 
     public function payouts(Request $request): JsonResponse

@@ -178,9 +178,10 @@ class MpesaWebhookController extends BaseController
         $resultCode = $result['ResultCode'] ?? 1;
         $transactionId = $result['TransactionID'] ?? null;
 
-        $payout = Payout::where('id', $conversationId)
+        $payout = Payout::where('provider_conversation_id', $conversationId)
+            ->orWhere('provider_request_id', $originatorConversationId)
+            ->orWhere('id', $conversationId)
             ->orWhere('payout_number', $conversationId)
-            ->orWhere('payout_number', $originatorConversationId)
             ->first();
 
         if ($payout) {
@@ -200,6 +201,7 @@ class MpesaWebhookController extends BaseController
 
                     $lockedPayout->update([
                         'status' => 'completed',
+                        'provider_transaction_id' => $transactionId,
                         'completed_at' => now(),
                     ]);
                 } else {
@@ -216,11 +218,34 @@ class MpesaWebhookController extends BaseController
 
     public function handleB2cTimeout(Request $request): JsonResponse
     {
+        $conversationId = $request->input('ConversationID') ?? $request->input('Result.ConversationID');
+        if ($conversationId) {
+            $payout = Payout::where('provider_conversation_id', $conversationId)
+                ->orWhere('provider_request_id', $conversationId)
+                ->first();
+            if ($payout && $payout->status === 'processing') {
+                $payout->update([
+                    'status' => 'timeout_pending_reconciliation',
+                    'failure_reason' => 'Safaricom B2C queue timeout; queued for automatic transaction query.',
+                ]);
+            }
+        }
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Timeout Logged']);
     }
 
     public function handleTransactionStatus(Request $request): JsonResponse
     {
+        $result = $request->input('Result', []);
+        $transId = $result['TransactionID'] ?? null;
+        $resultCode = $result['ResultCode'] ?? 1;
+
+        if ($transId && $resultCode === 0) {
+            Payment::where('provider_transaction_id', $transId)->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+            ]);
+        }
+
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Status Callback Handled']);
     }
 }

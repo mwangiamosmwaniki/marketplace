@@ -69,15 +69,14 @@ class CartController extends BaseController
     public function addItem(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'product_id' => 'required|string|exists:products,id',
             'variant_id' => 'required|string|exists:product_variants,id',
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $variant = ProductVariant::findOrFail($validated['variant_id']);
+        $variant = ProductVariant::with('product')->findOrFail($validated['variant_id']);
         $cart = $this->resolveCart($request);
 
-        // Server-resolved price
+        // Server-resolved non-authoritative snapshot price
         $price = (float) ($variant->discount_price ?? $variant->price);
 
         $item = CartItem::where('cart_id', $cart->id)
@@ -86,16 +85,16 @@ class CartController extends BaseController
 
         if ($item) {
             $item->increment('quantity', $validated['quantity']);
-            $item->unit_price = $price;
+            $item->unit_price = $price; // Informational snapshot only
             $item->save();
         } else {
             $item = CartItem::create([
                 'id' => (string) Str::uuid(),
                 'cart_id' => $cart->id,
-                'product_id' => $validated['product_id'],
+                'product_id' => $variant->product_id, // Authoritatively derived from variant
                 'variant_id' => $variant->id,
                 'quantity' => $validated['quantity'],
-                'unit_price' => $price,
+                'unit_price' => $price, // Informational snapshot only
             ]);
         }
 
