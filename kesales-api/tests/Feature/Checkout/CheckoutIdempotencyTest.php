@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class CheckoutIdempotencyTest extends TestCase
 {
+    private const CHECKOUT_PATH = '/api/v1/checkout';
+
     public function test_duplicate_idempotency_key_does_not_create_duplicate_order(): void
     {
         $user = $this->authenticateCustomer();
@@ -89,22 +91,21 @@ class CheckoutIdempotencyTest extends TestCase
 
         // First checkout request
         $res1 = $this->withHeaders(['Idempotency-Key' => $idempotencyKey])
-            ->postJson('/api/v1/checkout', $payload);
+            ->postJson(self::CHECKOUT_PATH, $payload);
         $res1->assertStatus(201);
-        $order1Id = $res1->json('order.id');
 
         // Second duplicate request (e.g. user retrying on flaky connection)
         $res2 = $this->withHeaders(['Idempotency-Key' => $idempotencyKey])
-            ->postJson('/api/v1/checkout', $payload);
+            ->postJson(self::CHECKOUT_PATH, $payload);
         $res2->assertStatus(201);
         $res2->assertHeader('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
 
         $changedPayload = $payload;
         $changedPayload['shipping_address']['town'] = 'Kilimani';
         $this->withHeaders(['Idempotency-Key' => $idempotencyKey])
-            ->postJson('/api/v1/checkout', $changedPayload)
-            ->assertStatus(409)
-            ->assertJsonPath('error.code', 'IDEMPOTENCY_KEY_REUSED');
+            ->postJson(self::CHECKOUT_PATH, $changedPayload)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD');
 
         // Only ONE order was created in DB
         $orderCount = Order::where('customer_id', $user->id)->count();

@@ -9,12 +9,10 @@ use App\Models\ProductVariant;
 use App\Models\DeliveryZone;
 use App\Models\Coupon;
 use App\Models\CustomerAddress;
-use App\Models\IdempotencyKey;
 use App\Domain\Tax\Services\TaxCalculationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -144,46 +142,7 @@ class CheckoutController extends BaseController
      */
     public function createOrder(Request $request): JsonResponse
     {
-        $idempotencyKey = $request->header('Idempotency-Key') ?? $request->input('idempotency_key');
         $user = $request->user();
-        $requestHash = null;
-
-        if ($idempotencyKey !== null) {
-            if (!is_string($idempotencyKey) || strlen($idempotencyKey) > 255) {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
-                        'code' => 'INVALID_IDEMPOTENCY_KEY',
-                        'message' => 'Idempotency-Key must be a string no longer than 255 characters.',
-                    ],
-                ], 422);
-            }
-
-            $requestHash = hash('sha256', $request->path().'|'.json_encode(
-                $request->except('idempotency_key'),
-                JSON_THROW_ON_ERROR
-            ));
-
-            $cached = IdempotencyKey::where('user_id', $user->id)
-                ->where('idempotency_key', $idempotencyKey)
-                ->where('request_path', $request->path())
-                ->first();
-
-            if ($cached) {
-                if (!hash_equals($cached->request_hash, $requestHash)) {
-                    return $this->idempotencyConflict('IDEMPOTENCY_KEY_REUSED');
-                }
-
-                if ($cached->response_body !== null) {
-                    return response()->json(
-                        $cached->response_body,
-                        $cached->response_code ?? 200
-                    )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
-                }
-
-                return $this->idempotencyConflict('IDEMPOTENCY_REQUEST_IN_PROGRESS');
-            }
-        }
 
         $validated = $request->validate([
             'source' => 'nullable|in:cart,buy_now',
@@ -242,39 +201,7 @@ class CheckoutController extends BaseController
             $shippingAddress = $validated['shipping_address'];
         }
 
-        if ($idempotencyKey !== null) {
-            $claimed = DB::table('idempotency_keys')->insertOrIgnore([
-                'id' => (string) Str::uuid(),
-                'user_id' => $user->id,
-                'idempotency_key' => $idempotencyKey,
-                'request_path' => $request->path(),
-                'request_hash' => $requestHash,
-                'response_code' => null,
-                'response_body' => null,
-                'created_at' => now(),
-                'expires_at' => now()->addHours(24),
-            ]);
-
-            if ($claimed !== 1) {
-                $existing = IdempotencyKey::where('user_id', $user->id)
-                    ->where('idempotency_key', $idempotencyKey)
-                    ->where('request_path', $request->path())
-                    ->first();
-
-                if ($existing && hash_equals($existing->request_hash, $requestHash) && $existing->response_body !== null) {
-                    return response()->json(
-                        $existing->response_body,
-                        $existing->response_code ?? 200
-                    )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
-                }
-
-                return $this->idempotencyConflict(
-                    $existing && !hash_equals($existing->request_hash, $requestHash)
-                        ? 'IDEMPOTENCY_KEY_REUSED'
-                        : 'IDEMPOTENCY_REQUEST_IN_PROGRESS'
-                );
-            }
-        }
+        $idempotencyRecordId = $request->attributes->get('idempotency_key_record_id');
 
         try {
             $responsePayload = DB::transaction(function () use (
@@ -283,9 +210,7 @@ class CheckoutController extends BaseController
                 $shippingAddress,
                 $validated,
                 $source,
-                $idempotencyKey,
-                $requestHash,
-                $request
+                $idempotencyRecordId
             ) {
                 $order = $this->createOrderAction->execute(
                     customerId: $user->id,
@@ -305,11 +230,10 @@ class CheckoutController extends BaseController
                     'order' => $order,
                 ];
 
-                if ($idempotencyKey !== null) {
-                    IdempotencyKey::where('user_id', $user->id)
-                        ->where('idempotency_key', $idempotencyKey)
-                        ->where('request_path', $request->path())
-                        ->where('request_hash', $requestHash)
+                if ($idempotencyRecordId !== null) {
+                    DB::table('idempotency_keys')
+                        ->where('id', $idempotencyRecordId)
+                        ->whereNull('response_body')
                         ->update([
                             'response_code' => 201,
                             'response_body' => json_encode($responsePayload, JSON_THROW_ON_ERROR),
@@ -321,14 +245,6 @@ class CheckoutController extends BaseController
 
             return response()->json($responsePayload, 201);
         } catch (Throwable) {
-            if ($idempotencyKey !== null) {
-                IdempotencyKey::where('user_id', $user->id)
-                    ->where('idempotency_key', $idempotencyKey)
-                    ->where('request_path', $request->path())
-                    ->whereNull('response_body')
-                    ->delete();
-            }
-
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -337,19 +253,6 @@ class CheckoutController extends BaseController
                 ],
             ], 422);
         }
-    }
-
-    private function idempotencyConflict(string $code): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'error' => [
-                'code' => $code,
-                'message' => $code === 'IDEMPOTENCY_KEY_REUSED'
-                    ? 'This idempotency key was already used with a different request.'
-                    : 'A request using this idempotency key is already in progress.',
-            ],
-        ], 409);
     }
 
     /**
