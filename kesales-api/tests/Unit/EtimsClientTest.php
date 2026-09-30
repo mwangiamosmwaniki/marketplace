@@ -17,6 +17,15 @@ use Illuminate\Support\Str;
 
 class EtimsClientTest extends TestCase
 {
+    public function test_etims_inclusive_vat_breakdown_uses_decimal_safe_math(): void
+    {
+        $breakdown = EtimsClient::calculateInclusiveVatBreakdown('10.00', 3);
+
+        $this->assertSame('30.00', $breakdown['line_total']);
+        $this->assertSame('25.86', $breakdown['taxable_amount']);
+        $this->assertSame('4.14', $breakdown['vat_amount']);
+    }
+
     public function test_etims_vat_breakdown_and_sandbox_submission(): void
     {
         $orderId = (string) Str::uuid();

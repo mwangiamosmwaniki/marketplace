@@ -287,17 +287,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     window.addEventListener("kesales:unauthorized", handleUnauthorized);
 
     const restoreSession = async () => {
-      const token = sessionStorage.getItem("kesales_auth_token");
-      if (!token) {
-        setAuthUser(null);
-        return;
-      }
-
       const response = await getCurrentUser();
       if (!response.success || !response.data?.user) {
-        if (response.error?.status === 401) {
-          sessionStorage.removeItem("kesales_auth_token");
-        }
         setAuthUser(null);
         return;
       }
@@ -448,7 +439,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const response = await loginUser({ email, password });
-    if (!response.success || !response.data?.token || !response.data?.user) {
+    if (!response.success || !response.data?.user) {
       return {
         success: false,
         message: response.error?.message || "Invalid email or password.",
@@ -466,7 +457,6 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: response.data.user.created_at || new Date().toISOString(),
     };
 
-    sessionStorage.setItem("kesales_auth_token", response.data.token);
     setAuthUser(user);
     setUsers((prev) =>
       prev.some((item) => item.id === user.id) ? prev : [user, ...prev],
@@ -475,11 +465,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const logout = async () => {
-    const token = sessionStorage.getItem("kesales_auth_token");
-    if (token) {
-      await logoutUser();
-    }
-    sessionStorage.removeItem("kesales_auth_token");
+    await logoutUser();
     setAuthUser(null);
   };
 
@@ -506,7 +492,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       role: userData.role,
     });
 
-    if (!response.success || !response.data?.token || !response.data?.user) {
+    if (!response.success || !response.data?.user) {
       return {
         success: false,
         message: response.error?.message || "Registration failed.",
@@ -524,7 +510,6 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: response.data.user.created_at || new Date().toISOString(),
     };
 
-    sessionStorage.setItem("kesales_auth_token", response.data.token);
     setAuthUser(user);
     setUsers((prev) =>
       prev.some((item) => item.id === user.id) ? prev : [user, ...prev],

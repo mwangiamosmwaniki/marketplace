@@ -49,6 +49,20 @@ class Payout extends Model
         'provider_completed_at' => 'datetime',
     ];
 
+    public function canTransitionTo(string $targetStatus): bool
+    {
+        $allowed = [
+            'pending' => ['approved','processing','failed'],
+            'approved' => ['processing','failed','timeout_pending_reconciliation'],
+            'processing' => ['completed','failed','timeout_pending_reconciliation'],
+            'timeout_pending_reconciliation' => ['completed','failed','processing'],
+            'completed' => [],
+            'failed' => [],
+        ];
+
+        return in_array($targetStatus, $allowed[$this->status] ?? [], true);
+    }
+
     public function seller()
     {
         return $this->belongsTo(Seller::class, 'seller_id');

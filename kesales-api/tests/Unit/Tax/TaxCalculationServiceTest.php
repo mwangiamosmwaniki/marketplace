@@ -3,6 +3,7 @@
 namespace Tests\Unit\Tax;
 
 use Tests\TestCase;
+use App\Domain\Pricing\Services\OrderPricingService;
 use App\Domain\Tax\Services\TaxCalculationService;
 
 class TaxCalculationServiceTest extends TestCase
@@ -69,6 +70,28 @@ class TaxCalculationServiceTest extends TestCase
         $this->assertSame('450.00', $totals['zero_rated_total']);
         $this->assertSame('270.00', $totals['exempt_total']);
         $this->assertSame('1764.00', $totals['grand_total']);
+    }
+
+    public function test_order_pricing_service_uses_one_authoritative_calculation_path(): void
+    {
+        $pricing = new OrderPricingService();
+
+        $totals = $pricing->calculate(
+            [
+                ['unit_price' => '1160.00', 'quantity' => 2, 'tax_type' => 'standard'],
+                ['unit_price' => '500.00', 'quantity' => 1, 'tax_type' => 'zero_rated'],
+                ['unit_price' => '300.00', 'quantity' => 1, 'tax_type' => 'exempt'],
+            ],
+            '300.00',
+            '200.00'
+        );
+
+        $this->assertSame('3120.00', $totals['subtotal']);
+        $this->assertSame('200.00', $totals['discount_total']);
+        $this->assertSame('300.00', $totals['delivery_fee']);
+        $this->assertSame('2339.74', $totals['taxable_total']);
+        $this->assertSame('299.49', $totals['tax_total']);
+        $this->assertSame('3220.00', $totals['grand_total']);
     }
 
     public function test_percentage_discount_uses_decimal_arithmetic_and_caps_the_result(): void

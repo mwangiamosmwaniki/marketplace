@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controller as BaseController;
 
@@ -38,13 +39,15 @@ class AuthController extends BaseController
             $user->roles()->attach($role->id);
         }
 
-        $token = $user->createToken('auth-token', ['*'], now()->addHours(12))->plainTextToken;
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+        $request->session()->save();
+        Cookie::queue(Cookie::make(config('session.cookie'), session()->getId(), 60 * 12, '/', null, app()->isProduction(), true, false, 'Lax'));
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
             'user' => $user->load('roles'),
-            'token' => $token,
         ], 201);
     }
 
@@ -70,13 +73,15 @@ class AuthController extends BaseController
         }
 
         $user->update(['last_login_at' => now()]);
-        $token = $user->createToken('auth-token', ['*'], now()->addHours(12))->plainTextToken;
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+        $request->session()->save();
+        Cookie::queue(Cookie::make(config('session.cookie'), session()->getId(), 60 * 12, '/', null, app()->isProduction(), true, false, 'Lax'));
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
             'user' => $user->load('roles'),
-            'token' => $token,
         ]);
     }
 
@@ -90,7 +95,10 @@ class AuthController extends BaseController
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        Cookie::queue(Cookie::forget(config('session.cookie')));
 
         return response()->json([
             'success' => true,

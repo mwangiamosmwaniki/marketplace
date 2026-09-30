@@ -112,4 +112,12 @@ class InventoryServiceTest extends TestCase
             ->first();
         $this->assertNotNull($movement);
     }
+
+    public function test_commit_stock_sale_rejects_quantities_larger_than_reserved_or_on_hand(): void
+    {
+        $this->expectException(Exception::class);
+
+        $inventory = $this->createInventory(5, 2, 0);
+        $this->inventoryService->commitStockSale($inventory->variant_id, 10, (string) Str::uuid());
+    }
 }

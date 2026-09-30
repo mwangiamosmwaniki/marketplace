@@ -129,6 +129,101 @@ class MpesaWebhookTest extends TestCase
         $this->assertSame(1, FinancialTransaction::where('reference_id', $payout->id)->count());
     }
 
+    public function test_terminal_payout_and_refund_statuses_ignore_late_provider_success_callbacks(): void
+    {
+        $sellerUser = User::factory()->create();
+        $seller = Seller::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
+            'store_name' => 'Rejected B2C',
+            'slug' => 'rejected-b2c',
+            'legal_name' => 'Rejected B2C Limited',
+            'status' => 'approved',
+        ]);
+        $payout = Payout::create([
+            'id' => (string) Str::uuid(),
+            'payout_number' => 'PAY-TERMINAL-FAILURE',
+            'seller_id' => $seller->id,
+            'amount' => '500.00',
+            'currency' => 'KES',
+            'method' => 'mpesa_b2c',
+            'status' => 'failed',
+            'provider' => 'mpesa',
+            'provider_conversation_id' => 'AG_PAYOUT_TERMINAL',
+            'provider_request_id' => 'OR_PAYOUT_TERMINAL',
+            'provider_status' => 'failed',
+        ]);
+
+        $customer = User::factory()->create();
+        $order = Order::create([
+            'id' => (string) Str::uuid(),
+            'order_number' => 'KS-ORD-TERMINAL-FAILURE',
+            'customer_id' => $customer->id,
+            'currency' => 'KES',
+            'subtotal' => '1200.00',
+            'discount_total' => '0.00',
+            'delivery_fee' => '0.00',
+            'tax_total' => '165.52',
+            'grand_total' => '1200.00',
+            'status' => 'PAYMENT_CONFIRMED',
+            'payment_status' => 'paid',
+        ]);
+        $payment = Payment::create([
+            'id' => (string) Str::uuid(),
+            'payment_number' => 'PAY-TERMINAL-FAILURE',
+            'order_id' => $order->id,
+            'customer_id' => $customer->id,
+            'provider' => 'mpesa',
+            'method' => 'stk_push',
+            'amount' => '1200.00',
+            'currency' => 'KES',
+            'status' => 'paid',
+            'provider_transaction_id' => 'PAYMENTRECEIPTFAILURE',
+        ]);
+        $refund = Refund::create([
+            'id' => (string) Str::uuid(),
+            'refund_number' => 'REF-TERMINAL-FAILURE',
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'customer_id' => $customer->id,
+            'amount' => '250.00',
+            'reason' => 'Terminal rejection test',
+            'status' => 'completed',
+            'requested_by' => $customer->id,
+            'provider_conversation_id' => 'REF_AG_002',
+            'provider_request_id' => 'REF_OR_002',
+            'provider_status' => 'completed',
+        ]);
+
+        $payoutResponse = $this->postJson('/webhooks/mpesa/b2c-result', [
+            'Result' => [
+                'ConversationID' => 'AG_PAYOUT_TERMINAL',
+                'OriginatorConversationID' => 'OR_PAYOUT_TERMINAL',
+                'ResultCode' => 0,
+                'ResultDesc' => 'Late success callback',
+                'TransactionID' => 'PAYOUTTERMINAL123',
+            ],
+        ]);
+        $payoutResponse->assertOk();
+
+        $refundResponse = $this->postJson('/webhooks/mpesa/b2c-result', [
+            'Result' => [
+                'ConversationID' => 'REF_AG_002',
+                'OriginatorConversationID' => 'REF_OR_002',
+                'ResultCode' => 0,
+                'ResultDesc' => 'Late refund success callback',
+                'TransactionID' => 'REFUNDTERMINAL123',
+            ],
+        ]);
+        $refundResponse->assertOk();
+
+        $payout->refresh();
+        $refund->refresh();
+
+        $this->assertSame('failed', $payout->status);
+        $this->assertSame('completed', $refund->status);
+    }
+
     public function test_refund_result_persists_provider_lifecycle_and_ignores_duplicate_success(): void
     {
         $customer = User::factory()->create();

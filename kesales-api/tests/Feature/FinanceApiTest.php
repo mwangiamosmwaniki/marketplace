@@ -160,6 +160,30 @@ class FinanceApiTest extends TestCase
         ]);
     }
 
+    public function test_finance_reports_export_requires_valid_contract_and_metadata(): void
+    {
+        $this->authenticateFinanceAdmin();
+
+        $invalid = $this->postJson('/api/v1/finance/reports/export', [
+            'report_type' => 'invalid_type',
+            'format' => 'csv',
+        ]);
+        $invalid->assertStatus(422);
+
+        $valid = $this->postJson('/api/v1/finance/reports/export', [
+            'report_type' => 'financial_summary',
+            'format' => 'json',
+            'date_from' => now()->subDays(7)->toDateString(),
+            'date_to' => now()->toDateString(),
+            'include_zero_rows' => true,
+        ]);
+
+        $valid->assertStatus(202)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('report.report_type', 'financial_summary')
+            ->assertJsonPath('report.format', 'json');
+    }
+
     public function test_sandbox_refund_without_gateway_credentials_never_posts_refund_ledger(): void
     {
         config([

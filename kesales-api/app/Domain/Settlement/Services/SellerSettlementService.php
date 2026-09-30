@@ -23,6 +23,36 @@ class SellerSettlementService
     /**
      * Compute current balances for a seller.
      */
+    public function reserveAvailableBalanceForPayout(string $sellerId, string $requestedAmount): bool
+    {
+        if (!is_numeric($requestedAmount) || bccomp($requestedAmount, '0.00', 2) <= 0) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($sellerId, $requestedAmount) {
+            $seller = Seller::where('id', $sellerId)->lockForUpdate()->firstOrFail();
+            if ($seller->status !== 'approved') {
+                return false;
+            }
+
+            $balances = $this->calculateSellerBalances($sellerId);
+            if (bccomp($balances['available_balance'], $requestedAmount, 2) < 0) {
+                return false;
+            }
+
+            $existingReservation = (string) DB::table('payouts')
+                ->where('seller_id', $sellerId)
+                ->whereIn('status', ['pending', 'approved', 'processing', 'held', 'timeout_pending_reconciliation'])
+                ->sum('amount');
+
+            if (bccomp(bcadd($existingReservation, $requestedAmount, 2), $balances['eligible_settlement_total'], 2) > 0) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
     public function calculateSellerBalances(string $sellerId): array
     {
         $seller = Seller::findOrFail($sellerId);
@@ -115,6 +145,6 @@ class SellerSettlementService
             return false;
         }
 
-        return bccomp($balances['available_balance'], $requestedAmount, 2) >= 0;
+        return $this->reserveAvailableBalanceForPayout($sellerId, $requestedAmount);
     }
 }

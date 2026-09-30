@@ -44,6 +44,22 @@ class Refund extends Model
         'provider_completed_at' => 'datetime',
     ];
 
+    public function canTransitionTo(string $targetStatus): bool
+    {
+        $allowed = [
+            'requested' => ['approved','failed'],
+            'approved' => ['processing','provider_pending','failed'],
+            'processing' => ['provider_pending','failed','timeout_pending_reconciliation'],
+            'provider_pending' => ['completed','failed','timeout_pending_reconciliation'],
+            'timeout_pending_reconciliation' => ['completed','failed','provider_pending'],
+            'completed' => [],
+            'failed' => [],
+            'rejected' => [],
+        ];
+
+        return in_array($targetStatus, $allowed[$this->status] ?? [], true);
+    }
+
     public function order()
     {
         return $this->belongsTo(Order::class, 'order_id');

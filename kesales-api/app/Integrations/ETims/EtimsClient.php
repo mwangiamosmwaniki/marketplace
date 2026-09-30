@@ -21,6 +21,34 @@ class EtimsClient
     protected string $authKey;
     protected string $issuerType;
 
+    public static function calculateInclusiveVatBreakdown(string $unitPrice, int $quantity): array
+    {
+        $unitPrice = self::normalizeMoney($unitPrice);
+        $lineTotal = bcmul($unitPrice, (string) $quantity, 8);
+        $taxableAmount = self::roundMoney(bcdiv($lineTotal, '1.16', 8));
+        $vatAmount = self::roundMoney(bcsub($lineTotal, $taxableAmount, 2));
+
+        return [
+            'line_total' => self::roundMoney($lineTotal),
+            'taxable_amount' => $taxableAmount,
+            'vat_amount' => $vatAmount,
+        ];
+    }
+
+    protected static function normalizeMoney(string $amount): string
+    {
+        if (!is_numeric($amount)) {
+            throw new InvalidArgumentException('Monetary values must be numeric.');
+        }
+
+        return (string) $amount;
+    }
+
+    protected static function roundMoney(string $amount): string
+    {
+        return bcadd($amount, '0.00', 2);
+    }
+
     public function __construct()
     {
         $this->baseUrl = config('kesales.etims.base_url', 'https://etims-api.kra.go.ke');
@@ -47,27 +75,23 @@ class EtimsClient
             ->where('so.order_id', $orderId)
             ->get();
 
-        $totalTaxable = 0;
-        $totalVat = 0;
+        $totalTaxable = '0.00';
+        $totalVat = '0.00';
         $itemList = [];
 
         foreach ($items as $idx => $item) {
-            $lineTotal = (float) $item->unit_price * $item->quantity;
-            // Standard Kenya VAT: 16% inclusive
-            $netTaxable = round($lineTotal / 1.16, 2);
-            $vat = round($lineTotal - $netTaxable, 2);
-
-            $totalTaxable += $netTaxable;
-            $totalVat += $vat;
+            $breakdown = self::calculateInclusiveVatBreakdown((string) $item->unit_price, (int) $item->quantity);
+            $totalTaxable = self::roundMoney(bcadd($totalTaxable, $breakdown['taxable_amount'], 2));
+            $totalVat = self::roundMoney(bcadd($totalVat, $breakdown['vat_amount'], 2));
 
             $itemList[] = [
                 'itemSeq' => $idx + 1,
                 'itemCd' => $item->sku,
                 'itemNm' => $item->product_name,
                 'qty' => $item->quantity,
-                'prc' => (float) $item->unit_price,
-                'splyAmt' => $netTaxable,
-                'vatAmt' => $vat,
+                'prc' => (float) (string) $item->unit_price,
+                'splyAmt' => (float) $breakdown['taxable_amount'],
+                'vatAmt' => (float) $breakdown['vat_amount'],
                 'taxTyCd' => 'B', // 16% Standard VAT in KRA tax classification
             ];
         }
@@ -89,10 +113,10 @@ class EtimsClient
             'salesHms' => date('His'),
             'totItemCnt' => count($itemList),
             'taxblAmtA' => 0,
-            'taxblAmtB' => $totalTaxable,
-            'taxAmtB' => $totalVat,
-            'totTaxAmt' => $totalVat,
-            'totAmt' => (float) $order->grand_total,
+            'taxblAmtB' => (float) $totalTaxable,
+            'taxAmtB' => (float) $totalVat,
+            'totTaxAmt' => (float) $totalVat,
+            'totAmt' => (float) (string) $order->grand_total,
             'itemList' => $itemList,
         ];
 
@@ -174,8 +198,8 @@ class EtimsClient
             'success' => true,
             'invoice_number' => $invoiceNumber,
             'qr_code_url' => $simulatedQrUrl,
-            'total_vat' => $totalVat,
-            'taxable_amount' => $totalTaxable,
+            'total_vat' => (float) $totalVat,
+            'taxable_amount' => (float) $totalTaxable,
             'status' => 'submitted',
             'simulated' => true,
         ];

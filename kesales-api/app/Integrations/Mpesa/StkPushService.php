@@ -185,20 +185,18 @@ class StkPushService
                 DB::table('mpesa_transactions')
                     ->where('id', $mpesaTx->id)
                     ->update([
-                        'mpesa_receipt_number' => $receipt,
                         'result_code' => $resultCode,
                         'result_description' => $resultDesc,
                         'transaction_date' => now(),
                         'raw_response' => json_encode($body),
-                        'processed_at' => now(),
                     ]);
 
                 if (!$receipt || !$paidAmount) {
                     throw new \UnexpectedValueException('Successful STK callback is missing receipt or amount metadata.');
                 }
 
-                $this->paymentSettlementService->settleSuccessfulPayment(
-                    paymentId: (string) $mpesaTx->payment_id,
+                $this->paymentSettlementService->settleProviderCallback(
+                    mpesaTransactionId: (string) $mpesaTx->id,
                     providerTransactionId: (string) $receipt,
                     providerAmount: $paidAmount
                 );

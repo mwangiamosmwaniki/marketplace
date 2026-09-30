@@ -97,6 +97,10 @@ class InventoryService
      */
     public function commitStockSale(string $variantId, int $quantity, string $orderId, ?string $actorId = null): void
     {
+        if ($quantity < 0) {
+            throw new Exception("Stock sale quantity cannot be negative for variant ID: {$variantId}");
+        }
+
         $item = InventoryItem::where('variant_id', $variantId)
             ->lockForUpdate()
             ->first();
@@ -105,11 +109,15 @@ class InventoryService
             return;
         }
 
+        if ($quantity > $item->quantity_reserved || $quantity > $item->quantity_on_hand) {
+            throw new Exception("Cannot commit sale of {$quantity} units for variant ID: {$variantId}. Reserved: {$item->quantity_reserved}, On hand: {$item->quantity_on_hand}");
+        }
+
         $beforeOnHand = $item->quantity_on_hand;
-        $afterOnHand = max(0, $beforeOnHand - $quantity);
+        $afterOnHand = $beforeOnHand - $quantity;
 
         $beforeReserved = $item->quantity_reserved;
-        $afterReserved = max(0, $beforeReserved - $quantity);
+        $afterReserved = $beforeReserved - $quantity;
 
         $item->quantity_on_hand = $afterOnHand;
         $item->quantity_reserved = $afterReserved;

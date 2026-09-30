@@ -23,6 +23,7 @@ class Coupon extends Model
         'usage_limit',
         'per_customer_limit',
         'times_used',
+        'funding',
         'is_active',
     ];
 
@@ -33,7 +34,18 @@ class Coupon extends Model
         'usage_limit' => 'integer',
         'per_customer_limit' => 'integer',
         'times_used' => 'integer',
+        'funding' => 'string',
         'is_active' => 'boolean',
         'expires_at' => 'datetime',
     ];
+
+    public function isPlatformFunded(): bool
+    {
+        return strtolower((string) ($this->funding ?? 'platform')) === 'platform';
+    }
+
+    public function isSellerFunded(): bool
+    {
+        return strtolower((string) ($this->funding ?? 'platform')) === 'seller';
+    }
 }

@@ -9,7 +9,7 @@ use App\Models\ProductVariant;
 use App\Models\DeliveryZone;
 use App\Models\Coupon;
 use App\Models\CustomerAddress;
-use App\Domain\Tax\Services\TaxCalculationService;
+use App\Domain\Pricing\Services\OrderPricingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
@@ -20,7 +20,7 @@ class CheckoutController extends BaseController
 {
     public function __construct(
         protected CreateOrderAction $createOrderAction,
-        protected TaxCalculationService $taxService
+        protected OrderPricingService $pricingService
     ) {}
 
     /**
@@ -96,11 +96,20 @@ class CheckoutController extends BaseController
             );
         }
 
-        $baseTotals = $this->taxService->calculateOrderTotals($resolvedItems, $deliveryFee);
+        $baseTotals = $this->pricingService->calculate($resolvedItems, $deliveryFee);
         $subtotal = $baseTotals['subtotal'];
 
         // Server-validated coupon discount
         $discount = '0.00';
+        $couponFunding = 'platform';
+        $discountBreakdown = [
+            'coupon_funding' => 'platform',
+            'gross_merchandise_value' => $subtotal,
+            'platform_discount' => '0.00',
+            'seller_discount' => '0.00',
+            'net_merchandise_value' => $subtotal,
+        ];
+
         if (!empty($validated['coupon_code'])) {
             $coupon = Coupon::where('code', trim($validated['coupon_code']))
                 ->where('is_active', true)
@@ -123,7 +132,7 @@ class CheckoutController extends BaseController
                 (string) $coupon->getRawOriginal('min_order_amount'),
                 2
             ) >= 0) {
-                $discount = $this->taxService->calculateDiscount(
+                $discount = $this->pricingService->calculateDiscount(
                     $subtotal,
                     $coupon->type,
                     (string) $coupon->getRawOriginal('value'),
@@ -131,10 +140,16 @@ class CheckoutController extends BaseController
                         ? null
                         : (string) $coupon->getRawOriginal('max_discount')
                 );
+                $couponFunding = $this->pricingService->resolveCouponFunding($coupon->funding ?? 'platform');
+                $discountBreakdown = $this->pricingService->calculateCouponFundingBreakdown(
+                    grossMerchandiseValue: $subtotal,
+                    discountTotal: $discount,
+                    funding: $couponFunding
+                );
             }
         }
 
-        $totals = $this->taxService->calculateOrderTotals(
+        $totals = $this->pricingService->calculate(
             lineItems: $resolvedItems,
             deliveryFee: $deliveryFee,
             discount: $discount
@@ -149,6 +164,8 @@ class CheckoutController extends BaseController
             'taxable_amount' => $totals['taxable_total'],
             'tax_total' => $totals['tax_total'],
             'grand_total' => $totals['grand_total'],
+            'coupon_funding' => $couponFunding,
+            'discount_breakdown' => $discountBreakdown,
             'currency' => 'KES',
             'items' => array_map(
                 fn (array $item, array $pricedLine) => [

@@ -82,6 +82,74 @@ class CheckoutApiTest extends TestCase
         ]);
     }
 
+    public function test_quote_exposes_explicit_coupon_funding_breakdown(): void
+    {
+        $sellerUser = User::factory()->create();
+        $seller = Seller::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
+            'store_name' => 'Coupon Funding Seller',
+            'slug' => 'coupon-funding-seller',
+            'legal_name' => 'Coupon Funding Seller Limited',
+            'status' => 'approved',
+            'commission_rate' => 10.00,
+        ]);
+        $category = Category::create(['name' => 'Kettles', 'slug' => 'kettles-coupon-funding']);
+        $product = Product::create([
+            'id' => (string) Str::uuid(),
+            'seller_id' => $seller->id,
+            'category_id' => $category->id,
+            'name' => 'Electric Kettle',
+            'slug' => 'electric-kettle-coupon-funding',
+            'sku' => 'KETTLE-COUPON-FUNDING',
+            'description' => 'Coupon funding test product.',
+            'status' => 'active',
+        ]);
+        $variant = ProductVariant::create([
+            'id' => (string) Str::uuid(),
+            'product_id' => $product->id,
+            'name' => 'Silver',
+            'sku' => 'KETTLE-COUPON-SILVER',
+            'price' => 12000.00,
+        ]);
+
+        DeliveryZone::create([
+            'id' => (string) Str::uuid(),
+            'county' => 'Nairobi',
+            'towns' => json_encode(['Nairobi']),
+            'home_delivery_fee' => 350.00,
+            'pickup_station_fee' => 200.00,
+            'estimated_days' => '1-2 days',
+        ]);
+
+        Coupon::create([
+            'id' => (string) Str::uuid(),
+            'code' => 'PLATFORMPROMO',
+            'type' => 'fixed',
+            'value' => 1000.00,
+            'min_order_amount' => 10000.00,
+            'max_discount' => null,
+            'usage_limit' => 1,
+            'per_customer_limit' => 1,
+            'expires_at' => now()->addDay(),
+            'funding' => 'platform',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/v1/checkout/quote', [
+            'items' => [['variant_id' => $variant->id, 'quantity' => 1]],
+            'county' => 'Nairobi',
+            'delivery_type' => 'home_delivery',
+            'coupon_code' => 'PLATFORMPROMO',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertSame('platform', $response->json('coupon_funding'));
+        $this->assertSame('1000.00', $response->json('discount_breakdown.platform_discount'));
+        $this->assertSame('0.00', $response->json('discount_breakdown.seller_discount'));
+        $this->assertSame('11000.00', $response->json('discount_breakdown.net_merchandise_value'));
+    }
+
     public function test_create_order_persists_master_order_and_master_order_items(): void
     {
         $user = $this->authenticateCustomer();

@@ -191,8 +191,9 @@ class MpesaWebhookController extends BaseController
         if ($payout) {
             DB::transaction(function () use ($payout, $resultCode, $result, $transactionId) {
                 $lockedPayout = Payout::where('id', $payout->id)->lockForUpdate()->first();
-                if ($lockedPayout->status === 'completed') {
-                    return; // Already finalized
+                $targetStatus = ((int) $resultCode === 0 && $transactionId) ? 'completed' : 'failed';
+                if (!$lockedPayout->canTransitionTo($targetStatus)) {
+                    return;
                 }
 
                 $providerResult = [
@@ -201,7 +202,7 @@ class MpesaWebhookController extends BaseController
                     'provider_completed_at' => now(),
                 ];
 
-                if ((int) $resultCode === 0 && $transactionId) {
+                if ($targetStatus === 'completed') {
                     // 1. Post to double-entry general ledger upon confirmed Safaricom disbursement
                     $this->ledgerService->postSellerPayout(
                         payoutId: $lockedPayout->id,
@@ -242,7 +243,8 @@ class MpesaWebhookController extends BaseController
             if ($refund) {
                 DB::transaction(function () use ($refund, $resultCode, $result, $transactionId) {
                     $lockedRefund = Refund::where('id', $refund->id)->lockForUpdate()->first();
-                    if ($lockedRefund->status === 'completed') {
+                    $targetStatus = ((int) $resultCode === 0 && $transactionId) ? 'completed' : 'failed';
+                    if (!$lockedRefund->canTransitionTo($targetStatus)) {
                         return;
                     }
 
@@ -252,7 +254,7 @@ class MpesaWebhookController extends BaseController
                         'provider_completed_at' => now(),
                     ];
 
-                    if ((int) $resultCode === 0 && $transactionId) {
+                    if ($targetStatus === 'completed') {
                         $this->ledgerService->postCustomerRefund(
                             refundId: $lockedRefund->id,
                             orderId: $lockedRefund->order_id,

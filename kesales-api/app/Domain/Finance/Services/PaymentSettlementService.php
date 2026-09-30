@@ -41,6 +41,29 @@ class PaymentSettlementService
         });
     }
 
+    public function settleProviderCallback(string $mpesaTransactionId, string $providerTransactionId, string $providerAmount): array
+    {
+        $mpesaTx = DB::table('mpesa_transactions')
+            ->where('id', $mpesaTransactionId)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$mpesaTx) {
+            throw new InvalidArgumentException('The M-Pesa provider transaction could not be located.');
+        }
+
+        $result = $this->settleSuccessfulPayment((string) $mpesaTx->payment_id, $providerTransactionId, $providerAmount);
+
+        DB::table('mpesa_transactions')
+            ->where('id', $mpesaTransactionId)
+            ->update([
+                'mpesa_receipt_number' => $providerTransactionId,
+                'processed_at' => now(),
+            ]);
+
+        return $result;
+    }
+
     protected function assertValidProviderInput(string $providerTransactionId, string $providerAmount): void
     {
         if ($providerTransactionId === '' || !is_numeric($providerAmount)) {

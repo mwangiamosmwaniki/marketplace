@@ -44,14 +44,6 @@ export async function apiRequest<T = unknown>(
     Accept: "application/json",
     "X-Request-ID": getRequestId(),
   });
-  const token =
-    typeof window === "undefined"
-      ? null
-      : sessionStorage.getItem("kesales_auth_token");
-
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
   const isFormData =
     typeof FormData !== "undefined" && body instanceof FormData;
@@ -69,7 +61,7 @@ export async function apiRequest<T = unknown>(
             ? body
             : JSON.stringify(body)
           : undefined,
-      credentials: "omit",
+      credentials: "include",
     });
 
     const text = await response.text();
@@ -90,7 +82,6 @@ export async function apiRequest<T = unknown>(
 
     if (!response.ok) {
       if (response.status === 401 && typeof window !== "undefined") {
-        sessionStorage.removeItem("kesales_auth_token");
         window.dispatchEvent(new Event("kesales:unauthorized"));
       }
 

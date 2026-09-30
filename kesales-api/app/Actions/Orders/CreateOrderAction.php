@@ -12,7 +12,7 @@ use App\Models\ProductVariant;
 use App\Models\Coupon;
 use App\Models\DeliveryZone;
 use App\Domain\Inventory\Services\InventoryService;
-use App\Domain\Tax\Services\TaxCalculationService;
+use App\Domain\Pricing\Services\OrderPricingService;
 use Exception;
 
 /**
@@ -29,7 +29,7 @@ class CreateOrderAction
 {
     public function __construct(
         protected InventoryService $inventoryService,
-        protected TaxCalculationService $taxService
+        protected OrderPricingService $pricingService
     ) {}
 
     /**
@@ -155,7 +155,7 @@ class CreateOrderAction
                     $perCustomerLimit = (int) $coupon->per_customer_limit;
 
                     if ($hasGlobalCapacity && $existingUses < $perCustomerLimit) {
-                        $discountTotal = $this->taxService->calculateDiscount(
+                        $discountTotal = $this->pricingService->calculateDiscount(
                             $masterSubtotal,
                             $coupon->type,
                             (string) $coupon->getRawOriginal('value'),
@@ -170,7 +170,7 @@ class CreateOrderAction
                 }
             }
 
-            $pricing = $this->taxService->calculateOrderTotals(
+            $pricing = $this->pricingService->calculate(
                 lineItems: array_map(
                     fn (array $item) => [
                         'unit_price' => $item['unit_price'],
@@ -196,7 +196,7 @@ class CreateOrderAction
                 $itemSnapshot['net_line_total'] = $pricedLine['net_line_total'];
 
                 // Existing generic coupons are platform-funded, so commission remains on gross item value.
-                $itemSnapshot['commission_amount'] = $this->taxService->calculatePercentageAmount(
+                $itemSnapshot['commission_amount'] = $this->pricingService->calculatePercentageAmount(
                     $itemSnapshot['line_total'],
                     $itemSnapshot['commission_rate']
                 );
