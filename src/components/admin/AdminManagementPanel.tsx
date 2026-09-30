@@ -148,6 +148,9 @@ export const AdminManagementPanel: React.FC<{
     status: "active" as User["status"],
   });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  // These are UI/session defaults only. Platform governance, role policies,
+  // and notification state must ultimately be sourced from Laravel-backed
+  // admin APIs rather than browser storage.
   const [platformFlags, setPlatformFlags] = useState<Record<string, boolean>>({
     sellerRegistration: true,
     customerRegistration: true,
@@ -263,12 +266,10 @@ export const AdminManagementPanel: React.FC<{
   const setFlag = (key: string, value: boolean) => {
     const next = { ...platformFlags, [key]: value };
     setPlatformFlags(next);
-    localStorage.setItem("kesales_feature_flags", JSON.stringify(next));
   };
   const setChannel = (key: string, value: boolean) => {
     const next = { ...notificationChannels, [key]: value };
     setNotificationChannels(next);
-    localStorage.setItem("kesales_notification_channels", JSON.stringify(next));
   };
   const saveRole = (event: React.FormEvent) => {
     event.preventDefault();
@@ -291,16 +292,11 @@ export const AdminManagementPanel: React.FC<{
         },
       };
       setRoleOverrides(nextOverrides);
-      localStorage.setItem(
-        "kesales_role_overrides",
-        JSON.stringify(nextOverrides),
-      );
     } else {
       const next = editingRoleId
         ? customRoles.map((item) => (item.id === editingRoleId ? role : item))
         : [role, ...customRoles];
       setCustomRoles(next);
-      localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
     }
     setEditingRoleId(null);
     setShowRoleForm(false);
@@ -321,7 +317,6 @@ export const AdminManagementPanel: React.FC<{
     if (!(await confirm(`Delete the ${role.label} role?`))) return;
     const next = customRoles.filter((item) => item.id !== role.id);
     setCustomRoles(next);
-    localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
   };
   const deleteDirectoryRole = async (role: (typeof directoryRoles)[number]) => {
     if (users.some((user) => user.role === role.value)) {
@@ -332,7 +327,6 @@ export const AdminManagementPanel: React.FC<{
     if (role.system) {
       const next = [...deletedRoleIds, role.value];
       setDeletedRoleIds(next);
-      localStorage.setItem("kesales_deleted_roles", JSON.stringify(next));
     } else {
       await deleteRole({
         id: role.value,
@@ -352,7 +346,6 @@ export const AdminManagementPanel: React.FC<{
       item.id === role.id ? { ...item, enabled: !item.enabled } : item,
     );
     setCustomRoles(next);
-    localStorage.setItem("kesales_custom_roles", JSON.stringify(next));
   };
 
   return (

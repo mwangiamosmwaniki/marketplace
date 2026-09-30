@@ -278,6 +278,10 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [authUser, setAuthUser] = useState<User | null>(null);
 
+  // This provider is intentionally a UI/session orchestration layer. Business
+  // records such as products, orders, payouts, and settings are cached here for
+  // rendering convenience, but the authoritative source remains the Laravel API.
+
   useEffect(() => {
     const handleUnauthorized = () => setAuthUser(null);
     window.addEventListener("kesales:unauthorized", handleUnauthorized);
