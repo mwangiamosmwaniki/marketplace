@@ -136,6 +136,27 @@ class CheckoutApiTest extends TestCase
             'estimated_days' => '1-2 days',
         ]);
 
+        Coupon::create([
+            'id' => (string) Str::uuid(),
+            'code' => 'TAXDISCOUNT',
+            'type' => 'fixed',
+            'value' => 1000.00,
+            'min_order_amount' => 0.00,
+            'max_discount' => null,
+            'usage_limit' => 1,
+            'per_customer_limit' => 1,
+            'expires_at' => now()->addDay(),
+            'is_active' => true,
+        ]);
+
+        $quote = $this->postJson('/api/v1/checkout/quote', [
+            'items' => [['variant_id' => $variant->id, 'quantity' => 1]],
+            'county' => 'Kiambu',
+            'delivery_type' => 'home_delivery',
+            'coupon_code' => 'TAXDISCOUNT',
+        ]);
+        $quote->assertStatus(200);
+
         $response = $this->postJson('/api/v1/checkout', [
             'items' => [
                 [
@@ -151,18 +172,26 @@ class CheckoutApiTest extends TestCase
                 'street_address' => 'Kenyatta Highway Plaza Suite 4',
             ],
             'delivery_type' => 'home_delivery',
+            'coupon_code' => 'TAXDISCOUNT',
         ]);
 
         $response->assertStatus(201);
         $orderData = $response->json('order');
+
+        $this->assertSame(0, bccomp((string) $quote->json('grand_total'), (string) $orderData['grand_total'], 2));
+        $this->assertSame(0, bccomp((string) $quote->json('tax_total'), (string) $orderData['tax_total'], 2));
+        $this->assertSame('1000.00', $quote->json('items.0.discount'));
+        $this->assertSame('11000.00', $quote->json('items.0.net_line_total'));
 
         // Check Master Order exists
         $this->assertDatabaseHas('orders', [
             'id' => $orderData['id'],
             'customer_id' => $user->id,
             'subtotal' => 12000.00,
+            'discount_total' => 1000.00,
             'delivery_fee' => 350.00,
-            'grand_total' => 12350.00,
+            'tax_total' => $quote->json('tax_total'),
+            'grand_total' => $quote->json('grand_total'),
             'status' => 'PENDING_PAYMENT',
         ]);
 
@@ -171,8 +200,19 @@ class CheckoutApiTest extends TestCase
             'order_id' => $orderData['id'],
             'variant_id' => $variant->id,
             'unit_price' => 12000.00,
+            'discount' => 1000.00,
+            'net_line_total' => 11000.00,
             'quantity' => 1,
         ]);
+
+        $quoteAfterCouponUse = $this->postJson('/api/v1/checkout/quote', [
+            'items' => [['variant_id' => $variant->id, 'quantity' => 1]],
+            'county' => 'Kiambu',
+            'delivery_type' => 'home_delivery',
+            'coupon_code' => 'TAXDISCOUNT',
+        ]);
+        $quoteAfterCouponUse->assertStatus(200);
+        $this->assertSame('0.00', $quoteAfterCouponUse->json('discount'));
 
         // Seller Sub-Orders and items must also exist
         $this->assertDatabaseHas('seller_orders', [

@@ -25,15 +25,20 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'discount',
+        'tax_type',
+        'taxable_amount',
         'tax',
+        'net_line_total',
         'line_total',
     ];
 
     protected $casts = [
-        'unit_price' => 'float',
-        'discount' => 'float',
-        'tax' => 'float',
-        'line_total' => 'float',
+        'unit_price' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'taxable_amount' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'net_line_total' => 'decimal:2',
+        'line_total' => 'decimal:2',
         'quantity' => 'integer',
     ];
 

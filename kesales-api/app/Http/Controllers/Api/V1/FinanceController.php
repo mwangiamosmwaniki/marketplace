@@ -232,10 +232,23 @@ class FinanceController extends BaseController
             'lines.*.seller_id' => 'nullable|string',
         ]);
 
-        $debits = array_sum(array_column($validated['lines'], 'debit'));
-        $credits = array_sum(array_column($validated['lines'], 'credit'));
+        $debits = '0.00';
+        $credits = '0.00';
+        foreach ($validated['lines'] as $line) {
+            $debit = (string) $line['debit'];
+            $credit = (string) $line['credit'];
+            if (bccomp($debit, '0.00', 2) < 0 || bccomp($credit, '0.00', 2) < 0
+                || (bccomp($debit, '0.00', 2) > 0 && bccomp($credit, '0.00', 2) > 0)
+                || (bccomp($debit, '0.00', 2) === 0 && bccomp($credit, '0.00', 2) === 0)) {
+                return response()->json([
+                    'message' => 'Each journal line must contain exactly one positive debit or credit.',
+                ], 422);
+            }
+            $debits = bcadd($debits, $debit, 2);
+            $credits = bcadd($credits, $credit, 2);
+        }
 
-        if (round($debits, 2) !== round($credits, 2)) {
+        if (bccomp($debits, $credits, 2) !== 0) {
             return response()->json([
                 'message' => "Unbalanced journal adjustment. Debits ({$debits}) must equal Credits ({$credits}).",
             ], 422);

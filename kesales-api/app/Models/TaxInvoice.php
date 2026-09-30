@@ -30,9 +30,9 @@ class TaxInvoice extends Model
     ];
 
     protected $casts = [
-        'taxable_amount' => 'float',
-        'vat_amount' => 'float',
-        'total_amount' => 'float',
+        'taxable_amount' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
         'issued_at' => 'datetime',
         'submitted_at' => 'datetime',
     ];

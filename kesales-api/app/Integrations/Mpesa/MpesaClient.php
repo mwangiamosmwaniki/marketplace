@@ -81,11 +81,15 @@ class MpesaClient
      */
     public function sendB2cPayment(
         string $phone,
-        float $amount,
+        string $amount,
         string $remarks,
         string $occasion = 'Seller Payout',
         string $commandId = 'BusinessPayment'
     ): array {
+        if (!is_numeric($amount) || bccomp($amount, bcadd($amount, '0', 0), 2) !== 0) {
+            throw new \InvalidArgumentException('M-Pesa B2C payments must be whole-shilling amounts.');
+        }
+
         $formattedPhone = preg_replace('/^(?:\+?254|0)?/', '254', trim($phone));
         $token = $this->getAccessToken();
 
@@ -93,7 +97,7 @@ class MpesaClient
             'InitiatorName' => $this->b2cInitiator,
             'SecurityCredential' => $this->b2cSecurityCredential,
             'CommandID' => $commandId,
-            'Amount' => (int) round($amount),
+            'Amount' => (int) $amount,
             'PartyA' => $this->b2cShortcode,
             'PartyB' => $formattedPhone,
             'Remarks' => substr($remarks, 0, 100),

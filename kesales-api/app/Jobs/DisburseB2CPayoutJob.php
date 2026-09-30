@@ -72,10 +72,15 @@ class DisburseB2CPayoutJob implements ShouldQueue
                 throw new RuntimeException('M-Pesa B2C credentials are not configured.');
             }
 
+            $amount = (string) $payout->getRawOriginal('amount');
+            if (!is_numeric($amount) || bccomp($amount, bcadd($amount, '0', 0), 2) !== 0) {
+                throw new RuntimeException('M-Pesa B2C payouts must be whole-shilling amounts.');
+            }
+
             $dispatchAttempted = true;
             $response = $mpesaClient->sendB2cPayment(
                 phone: $phone,
-                amount: (float) $payout->amount,
+                amount: $amount,
                 remarks: "KESALES Payout {$payout->payout_number}",
                 occasion: 'Seller Payout'
             );
@@ -85,6 +90,9 @@ class DisburseB2CPayoutJob implements ShouldQueue
             if (!$conversationId || !$originatorConversationId) {
                 $payout->update([
                     'status' => 'timeout_pending_reconciliation',
+                    'provider' => 'mpesa',
+                    'provider_status' => 'unknown',
+                    'provider_requested_at' => now(),
                     'failure_reason' => 'Provider accepted the request without returning reconciliation identifiers.',
                 ]);
                 return;
@@ -94,10 +102,8 @@ class DisburseB2CPayoutJob implements ShouldQueue
                 'provider' => 'mpesa',
                 'provider_conversation_id' => $conversationId,
                 'provider_request_id' => $originatorConversationId,
-                'notes' => json_encode([
-                    'conversation_id' => $conversationId,
-                    'originator_conversation_id' => $originatorConversationId,
-                ]),
+                'provider_status' => 'submitted',
+                'provider_requested_at' => now(),
             ]);
         } catch (Throwable $e) {
             $status = $dispatchAttempted
@@ -106,6 +112,9 @@ class DisburseB2CPayoutJob implements ShouldQueue
             Log::error("B2C payout dispatch failed for payout {$payout->id}.", [
                 'exception' => $e::class,
                 'status' => $status,
+                'provider' => $dispatchAttempted ? 'mpesa' : $payout->provider,
+                'provider_status' => $dispatchAttempted ? 'unknown' : 'not_submitted',
+                'provider_requested_at' => $dispatchAttempted ? now() : $payout->provider_requested_at,
             ]);
             $payout->update([
                 'status' => $status,

@@ -36,6 +36,14 @@ class IdempotencyMiddleware
             $request->except('idempotency_key'),
             JSON_THROW_ON_ERROR
         ));
+        DB::table('idempotency_keys')
+            ->where('user_id', $userId)
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('request_path', $requestPath)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->delete();
+
         $recordId = (string) Str::uuid();
         $claimed = DB::table('idempotency_keys')->insertOrIgnore([
             'id' => $recordId,

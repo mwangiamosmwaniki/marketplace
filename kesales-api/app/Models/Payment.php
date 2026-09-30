@@ -30,7 +30,7 @@ class Payment extends Model
     ];
 
     protected $casts = [
-        'amount' => 'float',
+        'amount' => 'decimal:2',
         'paid_at' => 'datetime',
         'failed_at' => 'datetime',
         'metadata' => 'array',

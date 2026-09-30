@@ -28,11 +28,11 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'subtotal' => 'float',
-        'discount_total' => 'float',
-        'delivery_fee' => 'float',
-        'tax_total' => 'float',
-        'grand_total' => 'float',
+        'subtotal' => 'decimal:2',
+        'discount_total' => 'decimal:2',
+        'delivery_fee' => 'decimal:2',
+        'tax_total' => 'decimal:2',
+        'grand_total' => 'decimal:2',
         'placed_at' => 'datetime',
     ];
 

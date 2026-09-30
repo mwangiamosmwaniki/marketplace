@@ -5,6 +5,7 @@ namespace App\Domain\Finance\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Double-Entry Financial Ledger Posting Service
@@ -25,6 +26,7 @@ class LedgerPostingService
     public const ACC_DELIVERY_REVENUE = 4100;
     public const ACC_COMMISSION_REVENUE = 4200;
     public const ACC_REFUND_EXPENSE = 5100;
+    public const ACC_PLATFORM_PROMOTION_EXPENSE = 5300;
 
     /**
      * Record settled customer order payment using the Principal-Agent Marketplace Accounting Model:
@@ -43,89 +45,113 @@ class LedgerPostingService
      */
     public function postOrderPayment(
         string $orderId,
-        float $grandTotal,
-        array $sellerSplits, // [ ['seller_id' => uuid, 'net_amount' => 8550], ... ]
-        float $commissionTotal,
-        float $deliveryFee = 0.00
+        string $grandTotal,
+        string $grossSubtotal,
+        array $sellerSplits,
+        string $commissionTotal,
+        string $deliveryFee = '0.00',
+        string $discountTotal = '0.00'
     ): string {
-        $orderSubtotal = round($grandTotal - $deliveryFee, 2);
+        $cashAndPromoDebit = bcadd($grandTotal, $discountTotal, 2);
+        $grossSalesAndDeliveryCredit = bcadd($grossSubtotal, $deliveryFee, 2);
+        if (bccomp($cashAndPromoDebit, $grossSalesAndDeliveryCredit, 2) !== 0) {
+            throw new InvalidArgumentException('Order payment, discount, gross subtotal and delivery do not balance.');
+        }
 
-        // --- Leg 1: Gross Clearing & GMV Influx ---
-        $clearingLines = [
+        return DB::transaction(function () use (
+            $orderId,
+            $grandTotal,
+            $grossSubtotal,
+            $sellerSplits,
+            $commissionTotal,
+            $deliveryFee,
+            $discountTotal
+        ) {
+            $clearingLines = [
             [
                 'account_id' => self::ACC_MPESA_CLEARING,
                 'debit' => $grandTotal,
-                'credit' => 0.00,
+                'credit' => '0.00',
                 'seller_id' => null,
                 'order_id' => $orderId,
             ],
             [
                 'account_id' => self::ACC_MARKETPLACE_SALES,
-                'debit' => 0.00,
-                'credit' => $orderSubtotal,
+                'debit' => '0.00',
+                'credit' => $grossSubtotal,
                 'seller_id' => null,
                 'order_id' => $orderId,
             ],
-        ];
-
-        if ($deliveryFee > 0) {
-            $clearingLines[] = [
-                'account_id' => self::ACC_DELIVERY_REVENUE,
-                'debit' => 0.00,
-                'credit' => $deliveryFee,
-                'seller_id' => null,
-                'order_id' => $orderId,
             ];
-        }
 
-        $clearingTxId = $this->commitBalancedTransaction(
-            type: 'order_payment',
-            referenceType: 'order',
-            referenceId: $orderId,
-            description: "M-Pesa Gross Clearing & GMV settlement for order {$orderId}",
-            lines: $clearingLines
-        );
+            if (bccomp($discountTotal, '0.00', 2) > 0) {
+                $clearingLines[] = [
+                    'account_id' => self::ACC_PLATFORM_PROMOTION_EXPENSE,
+                    'debit' => $discountTotal,
+                    'credit' => '0.00',
+                    'seller_id' => null,
+                    'order_id' => $orderId,
+                ];
+            }
 
-        // --- Leg 2: Escrow Liability Allocation & Commission Recognition ---
-        $escrowLines = [
-            [
-                'account_id' => self::ACC_MARKETPLACE_SALES,
-                'debit' => $orderSubtotal,
-                'credit' => 0.00,
-                'seller_id' => null,
-                'order_id' => $orderId,
-            ],
-        ];
+            if (bccomp($deliveryFee, '0.00', 2) > 0) {
+                $clearingLines[] = [
+                    'account_id' => self::ACC_DELIVERY_REVENUE,
+                    'debit' => '0.00',
+                    'credit' => $deliveryFee,
+                    'seller_id' => null,
+                    'order_id' => $orderId,
+                ];
+            }
 
-        foreach ($sellerSplits as $split) {
-            $escrowLines[] = [
-                'account_id' => self::ACC_SELLER_PAYABLE,
-                'debit' => 0.00,
-                'credit' => $split['net_amount'],
-                'seller_id' => $split['seller_id'],
-                'order_id' => $orderId,
+            $clearingTxId = $this->commitBalancedTransaction(
+                type: 'order_payment',
+                referenceType: 'order',
+                referenceId: $orderId,
+                description: "Gross sales, customer clearing and platform discount for order {$orderId}",
+                lines: $clearingLines
+            );
+
+            $escrowLines = [
+                [
+                    'account_id' => self::ACC_MARKETPLACE_SALES,
+                    'debit' => $grossSubtotal,
+                    'credit' => '0.00',
+                    'seller_id' => null,
+                    'order_id' => $orderId,
+                ],
             ];
-        }
 
-        if ($commissionTotal > 0) {
-            $escrowLines[] = [
-                'account_id' => self::ACC_COMMISSION_REVENUE,
-                'debit' => 0.00,
-                'credit' => $commissionTotal,
-                'seller_id' => null,
-                'order_id' => $orderId,
-            ];
-        }
+            foreach ($sellerSplits as $split) {
+                $escrowLines[] = [
+                    'account_id' => self::ACC_SELLER_PAYABLE,
+                    'debit' => '0.00',
+                    'credit' => $split['net_amount'],
+                    'seller_id' => $split['seller_id'],
+                    'order_id' => $orderId,
+                ];
+            }
 
-        $this->commitBalancedTransaction(
-            type: 'seller_settlement',
-            referenceType: 'order',
-            referenceId: $orderId,
-            description: "Escrow allocation & platform commission booking for order {$orderId}",
-            lines: $escrowLines
-        );
+            if (bccomp($commissionTotal, '0.00', 2) > 0) {
+                $escrowLines[] = [
+                    'account_id' => self::ACC_COMMISSION_REVENUE,
+                    'debit' => '0.00',
+                    'credit' => $commissionTotal,
+                    'seller_id' => null,
+                    'order_id' => $orderId,
+                ];
+            }
 
-        return $clearingTxId;
+            $this->commitBalancedTransaction(
+                type: 'seller_settlement',
+                referenceType: 'order',
+                referenceId: $orderId,
+                description: "Escrow allocation and platform commission booking for order {$orderId}",
+                lines: $escrowLines
+            );
+
+            return $clearingTxId;
+        });
     }
 
     /**
@@ -133,19 +159,19 @@ class LedgerPostingService
      * DR Seller Payable (Escrow release): KSh 9,000
      * CR M-Pesa Clearing:                 KSh 9,000
      */
-    public function postSellerPayout(string $payoutId, string $sellerId, float $amount): string
+    public function postSellerPayout(string $payoutId, string $sellerId, string $amount): string
     {
         $lines = [
             [
                 'account_id' => self::ACC_SELLER_PAYABLE,
                 'debit' => $amount,
-                'credit' => 0.00,
+                'credit' => '0.00',
                 'seller_id' => $sellerId,
                 'order_id' => null,
             ],
             [
                 'account_id' => self::ACC_MPESA_CLEARING,
-                'debit' => 0.00,
+                'debit' => '0.00',
                 'credit' => $amount,
                 'seller_id' => $sellerId,
                 'order_id' => null,
@@ -166,19 +192,19 @@ class LedgerPostingService
      * DR Refund Expense / Liability: KSh 2,000
      * CR M-Pesa Clearing:            KSh 2,000
      */
-    public function postCustomerRefund(string $refundId, string $orderId, float $amount, ?string $customerId = null): string
+    public function postCustomerRefund(string $refundId, string $orderId, string $amount): string
     {
         $lines = [
             [
                 'account_id' => self::ACC_CUSTOMER_REFUND,
                 'debit' => $amount,
-                'credit' => 0.00,
+                'credit' => '0.00',
                 'seller_id' => null,
                 'order_id' => $orderId,
             ],
             [
                 'account_id' => self::ACC_MPESA_CLEARING,
-                'debit' => 0.00,
+                'debit' => '0.00',
                 'credit' => $amount,
                 'seller_id' => null,
                 'order_id' => $orderId,
@@ -204,11 +230,23 @@ class LedgerPostingService
         string $description,
         array $lines
     ): string {
-        $totalDebit = round(array_sum(array_column($lines, 'debit')), 2);
-        $totalCredit = round(array_sum(array_column($lines, 'credit')), 2);
+        $totalDebit = '0.00';
+        $totalCredit = '0.00';
+        foreach ($lines as $line) {
+            $debit = $line['debit'] ?? '0.00';
+            $credit = $line['credit'] ?? '0.00';
+            if (!is_string($debit) || !is_string($credit) || !is_numeric($debit) || !is_numeric($credit)) {
+                throw new InvalidArgumentException('Ledger amounts must be decimal strings.');
+            }
+            if (bccomp($debit, '0.00', 2) < 0 || bccomp($credit, '0.00', 2) < 0 || (bccomp($debit, '0.00', 2) > 0 && bccomp($credit, '0.00', 2) > 0)) {
+                throw new InvalidArgumentException('Each ledger line must have one non-negative debit or credit amount.');
+            }
+            $totalDebit = bcadd($totalDebit, $debit, 2);
+            $totalCredit = bcadd($totalCredit, $credit, 2);
+        }
 
         // Strict accounting check
-        if (abs($totalDebit - $totalCredit) > 0.001) {
+        if (bccomp($totalDebit, $totalCredit, 2) !== 0) {
             throw new InvalidArgumentException(
                 "Unbalanced financial transaction! Total Debit ({$totalDebit}) != Total Credit ({$totalCredit})"
             );
@@ -218,7 +256,7 @@ class LedgerPostingService
             $txId = Str::uuid()->toString();
             $txNumber = 'TXN-' . date('YmdHis') . '-' . strtoupper(Str::random(4));
 
-            DB::table('financial_transactions')->insert([
+            $inserted = DB::table('financial_transactions')->insertOrIgnore([
                 'id' => $txId,
                 'transaction_number' => $txNumber,
                 'type' => $type,
@@ -228,6 +266,18 @@ class LedgerPostingService
                 'status' => 'posted',
                 'posted_at' => now(),
             ]);
+
+            if ($inserted !== 1) {
+                $existing = DB::table('financial_transactions')
+                    ->where('type', $type)
+                    ->where('reference_type', $referenceType)
+                    ->where('reference_id', $referenceId)
+                    ->first();
+                if (!$existing) {
+                    throw new RuntimeException('Ledger event could not be claimed or loaded.');
+                }
+                return $existing->id;
+            }
 
             foreach ($lines as $line) {
                 DB::table('financial_transaction_lines')->insert([

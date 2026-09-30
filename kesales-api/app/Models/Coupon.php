@@ -21,15 +21,17 @@ class Coupon extends Model
         'max_discount',
         'expires_at',
         'usage_limit',
+        'per_customer_limit',
         'times_used',
         'is_active',
     ];
 
     protected $casts = [
-        'value' => 'float',
-        'min_order_amount' => 'float',
-        'max_discount' => 'float',
+        'value' => 'decimal:2',
+        'min_order_amount' => 'decimal:2',
+        'max_discount' => 'decimal:2',
         'usage_limit' => 'integer',
+        'per_customer_limit' => 'integer',
         'times_used' => 'integer',
         'is_active' => 'boolean',
         'expires_at' => 'datetime',

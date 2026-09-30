@@ -11,6 +11,7 @@ use App\Models\Seller;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\InventoryItem;
+use App\Models\InventoryMovement;
 use App\Jobs\ReleaseExpiredReservationsJob;
 use App\Domain\Inventory\Services\InventoryService;
 use Illuminate\Support\Str;
@@ -18,6 +19,65 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryExpirationTest extends TestCase
 {
+    public function test_seller_inventory_adjustment_preserves_reservations_and_records_movement(): void
+    {
+        $sellerUser = $this->authenticateSeller(['email' => 'inventory-adjustment@test.kesales.ke']);
+        $seller = Seller::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
+            'store_name' => 'Inventory Adjustment Seller',
+            'slug' => 'inventory-adjustment-seller',
+            'legal_name' => 'Inventory Adjustment Seller Limited',
+            'status' => 'approved',
+        ]);
+        $category = Category::create(['name' => 'Hardware', 'slug' => 'inventory-adjustment-hardware']);
+        $product = Product::create([
+            'id' => (string) Str::uuid(),
+            'seller_id' => $seller->id,
+            'category_id' => $category->id,
+            'name' => 'Adjustable Lamp',
+            'slug' => 'inventory-adjustment-lamp',
+            'sku' => 'INV-ADJ-LAMP',
+            'description' => 'Seller inventory adjustment test product.',
+            'status' => 'active',
+        ]);
+        $variant = ProductVariant::create([
+            'id' => (string) Str::uuid(),
+            'product_id' => $product->id,
+            'sku' => 'INV-ADJ-LAMP-V1',
+            'name' => 'Default',
+            'price' => '1000.00',
+        ]);
+        $inventory = InventoryItem::create([
+            'id' => (string) Str::uuid(),
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'seller_id' => $seller->id,
+            'quantity_on_hand' => 10,
+            'quantity_reserved' => 3,
+        ]);
+
+        $this->postJson('/api/v1/seller/inventory/adjust', [
+            'inventory_item_id' => $inventory->id,
+            'adjustment_quantity' => -8,
+            'reason' => 'Damaged stock',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, InventoryMovement::where('inventory_item_id', $inventory->id)->count());
+
+        $this->postJson('/api/v1/seller/inventory/adjust', [
+            'inventory_item_id' => $inventory->id,
+            'adjustment_quantity' => 5,
+            'reason' => 'Restocked units',
+        ])->assertOk();
+
+        $inventory->refresh();
+        $this->assertSame(15, $inventory->quantity_on_hand);
+        $movement = InventoryMovement::where('inventory_item_id', $inventory->id)->firstOrFail();
+        $this->assertSame(10, $movement->before_quantity);
+        $this->assertSame(15, $movement->after_quantity);
+    }
+
     public function test_release_expired_reservations_job_restores_stock_and_cancels_abandoned_order(): void
     {
         $sellerUser = User::factory()->create();

@@ -23,9 +23,9 @@ class PayoutItem extends Model
     ];
 
     protected $casts = [
-        'amount' => 'float',
-        'commission_deduction' => 'float',
-        'net_amount' => 'float',
+        'amount' => 'decimal:2',
+        'commission_deduction' => 'decimal:2',
+        'net_amount' => 'decimal:2',
     ];
 
     public function payout()

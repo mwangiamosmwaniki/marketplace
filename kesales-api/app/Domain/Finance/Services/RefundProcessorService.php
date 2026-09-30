@@ -35,7 +35,7 @@ class RefundProcessorService
         }
 
         $payment = $refund->payment;
-        $amount = (float) $refund->amount;
+        $amount = (string) $refund->getRawOriginal('amount');
         $providerEnvironment = config('kesales.mpesa.env');
         $hasCredentials = !empty(config('kesales.mpesa.consumer_key'))
             && !empty(config('kesales.mpesa.consumer_secret'))
@@ -43,7 +43,10 @@ class RefundProcessorService
             && !empty(config('kesales.mpesa.b2c_initiator'))
             && !empty(config('kesales.mpesa.b2c_security_credential'));
 
-        $refund->update(['status' => 'processing']);
+        $refund->update([
+            'status' => 'processing',
+            'provider_status' => 'initiating',
+        ]);
 
         $dispatchAttempted = false;
         $providerAccepted = false;
@@ -63,13 +66,17 @@ class RefundProcessorService
                 throw new RuntimeException('A verified M-Pesa payment and configured provider credentials are required.');
             }
 
+            if (!is_numeric($amount) || bccomp($amount, bcadd($amount, '0', 0), 2) !== 0) {
+                throw new RuntimeException('M-Pesa refunds must be whole-shilling amounts.');
+            }
+
             $token = $this->mpesaClient->getAccessToken();
             $payload = [
                 'Initiator' => config('kesales.mpesa.b2c_initiator'),
                 'SecurityCredential' => config('kesales.mpesa.b2c_security_credential'),
                 'CommandID' => 'TransactionReversal',
                 'TransactionID' => $payment->provider_transaction_id,
-                'Amount' => (int) round($amount),
+                'Amount' => (int) $amount,
                 'ReceiverParty' => $this->mpesaClient->getShortcode(),
                 'RecieverIdentifierType' => '11',
                 'ResultURL' => config('kesales.mpesa.b2c_result_url'),
@@ -95,6 +102,8 @@ class RefundProcessorService
             if (!$conversationId || !$originatorConversationId) {
                 $refund->update([
                     'status' => 'timeout_pending_reconciliation',
+                    'provider_status' => 'unknown',
+                    'provider_requested_at' => now(),
                     'failure_reason' => 'Provider accepted the request without returning reconciliation identifiers.',
                 ]);
                 return ['success' => true, 'status' => 'timeout_pending_reconciliation'];
@@ -102,8 +111,10 @@ class RefundProcessorService
 
             $refund->update([
                 'status' => 'provider_pending',
+                'provider_status' => 'submitted',
                 'provider_conversation_id' => $conversationId,
                 'provider_request_id' => $originatorConversationId,
+                'provider_requested_at' => now(),
             ]);
 
             return ['success' => true, 'status' => 'provider_pending'];
@@ -113,6 +124,8 @@ class RefundProcessorService
                 : 'timeout_pending_reconciliation';
             $refund->update([
                 'status' => $status,
+                'provider_status' => $dispatchAttempted ? 'unknown' : 'not_submitted',
+                'provider_requested_at' => $dispatchAttempted ? now() : null,
                 'failure_reason' => $status === 'failed'
                     ? 'Provider rejected the request or dispatch could not be started.'
                     : 'Provider outcome is ambiguous; verify transaction status before retrying.',

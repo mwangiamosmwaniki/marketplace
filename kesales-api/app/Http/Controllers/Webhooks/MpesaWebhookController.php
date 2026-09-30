@@ -8,7 +8,7 @@ use App\Models\Order;
 use App\Models\Payout;
 use App\Models\Refund;
 use App\Domain\Finance\Services\LedgerPostingService;
-use App\Domain\Inventory\Services\InventoryService;
+use App\Domain\Finance\Services\PaymentSettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -20,15 +20,16 @@ class MpesaWebhookController extends BaseController
 {
     public function __construct(
         protected LedgerPostingService $ledgerService,
-        protected InventoryService $inventoryService
+        protected PaymentSettlementService $paymentSettlementService
     ) {}
 
     public function handleStkCallback(Request $request): JsonResponse
     {
         $payload = $request->all();
         $checkoutReqId = $payload['Body']['stkCallback']['CheckoutRequestID'] ?? null;
+        $callbackId = (string) Str::uuid();
         $inserted = DB::table('mpesa_callbacks')->insertOrIgnore([
-            'id' => (string) Str::uuid(),
+            'id' => $callbackId,
             'event_type' => 'mpesa.stk_callback',
             'provider_event_id' => $checkoutReqId,
             'payload_hash' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)),
@@ -41,7 +42,7 @@ class MpesaWebhookController extends BaseController
         ]);
 
         if ($inserted === 1) {
-            ProcessMpesaCallbackJob::dispatch($payload);
+            ProcessMpesaCallbackJob::dispatch($callbackId);
         }
 
         return response()->json([
@@ -66,7 +67,8 @@ class MpesaWebhookController extends BaseController
             ]);
         }
 
-        if (round((float) $transAmount, 2) < round((float) $order->grand_total, 2)) {
+        if (!is_numeric((string) $transAmount)
+            || bccomp((string) $transAmount, (string) $order->getRawOriginal('grand_total'), 2) < 0) {
             return response()->json([
                 'ResultCode' => 'C2B00012',
                 'ResultDesc' => 'Underpayment: TransAmount is less than Order Total',
@@ -88,9 +90,9 @@ class MpesaWebhookController extends BaseController
         $data = $request->all();
         $billRef = $data['BillRefNumber'] ?? null;
         $transId = $data['TransID'] ?? null;
-        $amount = (float) ($data['TransAmount'] ?? 0);
+        $amount = (string) ($data['TransAmount'] ?? '0.00');
 
-        if (!$transId) {
+        if (!$transId || !is_numeric($amount)) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Missing TransID']);
         }
 
@@ -106,6 +108,13 @@ class MpesaWebhookController extends BaseController
         $order = Order::with('sellerOrders')->where('order_number', $billRef)->first();
 
         if ($order) {
+            if (bccomp($amount, (string) $order->getRawOriginal('grand_total'), 2) !== 0) {
+                return response()->json([
+                    'ResultCode' => 1,
+                    'ResultDesc' => 'Provider amount does not match the order total',
+                ]);
+            }
+
             try {
                 DB::transaction(function () use ($order, $transId, $amount, $data) {
                 // Double-check with lock inside transaction
@@ -123,39 +132,14 @@ class MpesaWebhookController extends BaseController
                     'method' => 'c2b_paybill',
                     'amount' => $amount,
                     'currency' => 'KES',
-                    'status' => 'paid',
-                    'provider_transaction_id' => $transId,
-                    'paid_at' => now(),
+                    'status' => 'initiated',
                     'metadata' => $data,
                 ]);
 
-                $order->update([
-                    'status' => 'PAYMENT_CONFIRMED',
-                    'payment_status' => 'paid',
-                ]);
-
-                // Commit reserved inventory to permanent sale
-                $orderItems = DB::table('order_items')->where('order_id', $order->id)->get();
-                foreach ($orderItems as $item) {
-                    $this->inventoryService->commitStockSale($item->variant_id, $item->quantity, $order->id);
-                }
-
-                // Double-entry ledger settlement
-                $sellerSplits = [];
-                foreach ($order->sellerOrders as $so) {
-                    $sellerSplits[] = [
-                        'seller_id' => $so->seller_id,
-                        'net_amount' => (float) $so->seller_net_payout,
-                    ];
-                }
-
-                $commissionTotal = (float) $order->sellerOrders->sum('commission_total');
-                $this->ledgerService->postOrderPayment(
-                    orderId: $order->id,
-                    grandTotal: (float) $order->grand_total,
-                    sellerSplits: $sellerSplits,
-                    commissionTotal: $commissionTotal,
-                    deliveryFee: (float) $order->delivery_fee
+                $this->paymentSettlementService->settleSuccessfulPayment(
+                    paymentId: $payment->id,
+                    providerTransactionId: $transId,
+                    providerAmount: $amount
                 );
                 });
             } catch (QueryException $exception) {
@@ -211,22 +195,32 @@ class MpesaWebhookController extends BaseController
                     return; // Already finalized
                 }
 
+                $providerResult = [
+                    'provider_result_code' => (string) $resultCode,
+                    'provider_result_message' => (string) ($result['ResultDesc'] ?? ''),
+                    'provider_completed_at' => now(),
+                ];
+
                 if ((int) $resultCode === 0 && $transactionId) {
                     // 1. Post to double-entry general ledger upon confirmed Safaricom disbursement
                     $this->ledgerService->postSellerPayout(
                         payoutId: $lockedPayout->id,
                         sellerId: $lockedPayout->seller_id,
-                        amount: (float) $lockedPayout->amount
+                        amount: (string) $lockedPayout->getRawOriginal('amount')
                     );
 
                     $lockedPayout->update([
+                        ...$providerResult,
                         'status' => 'completed',
+                        'provider_status' => 'completed',
                         'provider_transaction_id' => $transactionId,
                         'completed_at' => now(),
                     ]);
                 } else {
                     $lockedPayout->update([
+                        ...$providerResult,
                         'status' => 'failed',
+                        'provider_status' => 'failed',
                         'failure_reason' => $result['ResultDesc'] ?? 'B2C Gateway Rejection',
                     ]);
                 }
@@ -252,22 +246,31 @@ class MpesaWebhookController extends BaseController
                         return;
                     }
 
+                    $providerResult = [
+                        'provider_result_code' => (string) $resultCode,
+                        'provider_result_message' => (string) ($result['ResultDesc'] ?? ''),
+                        'provider_completed_at' => now(),
+                    ];
+
                     if ((int) $resultCode === 0 && $transactionId) {
                         $this->ledgerService->postCustomerRefund(
                             refundId: $lockedRefund->id,
                             orderId: $lockedRefund->order_id,
-                            amount: (float) $lockedRefund->amount,
-                            customerId: $lockedRefund->customer_id
+                            amount: (string) $lockedRefund->getRawOriginal('amount')
                         );
 
                         $lockedRefund->update([
+                            ...$providerResult,
                             'status' => 'completed',
+                            'provider_status' => 'completed',
                             'provider_transaction_id' => $transactionId,
                             'completed_at' => now(),
                         ]);
                     } else {
                         $lockedRefund->update([
+                            ...$providerResult,
                             'status' => 'failed',
+                            'provider_status' => 'failed',
                             'failure_reason' => $result['ResultDesc'] ?? 'Provider rejected refund.',
                         ]);
                     }

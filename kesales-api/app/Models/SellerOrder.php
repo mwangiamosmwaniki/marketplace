@@ -23,18 +23,22 @@ class SellerOrder extends Model
         'commission_total',
         'seller_net_payout',
         'fulfillment_status',
+        'carrier',
+        'tracking_number',
+        'delivered_at',
         'is_settled',
         'settlement_eligible_at',
         'created_at',
     ];
 
     protected $casts = [
-        'subtotal' => 'float',
-        'delivery_share' => 'float',
-        'commission_total' => 'float',
-        'seller_net_payout' => 'float',
+        'subtotal' => 'decimal:2',
+        'delivery_share' => 'decimal:2',
+        'commission_total' => 'decimal:2',
+        'seller_net_payout' => 'decimal:2',
         'is_settled' => 'boolean',
         'settlement_eligible_at' => 'datetime',
+        'delivered_at' => 'datetime',
     ];
 
     public function order()

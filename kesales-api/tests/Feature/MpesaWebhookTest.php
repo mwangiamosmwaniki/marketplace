@@ -7,13 +7,17 @@ use App\Models\Order;
 use App\Models\SellerOrder;
 use App\Models\Payment;
 use App\Models\Payout;
+use App\Models\Refund;
 use App\Models\Seller;
 use App\Models\User;
 use App\Models\FinancialTransaction;
+use App\Models\MpesaCallback;
 use App\Jobs\ProcessMpesaCallbackJob;
+use App\Integrations\Mpesa\StkPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Mockery;
 
 class MpesaWebhookTest extends TestCase
 {
@@ -39,7 +43,154 @@ class MpesaWebhookTest extends TestCase
             'processing_status' => 'queued',
         ]);
         $this->assertNotEmpty(DB::table('mpesa_callbacks')->value('payload_hash'));
-        Queue::assertPushed(ProcessMpesaCallbackJob::class, 1);
+        Queue::assertPushed(ProcessMpesaCallbackJob::class, function (ProcessMpesaCallbackJob $job) {
+            return DB::table('mpesa_callbacks')->where('id', $job->callbackId)->exists();
+        });
+    }
+
+    public function test_callback_job_loads_the_persisted_event_and_marks_it_processed(): void
+    {
+        $payload = [
+            'Body' => ['stkCallback' => ['CheckoutRequestID' => 'ws_CO_JOB_001']],
+        ];
+        $callback = MpesaCallback::create([
+            'id' => (string) Str::uuid(),
+            'event_type' => 'mpesa.stk_callback',
+            'provider_event_id' => 'ws_CO_JOB_001',
+            'checkout_request_id' => 'ws_CO_JOB_001',
+            'payload' => $payload,
+            'processing_status' => 'queued',
+            'attempts' => 0,
+            'received_at' => now(),
+            'created_at' => now(),
+        ]);
+        $stkService = Mockery::mock(StkPushService::class);
+        $stkService->shouldReceive('handleCallback')
+            ->once()
+            ->with($payload)
+            ->andReturn(['status' => 'success']);
+
+        $job = new ProcessMpesaCallbackJob($callback->id);
+        $job->handle($stkService);
+        $job->handle($stkService);
+
+        $this->assertDatabaseHas('mpesa_callbacks', [
+            'id' => $callback->id,
+            'processing_status' => 'processed',
+            'attempts' => 1,
+        ]);
+        $this->assertNotNull($callback->fresh()->processed_at);
+    }
+
+    public function test_b2c_result_persists_provider_lifecycle_and_ignores_duplicate_success(): void
+    {
+        $sellerUser = User::factory()->create();
+        $seller = Seller::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $sellerUser->id,
+            'store_name' => 'B2C Lifecycle Store',
+            'slug' => 'b2c-lifecycle-store',
+            'legal_name' => 'B2C Lifecycle Store Limited',
+            'status' => 'approved',
+        ]);
+        $payout = Payout::create([
+            'id' => (string) Str::uuid(),
+            'payout_number' => 'PAY-B2C-LIFECYCLE-001',
+            'seller_id' => $seller->id,
+            'amount' => '500.00',
+            'currency' => 'KES',
+            'method' => 'mpesa_b2c',
+            'status' => 'processing',
+            'provider' => 'mpesa',
+            'provider_conversation_id' => 'AG_123456',
+            'provider_request_id' => 'OR_123456',
+            'provider_status' => 'submitted',
+            'provider_requested_at' => now(),
+        ]);
+        $payload = [
+            'Result' => [
+                'ConversationID' => 'AG_123456',
+                'OriginatorConversationID' => 'OR_123456',
+                'ResultCode' => 0,
+                'ResultDesc' => 'The service request is processed successfully.',
+                'TransactionID' => 'B2CPROVIDER123',
+            ],
+        ];
+
+        $this->postJson('/webhooks/mpesa/b2c-result', $payload)->assertOk();
+        $this->postJson('/webhooks/mpesa/b2c-result', $payload)->assertOk();
+
+        $payout->refresh();
+        $this->assertSame('completed', $payout->status);
+        $this->assertSame('completed', $payout->provider_status);
+        $this->assertSame('0', $payout->provider_result_code);
+        $this->assertSame('B2CPROVIDER123', $payout->provider_transaction_id);
+        $this->assertNotNull($payout->provider_completed_at);
+        $this->assertSame(1, FinancialTransaction::where('reference_id', $payout->id)->count());
+    }
+
+    public function test_refund_result_persists_provider_lifecycle_and_ignores_duplicate_success(): void
+    {
+        $customer = User::factory()->create();
+        $order = Order::create([
+            'id' => (string) Str::uuid(),
+            'order_number' => 'KS-ORD-REFUND-LIFECYCLE',
+            'customer_id' => $customer->id,
+            'currency' => 'KES',
+            'subtotal' => '1200.00',
+            'discount_total' => '0.00',
+            'delivery_fee' => '0.00',
+            'tax_total' => '165.52',
+            'grand_total' => '1200.00',
+            'status' => 'PAYMENT_CONFIRMED',
+            'payment_status' => 'paid',
+        ]);
+        $payment = Payment::create([
+            'id' => (string) Str::uuid(),
+            'payment_number' => 'PAY-REFUND-LIFECYCLE',
+            'order_id' => $order->id,
+            'customer_id' => $customer->id,
+            'provider' => 'mpesa',
+            'method' => 'stk_push',
+            'amount' => '1200.00',
+            'currency' => 'KES',
+            'status' => 'paid',
+            'provider_transaction_id' => 'PAYMENTRECEIPT001',
+        ]);
+        $refund = Refund::create([
+            'id' => (string) Str::uuid(),
+            'refund_number' => 'REF-REFUND-LIFECYCLE',
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'customer_id' => $customer->id,
+            'amount' => '250.00',
+            'reason' => 'Test confirmed refund',
+            'status' => 'provider_pending',
+            'requested_by' => $customer->id,
+            'provider_conversation_id' => 'REF_AG_001',
+            'provider_request_id' => 'REF_OR_001',
+            'provider_status' => 'submitted',
+        ]);
+        $payload = [
+            'Result' => [
+                'ConversationID' => 'REF_AG_001',
+                'OriginatorConversationID' => 'REF_OR_001',
+                'ResultCode' => 0,
+                'ResultDesc' => 'Refund reversal completed.',
+                'TransactionID' => 'REFUNDPROVIDER001',
+            ],
+        ];
+
+        $this->postJson('/webhooks/mpesa/b2c-result', $payload)->assertOk();
+        $this->postJson('/webhooks/mpesa/b2c-result', $payload)->assertOk();
+
+        $refund->refresh();
+        $this->assertSame('completed', $refund->status);
+        $this->assertSame('completed', $refund->provider_status);
+        $this->assertSame('0', $refund->provider_result_code);
+        $this->assertSame('REFUNDPROVIDER001', $refund->provider_transaction_id);
+        $this->assertNotNull($refund->provider_completed_at);
+        $this->assertSame(1, FinancialTransaction::where('reference_id', $refund->id)->count());
     }
 
     public function test_c2b_validation_accepts_correct_order_and_rejects_underpayment(): void

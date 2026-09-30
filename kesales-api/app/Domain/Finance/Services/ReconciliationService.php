@@ -57,8 +57,8 @@ class ReconciliationService
                             'reconciliation_run_id' => $runId,
                             'type' => 'missing_payment_record',
                             'reference_id' => $order->id,
-                            'expected_amount' => $order->grand_total,
-                            'actual_amount' => 0.00,
+                            'expected_amount' => (string) $order->getRawOriginal('grand_total'),
+                            'actual_amount' => '0.00',
                             'status' => 'open',
                             'resolution_notes' => "Order {$order->order_number} marked paid but lacks confirmed payment record.",
                             'created_at' => now(),
@@ -67,14 +67,18 @@ class ReconciliationService
                         continue;
                     }
 
-                    if (round((float) $paidPayment->amount, 2) !== round((float) $order->grand_total, 2)) {
+                    if (bccomp(
+                        (string) $paidPayment->getRawOriginal('amount'),
+                        (string) $order->getRawOriginal('grand_total'),
+                        2
+                    ) !== 0) {
                         ReconciliationException::create([
                             'id' => (string) Str::uuid(),
                             'reconciliation_run_id' => $runId,
                             'type' => 'amount_mismatch',
                             'reference_id' => $paidPayment->id,
-                            'expected_amount' => $order->grand_total,
-                            'actual_amount' => $paidPayment->amount,
+                            'expected_amount' => (string) $order->getRawOriginal('grand_total'),
+                            'actual_amount' => (string) $paidPayment->getRawOriginal('amount'),
                             'status' => 'open',
                             'resolution_notes' => "Payment amount ({$paidPayment->amount}) differs from Order total ({$order->grand_total}).",
                             'created_at' => now(),
@@ -92,8 +96,8 @@ class ReconciliationService
                             'reconciliation_run_id' => $runId,
                             'type' => 'unposted_ledger_entry',
                             'reference_id' => $order->id,
-                            'expected_amount' => $order->grand_total,
-                            'actual_amount' => 0.00,
+                            'expected_amount' => (string) $order->getRawOriginal('grand_total'),
+                            'actual_amount' => '0.00',
                             'status' => 'open',
                             'resolution_notes' => "Order {$order->order_number} paid but missing double-entry journal posting.",
                             'created_at' => now(),
@@ -118,8 +122,8 @@ class ReconciliationService
                         'reconciliation_run_id' => $runId,
                         'type' => 'unposted_payout_ledger',
                         'reference_id' => $payout->id,
-                        'expected_amount' => $payout->amount,
-                        'actual_amount' => 0.00,
+                        'expected_amount' => (string) $payout->getRawOriginal('amount'),
+                        'actual_amount' => '0.00',
                         'status' => 'open',
                         'resolution_notes' => "Payout {$payout->payout_number} completed but missing ledger disbursement entry.",
                         'created_at' => now(),

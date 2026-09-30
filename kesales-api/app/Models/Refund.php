@@ -29,12 +29,19 @@ class Refund extends Model
         'provider_conversation_id',
         'provider_request_id',
         'provider_transaction_id',
+        'provider_status',
+        'provider_result_code',
+        'provider_result_message',
+        'provider_requested_at',
+        'provider_completed_at',
         'failure_reason',
     ];
 
     protected $casts = [
-        'amount' => 'float',
+        'amount' => 'decimal:2',
         'completed_at' => 'datetime',
+        'provider_requested_at' => 'datetime',
+        'provider_completed_at' => 'datetime',
     ];
 
     public function order()

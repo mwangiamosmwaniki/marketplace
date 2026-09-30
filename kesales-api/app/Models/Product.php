@@ -22,6 +22,7 @@ class Product extends Model
         'sku',
         'description',
         'short_description',
+        'tax_type',
         'status',
         'condition',
         'warranty_info',

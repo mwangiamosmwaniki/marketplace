@@ -174,6 +174,7 @@ CREATE TABLE products (
     sku VARCHAR(100) UNIQUE NOT NULL,
     description TEXT NOT NULL,
     short_description TEXT NULL,
+    tax_type VARCHAR(32) NOT NULL DEFAULT 'standard',
     status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('draft', 'pending_approval', 'active', 'rejected', 'archived')),
     condition VARCHAR(50) DEFAULT 'new' CHECK (condition IN ('new', 'refurbished', 'open_box')),
     warranty_info VARCHAR(255) NULL,
@@ -279,6 +280,25 @@ CREATE TABLE order_addresses (
     delivery_instructions TEXT NULL
 );
 
+CREATE TABLE order_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id),
+    variant_id UUID NOT NULL REFERENCES product_variants(id),
+    seller_id UUID NOT NULL REFERENCES sellers(id),
+    product_name VARCHAR(255) NOT NULL,
+    sku VARCHAR(120) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    unit_price NUMERIC(12,2) NOT NULL,
+    discount NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    tax_type VARCHAR(32) NOT NULL DEFAULT 'standard',
+    taxable_amount NUMERIC(12,2) NULL,
+    tax NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    net_line_total NUMERIC(12,2) NULL,
+    line_total NUMERIC(12,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE seller_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -289,10 +309,26 @@ CREATE TABLE seller_orders (
     commission_total NUMERIC(14,2) NOT NULL,
     seller_net_payout NUMERIC(14,2) NOT NULL,
     fulfillment_status VARCHAR(50) DEFAULT 'unfulfilled' CHECK (fulfillment_status IN ('unfulfilled', 'processing', 'packed', 'dispatched', 'delivered', 'cancelled')),
+    carrier VARCHAR(100) NULL,
+    tracking_number VARCHAR(100) NULL,
+    delivered_at TIMESTAMP WITH TIME ZONE NULL,
     is_settled BOOLEAN DEFAULT false,
     settlement_eligible_at TIMESTAMP WITH TIME ZONE NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE seller_order_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_order_id UUID NOT NULL REFERENCES seller_orders(id) ON DELETE CASCADE,
+    actor_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+    from_status VARCHAR(50) NOT NULL,
+    to_status VARCHAR(50) NOT NULL,
+    metadata JSONB NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_seller_order_events_order_created
+    ON seller_order_events(seller_order_id, created_at);
 
 CREATE TABLE seller_order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -303,6 +339,8 @@ CREATE TABLE seller_order_items (
     sku VARCHAR(120) NOT NULL,
     quantity INT NOT NULL CHECK (quantity > 0),
     unit_price NUMERIC(12,2) NOT NULL,
+    discount NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    net_line_total NUMERIC(12,2) NULL,
     commission_rate NUMERIC(5,2) NOT NULL,
     commission_amount NUMERIC(12,2) NOT NULL,
     seller_net_amount NUMERIC(12,2) NOT NULL
@@ -353,7 +391,8 @@ CREATE TABLE mpesa_callbacks (
     event_type VARCHAR(100) NOT NULL,
     checkout_request_id VARCHAR(100) NULL,
     payload JSONB NOT NULL,
-    processing_status VARCHAR(50) DEFAULT 'unprocessed' CHECK (processing_status IN ('unprocessed', 'processed', 'duplicate', 'failed')),
+    processing_status VARCHAR(50) DEFAULT 'unprocessed' CHECK (processing_status IN ('unprocessed', 'queued', 'processing', 'processed', 'duplicate', 'failed')),
+    processing_started_at TIMESTAMP WITH TIME ZONE NULL,
     processed_at TIMESTAMP WITH TIME ZONE NULL,
     error_message TEXT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -385,7 +424,8 @@ INSERT INTO accounts (id, code, name, type) VALUES
 (4200, '4200', 'Platform Commission Revenue', 'revenue'),
 (5000, '5000', 'Payment Gateway Processing Fees', 'expense'),
 (5100, '5100', 'Customer Refund & Concession Expense', 'expense'),
-(5200, '5200', 'Carrier Logistics Expense', 'expense')
+(5200, '5200', 'Carrier Logistics Expense', 'expense'),
+(5300, '5300', 'Platform Promotion Discounts', 'expense')
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE financial_transactions (
@@ -399,6 +439,9 @@ CREATE TABLE financial_transactions (
     posted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID NULL REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE UNIQUE INDEX financial_transactions_business_event_unique
+    ON financial_transactions(type, reference_type, reference_id);
 
 CREATE TABLE financial_transaction_lines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -428,7 +471,16 @@ CREATE TABLE payouts (
     amount NUMERIC(14,2) NOT NULL CHECK (amount >= 500),
     currency VARCHAR(3) DEFAULT 'KES',
     method VARCHAR(50) DEFAULT 'mpesa_b2c' CHECK (method IN ('mpesa_b2c', 'bank_transfer')),
-    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'processing', 'completed', 'held', 'rejected', 'failed')),
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'processing', 'completed', 'held', 'rejected', 'failed', 'timeout_pending_reconciliation')),
+    provider VARCHAR(50) NULL,
+    provider_request_id VARCHAR(150) NULL,
+    provider_conversation_id VARCHAR(150) NULL,
+    provider_transaction_id VARCHAR(150) NULL,
+    provider_status VARCHAR(50) NULL,
+    provider_result_code VARCHAR(64) NULL,
+    provider_result_message TEXT NULL,
+    provider_requested_at TIMESTAMP WITH TIME ZONE NULL,
+    provider_completed_at TIMESTAMP WITH TIME ZONE NULL,
     requested_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     approved_at TIMESTAMP WITH TIME ZONE NULL,
     processed_at TIMESTAMP WITH TIME ZONE NULL,
@@ -460,7 +512,15 @@ CREATE TABLE refunds (
     seller_id UUID NULL REFERENCES sellers(id) ON DELETE SET NULL,
     amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
     reason TEXT NOT NULL,
-    status VARCHAR(50) DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'processing', 'completed', 'rejected')),
+    status VARCHAR(50) DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'processing', 'provider_pending', 'timeout_pending_reconciliation', 'completed', 'failed', 'rejected')),
+    provider_conversation_id VARCHAR(150) NULL,
+    provider_request_id VARCHAR(150) NULL,
+    provider_transaction_id VARCHAR(150) NULL UNIQUE,
+    provider_status VARCHAR(50) NULL,
+    provider_result_code VARCHAR(64) NULL,
+    provider_result_message TEXT NULL,
+    provider_requested_at TIMESTAMP WITH TIME ZONE NULL,
+    provider_completed_at TIMESTAMP WITH TIME ZONE NULL,
     requested_by UUID NOT NULL REFERENCES users(id),
     approved_by UUID NULL REFERENCES users(id) ON DELETE SET NULL,
     completed_at TIMESTAMP WITH TIME ZONE NULL

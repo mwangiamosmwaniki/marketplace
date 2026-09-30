@@ -5,8 +5,8 @@ namespace App\Integrations\Mpesa;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Domain\Finance\Services\LedgerPostingService;
-use App\Domain\Inventory\Services\InventoryService;
+use App\Domain\Finance\Services\PaymentSettlementService;
+use App\Models\Order;
 use Exception;
 
 /**
@@ -17,8 +17,7 @@ class StkPushService
 {
     public function __construct(
         protected MpesaClient $client,
-        protected LedgerPostingService $ledgerService,
-        protected InventoryService $inventoryService
+        protected PaymentSettlementService $paymentSettlementService
     ) {}
 
     /**
@@ -30,11 +29,16 @@ class StkPushService
      * 4. Call Safaricom Daraja STK Push API
      * 5. Record CheckoutRequestID & MerchantRequestID on success, or mark failed on rejection
      */
-    public function initiate(string $orderId, string $phone, float $amount, string $accountReference, ?string $customerId = null): array
+    public function initiate(Order $order, string $phone): array
     {
-        $resolvedCustomerId = $customerId ?? auth()->id();
+        $resolvedCustomerId = $order->customer_id;
         if (!$resolvedCustomerId) {
             throw new \InvalidArgumentException("Payment initiation rejected: An authenticated customer ID is required.");
+        }
+
+        $amount = (string) $order->getRawOriginal('grand_total');
+        if (!is_numeric($amount) || bccomp($amount, bcadd($amount, '0', 0), 2) !== 0) {
+            throw new \InvalidArgumentException('M-Pesa STK payments must be an exact whole-shilling order total.');
         }
 
         // Format phone to 254XXXXXXXXX
@@ -47,7 +51,7 @@ class StkPushService
         DB::table('payments')->insert([
             'id' => $paymentId,
             'payment_number' => $paymentNumber,
-            'order_id' => $orderId,
+            'order_id' => $order->id,
             'customer_id' => $resolvedCustomerId,
             'provider' => 'mpesa',
             'method' => 'stk_push',
@@ -79,13 +83,13 @@ class StkPushService
             'Password' => $password,
             'Timestamp' => $timestamp,
             'TransactionType' => 'CustomerPayBillOnline',
-            'Amount' => (int) round($amount),
+            'Amount' => (int) $amount,
             'PartyA' => $formattedPhone,
             'PartyB' => $this->client->getShortcode(),
             'PhoneNumber' => $formattedPhone,
             'CallBackURL' => config('kesales.mpesa.stk_callback_url', 'https://api.kesales.ke/webhooks/mpesa/stk'),
-            'AccountReference' => substr($accountReference, 0, 12),
-            'TransactionDesc' => "KESALES Order {$accountReference}",
+            'AccountReference' => substr($order->order_number, 0, 12),
+            'TransactionDesc' => "KESALES Order {$order->order_number}",
         ];
 
         try {
@@ -151,16 +155,6 @@ class StkPushService
         $resultCode = $stkCallback['ResultCode'];
         $resultDesc = $stkCallback['ResultDesc'];
 
-        // 1. Audit raw callback
-        DB::table('mpesa_callbacks')->insert([
-            'id' => Str::uuid()->toString(),
-            'event_type' => 'stk_callback',
-            'checkout_request_id' => $checkoutRequestId,
-            'payload' => json_encode($body),
-            'processing_status' => 'unprocessed',
-            'created_at' => now(),
-        ]);
-
         return DB::transaction(function () use ($checkoutRequestId, $resultCode, $resultDesc, $stkCallback, $body) {
             // Find M-Pesa transaction row with lock
             $mpesaTx = DB::table('mpesa_transactions')
@@ -177,18 +171,14 @@ class StkPushService
                 return ['status' => 'duplicate', 'message' => 'Callback already settled'];
             }
 
-            $payment = DB::table('payments')->where('id', $mpesaTx->payment_id)->first();
-            $order = DB::table('orders')->where('id', $payment->order_id)->first();
-
-            // Check if payment was successful (ResultCode === 0)
             if ($resultCode === 0) {
                 $items = $stkCallback['CallbackMetadata']['Item'] ?? [];
                 $receipt = null;
-                $paidPhone = null;
+                $paidAmount = null;
 
                 foreach ($items as $item) {
                     if ($item['Name'] === 'MpesaReceiptNumber') $receipt = $item['Value'];
-                    if ($item['Name'] === 'PhoneNumber') $paidPhone = (string) $item['Value'];
+                    if ($item['Name'] === 'Amount') $paidAmount = (string) $item['Value'];
                 }
 
                 // 1. Mark M-Pesa transaction settled
@@ -203,52 +193,14 @@ class StkPushService
                         'processed_at' => now(),
                     ]);
 
-                // 2. Mark payment paid
-                DB::table('payments')
-                    ->where('id', $payment->id)
-                    ->update([
-                        'status' => 'paid',
-                        'provider_transaction_id' => $receipt,
-                        'paid_at' => now(),
-                    ]);
-
-                // 3. Confirm order
-                DB::table('orders')
-                    ->where('id', $order->id)
-                    ->update([
-                        'status' => 'PAYMENT_CONFIRMED',
-                        'payment_status' => 'paid',
-                        'updated_at' => now(),
-                    ]);
-
-                // 4. Commit reserved inventory to permanent sales
-                $orderItems = DB::table('order_items')->where('order_id', $order->id)->get();
-                foreach ($orderItems as $item) {
-                    $this->inventoryService->commitStockSale($item->variant_id, $item->quantity, $order->id);
+                if (!$receipt || !$paidAmount) {
+                    throw new \UnexpectedValueException('Successful STK callback is missing receipt or amount metadata.');
                 }
 
-                // 5. Double-Entry Financial Ledger Settlement
-                $subOrders = DB::table('seller_orders')
-                    ->where('order_id', $order->id)
-                    ->get();
-
-                $sellerSplits = [];
-                $totalCommission = 0;
-
-                foreach ($subOrders as $sub) {
-                    $sellerSplits[] = [
-                        'seller_id' => $sub->seller_id,
-                        'net_amount' => (float) $sub->seller_net_payout,
-                    ];
-                    $totalCommission += (float) $sub->commission_total;
-                }
-
-                $this->ledgerService->postOrderPayment(
-                    orderId: $order->id,
-                    grandTotal: (float) $order->grand_total,
-                    sellerSplits: $sellerSplits,
-                    commissionTotal: $totalCommission,
-                    deliveryFee: (float) $order->delivery_fee
+                $this->paymentSettlementService->settleSuccessfulPayment(
+                    paymentId: (string) $mpesaTx->payment_id,
+                    providerTransactionId: (string) $receipt,
+                    providerAmount: $paidAmount
                 );
 
                 return ['status' => 'success', 'receipt' => $receipt];
@@ -264,7 +216,7 @@ class StkPushService
                     ]);
 
                 DB::table('payments')
-                    ->where('id', $payment->id)
+                    ->where('id', $mpesaTx->payment_id)
                     ->update([
                         'status' => 'failed',
                         'failed_at' => now(),

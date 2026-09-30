@@ -40,15 +40,19 @@ class CheckoutController extends BaseController
         ]);
 
         $source = $validated['source'] ?? (!empty($validated['items']) ? 'buy_now' : 'cart');
+        $customerId = $request->user()?->id;
         $resolvedItems = [];
 
         if ($source === 'cart') {
             $user = $request->user();
             $sessionId = $request->header('X-Cart-Session') ?? $request->cookie('cart_session');
             $cart = Cart::where(function ($q) use ($user, $sessionId) {
-                if ($user) $q->where('user_id', $user->id);
-                elseif ($sessionId) $q->where('session_id', $sessionId);
-            })->with('items.variant')->first();
+                if ($user) {
+                    $q->where('user_id', $user->id);
+                } elseif ($sessionId) {
+                    $q->where('session_id', $sessionId);
+                }
+            })->with('items.variant.product')->first();
 
             if (!$cart || $cart->items->isEmpty()) {
                 return response()->json([
@@ -58,22 +62,24 @@ class CheckoutController extends BaseController
             }
 
             foreach ($cart->items as $cItem) {
-                if ($cItem->variant) {
+                if ($cItem->variant && $cItem->variant->product) {
                     $resolvedItems[] = [
                         'variant_id' => $cItem->variant_id,
                         'quantity' => $cItem->quantity,
-                        'unit_price' => (float) ($cItem->variant->discount_price ?? $cItem->variant->price),
+                        'unit_price' => $this->resolvedUnitPrice($cItem->variant),
+                        'tax_type' => $cItem->variant->product->tax_type ?? 'standard',
                     ];
                 }
             }
         } else {
             foreach ($validated['items'] as $item) {
-                $variant = ProductVariant::find($item['variant_id']);
-                if ($variant) {
+                $variant = ProductVariant::with('product')->find($item['variant_id']);
+                if ($variant && $variant->product) {
                     $resolvedItems[] = [
                         'variant_id' => $variant->id,
                         'quantity' => (int) $item['quantity'],
-                        'unit_price' => (float) ($variant->discount_price ?? $variant->price),
+                        'unit_price' => $this->resolvedUnitPrice($variant),
+                        'tax_type' => $variant->product->tax_type ?? 'standard',
                     ];
                 }
             }
@@ -81,36 +87,50 @@ class CheckoutController extends BaseController
 
         // Server-resolved delivery tariff
         $zone = DeliveryZone::where('county', $validated['county'])->first();
-        $deliveryFee = 250.00;
+        $deliveryFee = '250.00';
         if ($zone) {
-            $deliveryFee = $validated['delivery_type'] === 'pickup_station' 
-                ? (float) $zone->pickup_station_fee 
-                : (float) $zone->home_delivery_fee;
+            $deliveryFee = (string) $zone->getRawOriginal(
+                $validated['delivery_type'] === 'pickup_station'
+                    ? 'pickup_station_fee'
+                    : 'home_delivery_fee'
+            );
         }
 
-        // Subtotal and raw tax calculation
-        $subtotal = 0.00;
-        foreach ($resolvedItems as $rItem) {
-            $subtotal += round($rItem['unit_price'] * $rItem['quantity'], 2);
-        }
+        $baseTotals = $this->taxService->calculateOrderTotals($resolvedItems, $deliveryFee);
+        $subtotal = $baseTotals['subtotal'];
 
         // Server-validated coupon discount
-        $discount = 0.00;
+        $discount = '0.00';
         if (!empty($validated['coupon_code'])) {
             $coupon = Coupon::where('code', trim($validated['coupon_code']))
                 ->where('is_active', true)
                 ->where('expires_at', '>', now())
                 ->first();
 
-            if ($coupon && $subtotal >= ($coupon->min_order_amount ?? 0)) {
-                if ($coupon->type === 'percentage') {
-                    $discount = round(($subtotal * $coupon->value) / 100, 2);
-                    if ($coupon->max_discount && $discount > $coupon->max_discount) {
-                        $discount = (float) $coupon->max_discount;
-                    }
-                } else {
-                    $discount = min($subtotal, (float) $coupon->value);
-                }
+            $hasGlobalCapacity = $coupon && (
+                $coupon->getRawOriginal('usage_limit') === null
+                || (int) $coupon->times_used < (int) $coupon->getRawOriginal('usage_limit')
+            );
+            $customerUses = $coupon && $customerId
+                ? DB::table('coupon_usages')
+                    ->where('coupon_id', $coupon->id)
+                    ->where('user_id', $customerId)
+                    ->count()
+                : 0;
+
+            if ($coupon && $hasGlobalCapacity && $customerUses < (int) $coupon->per_customer_limit && bccomp(
+                $subtotal,
+                (string) $coupon->getRawOriginal('min_order_amount'),
+                2
+            ) >= 0) {
+                $discount = $this->taxService->calculateDiscount(
+                    $subtotal,
+                    $coupon->type,
+                    (string) $coupon->getRawOriginal('value'),
+                    $coupon->getRawOriginal('max_discount') === null
+                        ? null
+                        : (string) $coupon->getRawOriginal('max_discount')
+                );
             }
         }
 
@@ -123,15 +143,34 @@ class CheckoutController extends BaseController
         return response()->json([
             'success' => true,
             'source' => $source,
-            'subtotal' => (float) $totals['subtotal'],
-            'discount' => (float) $totals['discount_total'],
-            'delivery_fee' => (float) $totals['delivery_fee'],
-            'taxable_amount' => (float) $totals['taxable_total'],
-            'tax_total' => (float) $totals['tax_total'],
-            'grand_total' => (float) $totals['grand_total'],
+            'subtotal' => $totals['subtotal'],
+            'discount' => $totals['discount_total'],
+            'delivery_fee' => $totals['delivery_fee'],
+            'taxable_amount' => $totals['taxable_total'],
+            'tax_total' => $totals['tax_total'],
+            'grand_total' => $totals['grand_total'],
             'currency' => 'KES',
-            'items' => $resolvedItems,
+            'items' => array_map(
+                fn (array $item, array $pricedLine) => [
+                    ...$item,
+                    'discount' => $pricedLine['allocated_discount'],
+                    'taxable_amount' => $pricedLine['taxable_amount'],
+                    'tax' => $pricedLine['tax_amount'],
+                    'net_line_total' => $pricedLine['net_line_total'],
+                    'line_total' => $pricedLine['gross_line_total'],
+                ],
+                $resolvedItems,
+                $totals['line_items']
+            ),
         ]);
+    }
+
+    private function resolvedUnitPrice(ProductVariant $variant): string
+    {
+        $discountPrice = $variant->getRawOriginal('discount_price');
+        return (string) ($discountPrice !== null
+            ? $discountPrice
+            : $variant->getRawOriginal('price'));
     }
 
     /**

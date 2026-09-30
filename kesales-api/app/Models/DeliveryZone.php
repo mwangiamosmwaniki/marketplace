@@ -19,8 +19,8 @@ class DeliveryZone extends Model
 
     protected $casts = [
         'towns' => 'array',
-        'home_delivery_fee' => 'float',
-        'pickup_station_fee' => 'float',
+        'home_delivery_fee' => 'decimal:2',
+        'pickup_station_fee' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 }

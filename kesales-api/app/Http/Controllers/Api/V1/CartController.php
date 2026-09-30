@@ -51,10 +51,17 @@ class CartController extends BaseController
         $cart = $this->resolveCart($request);
         $cart->load(['items.product.images', 'items.variant']);
 
-        $subtotal = 0.00;
+        $subtotal = '0.00';
         foreach ($cart->items as $item) {
-            $price = (float) ($item->variant->discount_price ?? $item->variant->price ?? $item->unit_price);
-            $subtotal += round($price * $item->quantity, 2);
+            $discountPrice = $item->variant?->getRawOriginal('discount_price');
+            $price = (string) ($discountPrice !== null
+                ? $discountPrice
+                : ($item->variant?->getRawOriginal('price') ?? $item->getRawOriginal('unit_price')));
+            $subtotal = bcadd(
+                $subtotal,
+                bcmul($price, (string) $item->quantity, 2),
+                2
+            );
         }
 
         return response()->json([
@@ -77,7 +84,10 @@ class CartController extends BaseController
         $cart = $this->resolveCart($request);
 
         // Server-resolved non-authoritative snapshot price
-        $price = (float) ($variant->discount_price ?? $variant->price);
+        $discountPrice = $variant->getRawOriginal('discount_price');
+        $price = (string) ($discountPrice !== null
+            ? $discountPrice
+            : $variant->getRawOriginal('price'));
 
         $item = CartItem::where('cart_id', $cart->id)
             ->where('variant_id', $variant->id)

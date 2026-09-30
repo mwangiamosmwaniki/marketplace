@@ -70,7 +70,7 @@ class SellerSettlementService
         // 3. Pending/Approved payouts currently in flight (locks balance)
         $inFlightPayouts = (string) DB::table('payouts')
             ->where('seller_id', $sellerId)
-            ->whereIn('status', ['pending', 'approved', 'processing'])
+            ->whereIn('status', ['pending', 'approved', 'processing', 'held', 'timeout_pending_reconciliation'])
             ->sum('amount');
 
         // 4. Seller refunds deducted
@@ -89,13 +89,13 @@ class SellerSettlementService
         }
 
         return [
-            'gross_sales' => number_format((float) $grossSales, 2, '.', ''),
-            'commission_total' => number_format((float) $commissionTotal, 2, '.', ''),
-            'pending_escrow_balance' => number_format((float) $pendingEscrowTotal, 2, '.', ''),
-            'eligible_settlement_total' => number_format((float) $eligibleNetTotal, 2, '.', ''),
-            'disbursed_payouts' => number_format((float) $disbursedPayouts, 2, '.', ''),
-            'in_flight_payouts' => number_format((float) $inFlightPayouts, 2, '.', ''),
-            'available_balance' => number_format((float) $availableBalance, 2, '.', ''),
+            'gross_sales' => bcadd($grossSales, '0.00', 2),
+            'commission_total' => bcadd($commissionTotal, '0.00', 2),
+            'pending_escrow_balance' => bcadd($pendingEscrowTotal, '0.00', 2),
+            'eligible_settlement_total' => bcadd($eligibleNetTotal, '0.00', 2),
+            'disbursed_payouts' => bcadd($disbursedPayouts, '0.00', 2),
+            'in_flight_payouts' => bcadd($inFlightPayouts, '0.00', 2),
+            'available_balance' => bcadd($availableBalance, '0.00', 2),
             'is_compliance_locked' => $seller->status !== 'approved',
         ];
     }
@@ -103,18 +103,18 @@ class SellerSettlementService
     /**
      * Checks if seller can request a payout of $requestedAmount.
      */
-    public function validatePayoutRequest(string $sellerId, float $requestedAmount): bool
+    public function validatePayoutRequest(string $sellerId, string $requestedAmount): bool
     {
         $balances = $this->calculateSellerBalances($sellerId);
         if ($balances['is_compliance_locked']) {
             return false;
         }
 
-        $minPayout = (float) config('kesales.platform.min_payout_amount', 500);
-        if ($requestedAmount < $minPayout) {
+        $minPayout = (string) config('kesales.platform.min_payout_amount', '500.00');
+        if (!is_numeric($requestedAmount) || bccomp($requestedAmount, $minPayout, 2) < 0) {
             return false;
         }
 
-        return bccomp($balances['available_balance'], (string) $requestedAmount, 2) >= 0;
+        return bccomp($balances['available_balance'], $requestedAmount, 2) >= 0;
     }
 }

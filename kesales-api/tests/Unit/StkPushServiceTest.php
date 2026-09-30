@@ -5,8 +5,7 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Integrations\Mpesa\StkPushService;
 use App\Integrations\Mpesa\MpesaClient;
-use App\Domain\Finance\Services\LedgerPostingService;
-use App\Domain\Inventory\Services\InventoryService;
+use App\Domain\Finance\Services\PaymentSettlementService;
 use App\Models\Payment;
 use App\Models\Order;
 use App\Models\MpesaTransaction;
@@ -61,13 +60,10 @@ class StkPushServiceTest extends TestCase
         ]);
 
         $mpesaClient = Mockery::mock(MpesaClient::class);
-        $ledgerService = Mockery::mock(LedgerPostingService::class);
-        $inventoryService = Mockery::mock(InventoryService::class);
+        $paymentSettlementService = Mockery::mock(PaymentSettlementService::class);
+        $paymentSettlementService->shouldNotReceive('settleSuccessfulPayment');
 
-        // ledgerService must NEVER be called again on duplicate callback
-        $ledgerService->shouldNotReceive('postOrderPayment');
-
-        $stkService = new StkPushService($mpesaClient, $ledgerService, $inventoryService);
+        $stkService = new StkPushService($mpesaClient, $paymentSettlementService);
 
         $duplicatePayload = [
             'Body' => [

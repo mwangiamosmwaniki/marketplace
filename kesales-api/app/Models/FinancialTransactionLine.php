@@ -26,8 +26,8 @@ class FinancialTransactionLine extends Model
 
     protected $casts = [
         'account_id' => 'integer',
-        'debit' => 'float',
-        'credit' => 'float',
+        'debit' => 'decimal:2',
+        'credit' => 'decimal:2',
     ];
 
     public function transaction()

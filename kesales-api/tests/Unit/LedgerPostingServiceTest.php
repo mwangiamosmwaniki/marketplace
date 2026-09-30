@@ -57,19 +57,21 @@ class LedgerPostingServiceTest extends TestCase
     {
         $orderId = $this->createOrder()->id;
         $sellerId = $this->createSeller()->id;
-        $grandTotal = 10500.00; // KSh 10,000 subtotal + KSh 500 delivery fee
-        $deliveryFee = 500.00;
-        $commissionTotal = 1000.00; // 10% of KSh 10,000
+        $grandTotal = '10500.00';
+        $grossSubtotal = '10000.00';
+        $deliveryFee = '500.00';
+        $commissionTotal = '1000.00';
         $sellerSplits = [
             [
                 'seller_id' => $sellerId,
-                'net_amount' => 9000.00,
+                'net_amount' => '9000.00',
             ]
         ];
 
         $txId = $this->ledgerService->postOrderPayment(
             orderId: $orderId,
             grandTotal: $grandTotal,
+            grossSubtotal: $grossSubtotal,
             sellerSplits: $sellerSplits,
             commissionTotal: $commissionTotal,
             deliveryFee: $deliveryFee
@@ -100,11 +102,40 @@ class LedgerPostingServiceTest extends TestCase
         $this->assertEquals(10000.00, $escrowCredits);
     }
 
+    public function test_platform_funded_discount_is_expensed_and_posting_is_idempotent(): void
+    {
+        $orderId = $this->createOrder()->id;
+        $sellerId = $this->createSeller()->id;
+        $arguments = [
+            'orderId' => $orderId,
+            'grandTotal' => '9500.00',
+            'grossSubtotal' => '10000.00',
+            'sellerSplits' => [['seller_id' => $sellerId, 'net_amount' => '9000.00']],
+            'commissionTotal' => '1000.00',
+            'deliveryFee' => '500.00',
+            'discountTotal' => '1000.00',
+        ];
+
+        $firstId = $this->ledgerService->postOrderPayment(...$arguments);
+        $secondId = $this->ledgerService->postOrderPayment(...$arguments);
+
+        $this->assertSame($firstId, $secondId);
+        $this->assertSame(2, FinancialTransaction::where('reference_id', $orderId)->count());
+
+        $clearing = FinancialTransaction::with('lines')->findOrFail($firstId);
+        $promotionExpense = $clearing->lines->firstWhere(
+            'account_id',
+            LedgerPostingService::ACC_PLATFORM_PROMOTION_EXPENSE
+        );
+        $this->assertNotNull($promotionExpense);
+        $this->assertSame('1000.00', (string) $promotionExpense->debit);
+    }
+
     public function test_post_seller_payout_creates_balanced_escrow_release(): void
     {
         $payoutId = (string) Str::uuid();
         $sellerId = $this->createSeller()->id;
-        $amount = 9000.00;
+        $amount = '9000.00';
 
         $txId = $this->ledgerService->postSellerPayout(
             payoutId: $payoutId,
@@ -139,8 +170,8 @@ class LedgerPostingServiceTest extends TestCase
             (string) Str::uuid(),
             'Unbalanced test',
             [
-                ['account_id' => 1000, 'debit' => 100.00, 'credit' => 0.00],
-                ['account_id' => 2000, 'debit' => 0.00, 'credit' => 50.00], // Mismatch!
+                ['account_id' => 1000, 'debit' => '100.00', 'credit' => '0.00'],
+                ['account_id' => 2000, 'debit' => '0.00', 'credit' => '50.00'], // Mismatch!
             ]
         );
     }

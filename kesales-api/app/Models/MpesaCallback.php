@@ -23,6 +23,7 @@ class MpesaCallback extends Model
         'processing_status',
         'attempts',
         'received_at',
+        'processing_started_at',
         'processed_at',
         'failed_at',
         'error_message',
@@ -31,6 +32,9 @@ class MpesaCallback extends Model
 
     protected $casts = [
         'payload' => 'array',
+        'attempts' => 'integer',
+        'processing_started_at' => 'datetime',
         'processed_at' => 'datetime',
+        'failed_at' => 'datetime',
     ];
 }

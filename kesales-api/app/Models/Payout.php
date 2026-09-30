@@ -27,15 +27,26 @@ class Payout extends Model
         'completed_at',
         'approved_by',
         'processed_by',
+        'provider',
+        'provider_request_id',
+        'provider_conversation_id',
+        'provider_transaction_id',
+        'provider_status',
+        'provider_result_code',
+        'provider_result_message',
+        'provider_requested_at',
+        'provider_completed_at',
         'failure_reason',
     ];
 
     protected $casts = [
-        'amount' => 'float',
+        'amount' => 'decimal:2',
         'requested_at' => 'datetime',
         'approved_at' => 'datetime',
         'processed_at' => 'datetime',
         'completed_at' => 'datetime',
+        'provider_requested_at' => 'datetime',
+        'provider_completed_at' => 'datetime',
     ];
 
     public function seller()

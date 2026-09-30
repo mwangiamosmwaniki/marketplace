@@ -23,7 +23,7 @@ class CartItem extends Model
 
     protected $casts = [
         'quantity' => 'integer',
-        'unit_price' => 'float',
+        'unit_price' => 'decimal:2',
     ];
 
     public function cart()

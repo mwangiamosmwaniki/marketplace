@@ -21,6 +21,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['id' => 5000, 'code' => '5000', 'name' => 'Payment Gateway Processing Fees', 'type' => 'expense'],
             ['id' => 5100, 'code' => '5100', 'name' => 'Customer Refund & Concession Expense', 'type' => 'expense'],
             ['id' => 5200, 'code' => '5200', 'name' => 'Carrier Logistics Expense', 'type' => 'expense'],
+            ['id' => 5300, 'code' => '5300', 'name' => 'Platform Promotion Discounts', 'type' => 'expense'],
         ];
 
         foreach ($accounts as $account) {

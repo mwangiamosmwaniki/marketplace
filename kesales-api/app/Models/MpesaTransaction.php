@@ -30,7 +30,7 @@ class MpesaTransaction extends Model
     ];
 
     protected $casts = [
-        'amount' => 'float',
+        'amount' => 'decimal:2',
         'result_code' => 'integer',
         'transaction_date' => 'datetime',
         'processed_at' => 'datetime',

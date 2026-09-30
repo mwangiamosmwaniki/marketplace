@@ -22,16 +22,20 @@ class SellerOrderItem extends Model
         'sku',
         'quantity',
         'unit_price',
+        'discount',
+        'net_line_total',
         'commission_rate',
         'commission_amount',
         'seller_net_amount',
     ];
 
     protected $casts = [
-        'unit_price' => 'float',
-        'commission_rate' => 'float',
-        'commission_amount' => 'float',
-        'seller_net_amount' => 'float',
+        'unit_price' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'net_line_total' => 'decimal:2',
+        'commission_rate' => 'decimal:2',
+        'commission_amount' => 'decimal:2',
+        'seller_net_amount' => 'decimal:2',
         'quantity' => 'integer',
     ];
 

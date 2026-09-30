@@ -2,10 +2,34 @@
 
 use App\Models\Role;
 use App\Models\User;
+use App\Jobs\ProcessMpesaCallbackJob;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
+
+Schedule::call(function (): void {
+    DB::table('mpesa_callbacks')
+        ->where(function ($query): void {
+            $query->whereIn('processing_status', ['queued', 'unprocessed'])
+                ->orWhere(function ($stale): void {
+                    $stale->where('processing_status', 'processing')
+                        ->where('processing_started_at', '<=', now()->subMinutes(5));
+                });
+        })
+        ->orderBy('received_at')
+        ->limit(100)
+        ->pluck('id')
+        ->each(fn (string $callbackId) => ProcessMpesaCallbackJob::dispatch($callbackId));
+})->everyMinute()->name('dispatch-pending-mpesa-callbacks');
+
+Schedule::call(function (): void {
+    DB::table('idempotency_keys')
+        ->whereNotNull('expires_at')
+        ->where('expires_at', '<=', now())
+        ->delete();
+})->hourly()->name('cleanup-expired-idempotency-keys');
 
 Artisan::command('kesales:admin:create {email} {--name=} {--phone=}', function (): int {
     $email = strtolower(trim((string) $this->argument('email')));

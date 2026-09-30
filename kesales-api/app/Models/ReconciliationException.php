@@ -27,8 +27,8 @@ class ReconciliationException extends Model
     ];
 
     protected $casts = [
-        'expected_amount' => 'float',
-        'actual_amount' => 'float',
+        'expected_amount' => 'decimal:2',
+        'actual_amount' => 'decimal:2',
     ];
 
     public function run()

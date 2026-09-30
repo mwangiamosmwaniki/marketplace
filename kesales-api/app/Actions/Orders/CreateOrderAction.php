@@ -57,7 +57,6 @@ class CreateOrderAction
             $itemsBySeller = [];
             $masterOrderItemsData = [];
             $masterSubtotal = '0.00';
-            $masterTaxTotal = '0.00';
 
             // 1. Process items with database authority
             foreach ($items as $reqItem) {
@@ -80,25 +79,18 @@ class CreateOrderAction
                 }
 
                 // Server-derived price (respecting active discount price if set)
-                $unitPrice = number_format((float) ($variant->discount_price ?? $variant->price), 2, '.', '');
-
-                // Authoritative line tax breakdown must stay decimal-safe and be applied against the line subtotal.
-                $lineTax = $this->taxService->calculateLineTax(
-                    unitPrice: $unitPrice,
-                    quantity: $quantity,
-                    taxType: 'standard'
-                );
-
-                $lineTotal = $lineTax['line_total'];
-                $taxAmount = $lineTax['tax_amount'];
+                $discountPrice = $variant->getRawOriginal('discount_price');
+                $unitPrice = (string) ($discountPrice !== null
+                    ? $discountPrice
+                    : $variant->getRawOriginal('price'));
+                $lineTotal = bcmul($unitPrice, (string) $quantity, 2);
+                $taxType = $product->tax_type ?? 'standard';
 
                 // Reserve inventory atomically with accurate audit counts
                 $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
 
                 // Commission rate from seller profile or platform default.
-                $commissionRate = number_format((float) ($seller->commission_rate ?? 10.00), 2, '.', '');
-                $commissionAmount = bcdiv(bcmul($lineTotal, $commissionRate, 4), '100', 2);
-                $sellerNet = bcsub($lineTotal, $commissionAmount, 2);
+                $commissionRate = (string) ($seller->getRawOriginal('commission_rate') ?? '10.00');
 
                 $itemSnapshot = [
                     'product_id' => $product->id,
@@ -108,18 +100,19 @@ class CreateOrderAction
                     'sku' => $variant->sku,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
-                    'tax' => $taxAmount,
+                    'discount' => '0.00',
+                    'tax_type' => $taxType,
+                    'taxable_amount' => '0.00',
+                    'tax' => '0.00',
+                    'net_line_total' => $lineTotal,
                     'line_total' => $lineTotal,
                     'commission_rate' => $commissionRate,
-                    'commission_amount' => $commissionAmount,
-                    'seller_net_amount' => $sellerNet,
+                    'commission_amount' => '0.00',
+                    'seller_net_amount' => '0.00',
                 ];
 
                 $masterOrderItemsData[] = $itemSnapshot;
-                $itemsBySeller[$seller->id][] = $itemSnapshot;
-
                 $masterSubtotal = bcadd($masterSubtotal, $lineTotal, 2);
-                $masterTaxTotal = bcadd($masterTaxTotal, $taxAmount, 2);
             }
 
             // 2. Server-calculated Delivery Fee based on shipping county & delivery type
@@ -127,9 +120,11 @@ class CreateOrderAction
             $zone = DeliveryZone::where('county', $county)->first();
             $deliveryFee = '250.00';
             if ($zone) {
-                $deliveryFee = $deliveryType === 'pickup_station'
-                    ? number_format((float) $zone->pickup_station_fee, 2, '.', '')
-                    : number_format((float) $zone->home_delivery_fee, 2, '.', '');
+                $deliveryFee = (string) $zone->getRawOriginal(
+                    $deliveryType === 'pickup_station'
+                        ? 'pickup_station_fee'
+                        : 'home_delivery_fee'
+                );
             }
 
             // 3. Server-validated Coupon & Discount Calculation with per-customer limit
@@ -143,23 +138,31 @@ class CreateOrderAction
                     ->lockForUpdate()
                     ->first();
 
-                if ($coupon && (float) $masterSubtotal >= (float) ($coupon->min_order_amount ?? 0)) {
+                if ($coupon && bccomp(
+                    $masterSubtotal,
+                    (string) $coupon->getRawOriginal('min_order_amount'),
+                    2
+                ) >= 0) {
                     // Check per-customer usage limit
                     $existingUses = DB::table('coupon_usages')
                         ->where('coupon_id', $coupon->id)
                         ->where('user_id', $customerId)
                         ->count();
 
-                    if ($existingUses < ($coupon->per_customer_limit ?? 1)) {
-                        if ($coupon->type === 'percentage') {
-                            $discount = number_format(((float) $masterSubtotal * (float) $coupon->value) / 100, 2, '.', '');
-                            if ($coupon->max_discount && (float) $discount > (float) $coupon->max_discount) {
-                                $discount = number_format((float) $coupon->max_discount, 2, '.', '');
-                            }
-                            $discountTotal = $discount;
-                        } else {
-                            $discountTotal = number_format(min((float) $masterSubtotal, (float) $coupon->value), 2, '.', '');
-                        }
+                    $usageLimit = $coupon->getRawOriginal('usage_limit');
+                    $hasGlobalCapacity = $usageLimit === null
+                        || (int) $coupon->times_used < (int) $usageLimit;
+                    $perCustomerLimit = (int) $coupon->per_customer_limit;
+
+                    if ($hasGlobalCapacity && $existingUses < $perCustomerLimit) {
+                        $discountTotal = $this->taxService->calculateDiscount(
+                            $masterSubtotal,
+                            $coupon->type,
+                            (string) $coupon->getRawOriginal('value'),
+                            $coupon->getRawOriginal('max_discount') === null
+                                ? null
+                                : (string) $coupon->getRawOriginal('max_discount')
+                        );
 
                         $coupon->increment('times_used');
                         $appliedCoupon = $coupon;
@@ -167,11 +170,44 @@ class CreateOrderAction
                 }
             }
 
-            $discountedSubtotal = bcsub($masterSubtotal, $discountTotal, 2);
-            $grandTotal = bcadd($discountedSubtotal, $deliveryFee, 2);
-            if (bccomp($grandTotal, '0.00', 2) < 0) {
-                $grandTotal = '0.00';
+            $pricing = $this->taxService->calculateOrderTotals(
+                lineItems: array_map(
+                    fn (array $item) => [
+                        'unit_price' => $item['unit_price'],
+                        'quantity' => $item['quantity'],
+                        'tax_type' => $item['tax_type'],
+                    ],
+                    $masterOrderItemsData
+                ),
+                deliveryFee: $deliveryFee,
+                discount: $discountTotal
+            );
+            $masterSubtotal = $pricing['subtotal'];
+            $discountTotal = $pricing['discount_total'];
+            $deliveryFee = $pricing['delivery_fee'];
+            $masterTaxTotal = $pricing['tax_total'];
+            $grandTotal = $pricing['grand_total'];
+
+            foreach ($masterOrderItemsData as $index => &$itemSnapshot) {
+                $pricedLine = $pricing['line_items'][$index];
+                $itemSnapshot['discount'] = $pricedLine['allocated_discount'];
+                $itemSnapshot['taxable_amount'] = $pricedLine['taxable_amount'];
+                $itemSnapshot['tax'] = $pricedLine['tax_amount'];
+                $itemSnapshot['net_line_total'] = $pricedLine['net_line_total'];
+
+                // Existing generic coupons are platform-funded, so commission remains on gross item value.
+                $itemSnapshot['commission_amount'] = $this->taxService->calculatePercentageAmount(
+                    $itemSnapshot['line_total'],
+                    $itemSnapshot['commission_rate']
+                );
+                $itemSnapshot['seller_net_amount'] = bcsub(
+                    $itemSnapshot['line_total'],
+                    $itemSnapshot['commission_amount'],
+                    2
+                );
+                $itemsBySeller[$itemSnapshot['seller_id']][] = $itemSnapshot;
             }
+            unset($itemSnapshot);
 
             // 4. Persist Master Order
             DB::table('orders')->insert([
@@ -227,8 +263,11 @@ class CreateOrderAction
                     'sku' => $mItem['sku'],
                     'quantity' => $mItem['quantity'],
                     'unit_price' => $mItem['unit_price'],
-                    'discount' => 0.00,
+                    'discount' => $mItem['discount'],
+                    'tax_type' => $mItem['tax_type'],
+                    'taxable_amount' => $mItem['taxable_amount'],
                     'tax' => $mItem['tax'],
+                    'net_line_total' => $mItem['net_line_total'],
                     'line_total' => $mItem['line_total'],
                     'created_at' => now(),
                 ]);
@@ -238,9 +277,14 @@ class CreateOrderAction
             $sellerIndex = 'A';
             foreach ($itemsBySeller as $sellerId => $sellerItems) {
                 $subOrderNumber = "KS-SUB-{$datePrefix}-{$uniqueCode}-{$sellerIndex}";
-                $subtotalSeller = array_sum(array_column($sellerItems, 'line_total'));
-                $commSeller = array_sum(array_column($sellerItems, 'commission_amount'));
-                $netSeller = round($subtotalSeller - $commSeller, 2);
+                $subtotalSeller = '0.00';
+                $commSeller = '0.00';
+                $netSeller = '0.00';
+                foreach ($sellerItems as $sellerItem) {
+                    $subtotalSeller = bcadd($subtotalSeller, $sellerItem['line_total'], 2);
+                    $commSeller = bcadd($commSeller, $sellerItem['commission_amount'], 2);
+                    $netSeller = bcadd($netSeller, $sellerItem['seller_net_amount'], 2);
+                }
 
                 $subOrderId = (string) Str::uuid();
                 DB::table('seller_orders')->insert([
@@ -267,6 +311,8 @@ class CreateOrderAction
                         'sku' => $sItem['sku'],
                         'quantity' => $sItem['quantity'],
                         'unit_price' => $sItem['unit_price'],
+                        'discount' => $sItem['discount'],
+                        'net_line_total' => $sItem['net_line_total'],
                         'commission_rate' => $sItem['commission_rate'],
                         'commission_amount' => $sItem['commission_amount'],
                         'seller_net_amount' => $sItem['seller_net_amount'],

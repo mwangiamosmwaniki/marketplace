@@ -26,9 +26,9 @@ class ProductVariant extends Model
     ];
 
     protected $casts = [
-        'price' => 'float',
-        'discount_price' => 'float',
-        'cost_price' => 'float',
+        'price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'cost_price' => 'decimal:2',
         'weight_kg' => 'float',
     ];
 

@@ -65,11 +65,8 @@ class PaymentController extends BaseController
 
         try {
             $result = $this->stkService->initiate(
-                orderId: $order->id,
-                phone: $validated['phone'],
-                amount: (float) $order->grand_total, // Strictly server-derived from order
-                accountReference: $order->order_number,
-                customerId: $user->id
+                order: $order,
+                phone: $validated['phone']
             );
 
             return response()->json([
@@ -137,7 +134,7 @@ class PaymentController extends BaseController
             'success' => true,
             'payment_id' => $payment->id,
             'status' => $payment->status,
-            'amount' => (float) $payment->amount,
+            'amount' => $payment->amount,
             'provider_transaction_id' => $payment->provider_transaction_id ?? $payment->mpesaTransaction?->mpesa_receipt_number,
             'paid_at' => $payment->paid_at,
         ]);

@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SellerController extends BaseController
@@ -179,42 +180,45 @@ class SellerController extends BaseController
 
         $validated = $request->validate([
             'inventory_item_id' => 'required|string|exists:inventory_items,id',
-            'adjustment_quantity' => 'required|integer',
-            'reason' => 'required|string',
+            'adjustment_quantity' => 'required|integer|not_in:0',
+            'reason' => 'required|string|max:500',
         ]);
 
-        $item = InventoryItem::where('seller_id', $seller->id)
-            ->where('id', $validated['inventory_item_id'])
-            ->firstOrFail();
+        return DB::transaction(function () use ($request, $seller, $validated): JsonResponse {
+            $item = InventoryItem::where('seller_id', $seller->id)
+                ->where('id', $validated['inventory_item_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $before = $item->quantity_on_hand;
-        $after = $before + $validated['adjustment_quantity'];
-        if ($after < $item->quantity_reserved) {
+            $before = $item->quantity_on_hand;
+            $after = $before + $validated['adjustment_quantity'];
+            if ($after < $item->quantity_reserved) {
+                return response()->json([
+                    'message' => 'Adjustment would drop available stock below currently reserved customer commitments.',
+                ], 422);
+            }
+
+            $item->quantity_on_hand = $after;
+            $item->save();
+
+            InventoryMovement::create([
+                'id' => (string) Str::uuid(),
+                'inventory_item_id' => $item->id,
+                'type' => 'adjustment',
+                'quantity' => $validated['adjustment_quantity'],
+                'reference_type' => 'manual_adjustment',
+                'reference_id' => (string) Str::uuid(),
+                'before_quantity' => $before,
+                'after_quantity' => $after,
+                'created_by' => $request->user()->id,
+                'created_at' => now(),
+            ]);
+
             return response()->json([
-                'message' => 'Adjustment would drop available stock below currently reserved customer commitments.',
-            ], 422);
-        }
-
-        $item->quantity_on_hand = $after;
-        $item->save();
-
-        InventoryMovement::create([
-            'id' => (string) Str::uuid(),
-            'inventory_item_id' => $item->id,
-            'type' => 'adjustment',
-            'quantity' => $validated['adjustment_quantity'],
-            'reference_type' => 'manual_adjustment',
-            'reference_id' => (string) Str::uuid(),
-            'before_quantity' => $before,
-            'after_quantity' => $after,
-            'created_by' => $request->user()->id,
-            'created_at' => now(),
-        ]);
-
-        return response()->json([
-            'message' => 'Inventory updated',
-            'item' => $item,
-        ]);
+                'message' => 'Inventory updated',
+                'item' => $item,
+            ]);
+        });
     }
 
     public function subOrders(Request $request): JsonResponse
@@ -242,16 +246,62 @@ class SellerController extends BaseController
     public function fulfillSubOrder(Request $request, string $subOrderNumber): JsonResponse
     {
         $seller = $this->getSeller($request);
-        $subOrder = SellerOrder::where('seller_id', $seller->id)
-            ->where('sub_order_number', $subOrderNumber)
-            ->firstOrFail();
-
-        $subOrder->update(['fulfillment_status' => 'dispatched']);
-
-        return response()->json([
-            'message' => 'Order marked as dispatched for hub collection',
-            'sub_order' => $subOrder,
+        $validated = $request->validate([
+            'status' => 'required|in:processing,packed,dispatched,delivered',
+            'tracking_number' => 'required_if:status,dispatched|nullable|string|max:100',
+            'carrier' => 'required_if:status,dispatched|nullable|string|max:100',
         ]);
+
+        return DB::transaction(function () use ($request, $seller, $subOrderNumber, $validated): JsonResponse {
+            $subOrder = SellerOrder::where('seller_id', $seller->id)
+                ->where('sub_order_number', $subOrderNumber)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $allowedNext = [
+                'unfulfilled' => 'processing',
+                'processing' => 'packed',
+                'packed' => 'dispatched',
+                'dispatched' => 'delivered',
+            ];
+            $nextStatus = $validated['status'];
+            if (($allowedNext[$subOrder->fulfillment_status] ?? null) !== $nextStatus) {
+                return response()->json([
+                    'message' => 'Invalid fulfillment transition.',
+                    'current_status' => $subOrder->fulfillment_status,
+                    'requested_status' => $nextStatus,
+                ], 422);
+            }
+
+            $currentStatus = $subOrder->fulfillment_status;
+            $updates = ['fulfillment_status' => $nextStatus];
+            if ($nextStatus === 'dispatched') {
+                $updates['tracking_number'] = trim($validated['tracking_number']);
+                $updates['carrier'] = trim($validated['carrier']);
+            }
+            if ($nextStatus === 'delivered') {
+                $updates['delivered_at'] = now();
+            }
+            $subOrder->update($updates);
+
+            DB::table('seller_order_events')->insert([
+                'id' => (string) Str::uuid(),
+                'seller_order_id' => $subOrder->id,
+                'actor_id' => $request->user()->id,
+                'from_status' => $currentStatus,
+                'to_status' => $nextStatus,
+                'metadata' => json_encode(array_filter([
+                    'tracking_number' => $updates['tracking_number'] ?? null,
+                    'carrier' => $updates['carrier'] ?? null,
+                ]), JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Fulfillment status updated.',
+                'sub_order' => $subOrder->refresh(),
+            ]);
+        });
     }
 
     public function payouts(Request $request): JsonResponse
@@ -282,7 +332,8 @@ class SellerController extends BaseController
             $lockedSeller = \App\Models\Seller::where('id', $seller->id)->lockForUpdate()->first();
             $balances = $this->settlementService->calculateSellerBalances($lockedSeller->id);
 
-            $isValid = $this->settlementService->validatePayoutRequest($lockedSeller->id, (float) $validated['amount']);
+            $requestedAmount = (string) $validated['amount'];
+            $isValid = $this->settlementService->validatePayoutRequest($lockedSeller->id, $requestedAmount);
             if (!$isValid) {
                 return response()->json([
                     'success' => false,
@@ -295,7 +346,7 @@ class SellerController extends BaseController
                 'id' => (string) Str::uuid(),
                 'payout_number' => 'PO-' . date('Ymd') . '-' . strtoupper(Str::random(6)),
                 'seller_id' => $lockedSeller->id,
-                'amount' => $validated['amount'],
+                'amount' => $requestedAmount,
                 'currency' => 'KES',
                 'method' => $validated['method'],
                 'status' => 'pending',
