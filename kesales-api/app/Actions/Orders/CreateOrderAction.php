@@ -80,9 +80,9 @@ class CreateOrderAction
                 }
 
                 // Server-derived price (respecting active discount price if set)
-                $unitPrice = (float) ($variant->discount_price ?? $variant->price);
-                
-                // Authoritative line tax breakdown
+                $unitPrice = number_format((float) ($variant->discount_price ?? $variant->price), 2, '.', '');
+
+                // Authoritative line tax breakdown must stay decimal-safe and be applied against the line subtotal.
                 $lineTax = $this->taxService->calculateLineTax(
                     unitPrice: $unitPrice,
                     quantity: $quantity,
@@ -95,10 +95,10 @@ class CreateOrderAction
                 // Reserve inventory atomically with accurate audit counts
                 $this->inventoryService->reserveStock($variant->id, $quantity, $orderId, $customerId);
 
-                // Commission rate from seller profile or platform default
-                $commissionRate = (float) ($seller->commission_rate ?? 10.00);
-                $commissionAmount = number_format(($lineTotal * $commissionRate) / 100, 2, '.', '');
-                $sellerNet = number_format($lineTotal - $commissionAmount, 2, '.', '');
+                // Commission rate from seller profile or platform default.
+                $commissionRate = number_format((float) ($seller->commission_rate ?? 10.00), 2, '.', '');
+                $commissionAmount = bcdiv(bcmul($lineTotal, $commissionRate, 4), '100', 2);
+                $sellerNet = bcsub($lineTotal, $commissionAmount, 2);
 
                 $itemSnapshot = [
                     'product_id' => $product->id,
@@ -108,11 +108,11 @@ class CreateOrderAction
                     'sku' => $variant->sku,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
-                    'tax' => (float) $taxAmount,
-                    'line_total' => (float) $lineTotal,
+                    'tax' => $taxAmount,
+                    'line_total' => $lineTotal,
                     'commission_rate' => $commissionRate,
-                    'commission_amount' => (float) $commissionAmount,
-                    'seller_net_amount' => (float) $sellerNet,
+                    'commission_amount' => $commissionAmount,
+                    'seller_net_amount' => $sellerNet,
                 ];
 
                 $masterOrderItemsData[] = $itemSnapshot;
@@ -167,7 +167,8 @@ class CreateOrderAction
                 }
             }
 
-            $grandTotal = bcadd(bcsub($masterSubtotal, $discountTotal, 2), $deliveryFee, 2);
+            $discountedSubtotal = bcsub($masterSubtotal, $discountTotal, 2);
+            $grandTotal = bcadd($discountedSubtotal, $deliveryFee, 2);
             if (bccomp($grandTotal, '0.00', 2) < 0) {
                 $grandTotal = '0.00';
             }
@@ -178,11 +179,11 @@ class CreateOrderAction
                 'order_number' => $orderNumber,
                 'customer_id' => $customerId,
                 'currency' => 'KES',
-                'subtotal' => (float) $masterSubtotal,
-                'discount_total' => (float) $discountTotal,
-                'delivery_fee' => (float) $deliveryFee,
-                'tax_total' => (float) $masterTaxTotal,
-                'grand_total' => (float) $grandTotal,
+                'subtotal' => $masterSubtotal,
+                'discount_total' => $discountTotal,
+                'delivery_fee' => $deliveryFee,
+                'tax_total' => $masterTaxTotal,
+                'grand_total' => $grandTotal,
                 'status' => 'PENDING_PAYMENT',
                 'payment_status' => 'pending',
                 'placed_at' => now(),

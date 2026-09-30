@@ -16,14 +16,6 @@ import { useDialog } from "../../context/DialogContext";
 import { Role, User } from "../../types";
 import { ROLE_PERMISSIONS } from "../../config/permissions";
 
-const localStorage = {
-  getItem: (key: string) =>
-    typeof window === "undefined" ? null : window.localStorage.getItem(key),
-  setItem: (key: string, value: string) => {
-    if (typeof window !== "undefined") window.localStorage.setItem(key, value);
-  },
-};
-
 const roles: { value: Role; label: string; description: string }[] = [
   {
     value: "super_admin",
@@ -156,60 +148,32 @@ export const AdminManagementPanel: React.FC<{
     status: "active" as User["status"],
   });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [platformFlags, setPlatformFlags] = useState(
-    () =>
-      JSON.parse(
-        localStorage.getItem("kesales_feature_flags") ||
-          JSON.stringify({
-            sellerRegistration: true,
-            customerRegistration: true,
-            guestCheckout: true,
-            reviews: true,
-            wishlist: true,
-            coupons: true,
-            flashSales: true,
-            sellerPromotions: true,
-          }),
-      ) as Record<string, boolean>,
-  );
-  const [notificationChannels, setNotificationChannels] = useState(
-    () =>
-      JSON.parse(
-        localStorage.getItem("kesales_notification_channels") ||
-          JSON.stringify({
-            email: true,
-            sms: true,
-            whatsapp: false,
-            inApp: true,
-          }),
-      ) as Record<string, boolean>,
-  );
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>(
-    () =>
-      JSON.parse(
-        localStorage.getItem("kesales_custom_roles") || "[]",
-      ) as CustomRole[],
-  );
+  const [platformFlags, setPlatformFlags] = useState<Record<string, boolean>>({
+    sellerRegistration: true,
+    customerRegistration: true,
+    guestCheckout: true,
+    reviews: true,
+    wishlist: true,
+    coupons: true,
+    flashSales: true,
+    sellerPromotions: true,
+  });
+  const [notificationChannels, setNotificationChannels] = useState<
+    Record<string, boolean>
+  >({
+    email: true,
+    sms: true,
+    whatsapp: false,
+    inApp: true,
+  });
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [roleOverrides, setRoleOverrides] = useState<
     Record<
       string,
       Pick<CustomRole, "label" | "description" | "permissions" | "enabled">
     >
-  >(
-    () =>
-      JSON.parse(
-        localStorage.getItem("kesales_role_overrides") || "{}",
-      ) as Record<
-        string,
-        Pick<CustomRole, "label" | "description" | "permissions" | "enabled">
-      >,
-  );
-  const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>(
-    () =>
-      JSON.parse(
-        localStorage.getItem("kesales_deleted_roles") || "[]",
-      ) as string[],
-  );
+  >({});
+  const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>([]);
   const [showRoleForm, setShowRoleForm] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [roleDraft, setRoleDraft] = useState<CustomRole>({

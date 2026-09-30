@@ -67,8 +67,7 @@ class TaxCalculationService
     public function calculateOrderTotals(array $lineItems, string|float $deliveryFee = '0.00', string|float $discount = '0.00'): array
     {
         $subtotal = '0.00';
-        $taxableTotal = '0.00';
-        $taxTotal = '0.00';
+        $grossItemTax = '0.00';
 
         foreach ($lineItems as $item) {
             $tax = $this->calculateLineTax(
@@ -78,8 +77,7 @@ class TaxCalculationService
             );
 
             $subtotal = bcadd($subtotal, $tax['line_total'], 2);
-            $taxableTotal = bcadd($taxableTotal, $tax['taxable_amount'], 2);
-            $taxTotal = bcadd($taxTotal, $tax['tax_amount'], 2);
+            $grossItemTax = bcadd($grossItemTax, $tax['tax_amount'], 2);
         }
 
         $delivery = number_format((float) $deliveryFee, 2, '.', '');
@@ -90,15 +88,24 @@ class TaxCalculationService
             $netAfterDiscount = '0.00';
         }
 
+        $taxableBase = $netAfterDiscount;
+        if (bccomp($taxableBase, '0.00', 2) > 0) {
+            $taxableTotal = bcdiv($taxableBase, '1.16', 2);
+            $taxTotal = bcsub($taxableBase, $taxableTotal, 2);
+        } else {
+            $taxableTotal = '0.00';
+            $taxTotal = '0.00';
+        }
+
         $grandTotal = bcadd($netAfterDiscount, $delivery, 2);
 
         return [
             'subtotal' => number_format((float) $subtotal, 2, '.', ''),
             'discount_total' => number_format((float) $disc, 2, '.', ''),
             'delivery_fee' => number_format((float) $delivery, 2, '.', ''),
-            'taxable_total' => number_format((float) $taxableTotal, 2, '.', ''),
-            'tax_total' => number_format((float) $taxTotal, 2, '.', ''),
-            'grand_total' => number_format((float) $grandTotal, 2, '.', ''),
+            'taxable_total' => $taxableTotal,
+            'tax_total' => $taxTotal,
+            'grand_total' => $grandTotal,
         ];
     }
 }

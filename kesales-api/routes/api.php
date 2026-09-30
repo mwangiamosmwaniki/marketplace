@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Middleware\IdempotencyMiddleware;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,7 +69,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('checkout')->group(function () {
         // Server calculates subtotal, discounts, county tariffs, and taxes
         Route::post('/quote', [CheckoutController::class, 'calculateQuote']);
-        Route::post('/', [CheckoutController::class, 'createOrder'])->middleware('auth:sanctum');
+        Route::post('/', [CheckoutController::class, 'createOrder'])
+            ->middleware(['auth:sanctum', IdempotencyMiddleware::class]);
         Route::get('/{orderNumber}/status', [CheckoutController::class, 'orderStatus'])->middleware('auth:sanctum');
     });
 

@@ -19,40 +19,62 @@ class IdempotencyMiddleware
         }
 
         $userId = $request->user()?->id;
-        $requestHash = md5($request->path() . '|' . json_encode($request->all()));
+        $requestPath = $request->path();
+        $requestHash = hash('sha256', $requestPath . '|' . json_encode($request->all(), JSON_THROW_ON_ERROR));
 
-        // Look for existing idempotency record
-        $record = IdempotencyKey::where('user_id', $userId)
+        $existing = IdempotencyKey::where('user_id', $userId)
             ->where('idempotency_key', $idempotencyKey)
+            ->where('request_path', $requestPath)
             ->first();
 
-        if ($record && $record->response_body) {
-            return response()->json(
-                $record->response_body,
-                $record->response_code ?? 200
-            )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+        if ($existing) {
+            if ($existing->request_hash !== $requestHash) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD',
+                        'message' => 'This idempotency key was already used for a different request body on the same endpoint.',
+                    ],
+                ], 422);
+            }
+
+            if (!empty($existing->response_body)) {
+                return response()->json(
+                    $existing->response_body,
+                    (int) ($existing->response_code ?? 200)
+                )->header('X-Cache-Lookup', 'IDEMPOTENT_REPLAY');
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'IDEMPOTENCY_KEY_PROCESSING',
+                    'message' => 'This request is already being processed. Please retry once the original request completes.',
+                ],
+            ], 409);
         }
+
+        $record = IdempotencyKey::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $userId,
+            'idempotency_key' => $idempotencyKey,
+            'request_path' => $requestPath,
+            'request_hash' => $requestHash,
+            'response_code' => null,
+            'response_body' => null,
+            'created_at' => now(),
+            'expires_at' => now()->addHours(24),
+        ]);
 
         $response = $next($request);
 
-        // Only cache successful JSON responses
         if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
             $content = json_decode($response->getContent(), true);
-
-            IdempotencyKey::updateOrCreate(
-                [
-                    'user_id' => $userId,
-                    'idempotency_key' => $idempotencyKey,
-                ],
-                [
-                    'id' => (string) Str::uuid(),
-                    'request_path' => $request->path(),
-                    'request_hash' => $requestHash,
-                    'response_code' => $response->getStatusCode(),
-                    'response_body' => $content,
-                    'expires_at' => now()->addHours(24),
-                ]
-            );
+            $record->forceFill([
+                'response_code' => $response->getStatusCode(),
+                'response_body' => $content,
+                'expires_at' => now()->addHours(24),
+            ])->save();
         }
 
         return $response;
