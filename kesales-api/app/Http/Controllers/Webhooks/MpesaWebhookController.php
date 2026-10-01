@@ -68,10 +68,10 @@ class MpesaWebhookController extends BaseController
         }
 
         if (!is_numeric((string) $transAmount)
-            || bccomp((string) $transAmount, (string) $order->getRawOriginal('grand_total'), 2) < 0) {
+            || bccomp((string) $transAmount, (string) $order->getRawOriginal('grand_total'), 2) !== 0) {
             return response()->json([
                 'ResultCode' => 'C2B00012',
-                'ResultDesc' => 'Underpayment: TransAmount is less than Order Total',
+                'ResultDesc' => 'TransAmount must exactly match the Order Total',
             ]);
         }
 
@@ -314,17 +314,13 @@ class MpesaWebhookController extends BaseController
 
     public function handleTransactionStatus(Request $request): JsonResponse
     {
-        $result = $request->input('Result', []);
-        $transId = $result['TransactionID'] ?? null;
-        $resultCode = $result['ResultCode'] ?? 1;
-
-        if ($transId && $resultCode === 0) {
-            Payment::where('provider_transaction_id', $transId)->update([
-                'status' => 'paid',
-                'paid_at' => now(),
-            ]);
-        }
-
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Status Callback Handled']);
+        // A status-query response is evidence only. It does not contain a trusted,
+        // reliably correlated order/payment amount, so it must never settle a payment.
+        // Successful payments are settled through the STK/C2B handlers, which verify
+        // the provider amount and invoke PaymentSettlementService atomically.
+        return response()->json([
+            'ResultCode' => 0,
+            'ResultDesc' => 'Status response received; payment settlement requires a verified payment callback',
+        ]);
     }
 }
