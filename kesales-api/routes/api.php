@@ -41,7 +41,7 @@ Route::prefix('v1')->group(function () {
     // ========================================================================
     // 2. AUTHENTICATION & IDENTITY (Sanctum SPA)
     // ========================================================================
-    Route::middleware('web')->prefix('auth')->group(function () {
+    Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);

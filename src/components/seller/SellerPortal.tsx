@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
 import { useDialog } from "../../context/DialogContext";
 import { ImageUploadField } from "../ImageUploadField";
-import { AnalyticsDashboardVisual } from "../dashboard/AnalyticsDashboardVisual";
+import { SellerOverview } from "./SellerOverview";
 import {
   LayoutDashboard,
   Package,
@@ -369,11 +369,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
 
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
-          <AnalyticsDashboardVisual
-            mode="seller"
-            sellerId={currentSeller.id}
-            onNavigateTab={(tab) => setActiveTab(tab as any)}
-          />
+          <SellerOverview onNavigateTab={(tab) => setActiveTab(tab)} />
         )}
 
         {/* PRODUCTS TAB */}

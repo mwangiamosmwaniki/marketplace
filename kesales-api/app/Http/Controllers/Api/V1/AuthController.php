@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Seller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controller as BaseController;
 
@@ -22,33 +24,58 @@ class AuthController extends BaseController
             'phone' => 'required|string|max:32|unique:users',
             'password' => 'required|string|min:8',
             'role' => 'nullable|string|in:customer,seller',
+            'seller_business_name' => 'required_if:role,seller|string|max:255',
         ]);
 
-        $user = User::create([
-            'id' => (string) Str::uuid(),
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
-            'password' => Hash::make($validated['password']),
-            'status' => 'active',
-        ]);
+        return DB::transaction(function () use ($request, $validated): JsonResponse {
+            $user = User::create([
+                'id' => (string) Str::uuid(),
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'],
+                'password' => Hash::make($validated['password']),
+                'status' => 'active',
+            ]);
 
-        $roleSlug = $validated['role'] ?? 'customer';
-        $role = Role::where('slug', $roleSlug)->first();
-        if ($role) {
-            $user->roles()->attach($role->id);
-        }
+            $roleSlug = $validated['role'] ?? 'customer';
+            $role = Role::where('slug', $roleSlug)->first();
+            if ($role) {
+                $user->roles()->attach($role->id);
+            }
 
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
-        $request->session()->save();
-        Cookie::queue(Cookie::make(config('session.cookie'), session()->getId(), 60 * 12, '/', null, app()->isProduction(), true, false, 'Lax'));
+            if ($roleSlug === 'seller') {
+                $storeName = trim($validated['seller_business_name']);
+                $slugBase = Str::slug($storeName) ?: 'store';
+                $slug = $slugBase;
+                $suffix = 2;
+                while (Seller::where('slug', $slug)->exists()) {
+                    $slug = "{$slugBase}-{$suffix}";
+                    $suffix++;
+                }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Registration successful',
-            'user' => $user->load('roles'),
-        ], 201);
+                Seller::create([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $user->id,
+                    'store_name' => $storeName,
+                    'slug' => $slug,
+                    'legal_name' => $user->name,
+                    'seller_type' => 'business',
+                    'status' => 'under_review',
+                    'commission_rate' => 10,
+                ]);
+            }
+
+            Auth::guard('web')->login($user);
+            $request->session()->regenerate();
+            $request->session()->save();
+            Cookie::queue(Cookie::make(config('session.cookie'), session()->getId(), 60 * 12, '/', null, app()->isProduction(), true, false, 'Lax'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful',
+                'user' => $user->load(['roles', 'seller.profile']),
+            ], 201);
+        });
     }
 
     public function login(Request $request): JsonResponse
@@ -81,7 +108,7 @@ class AuthController extends BaseController
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
-            'user' => $user->load('roles'),
+            'user' => $user->load(['roles', 'seller.profile']),
         ]);
     }
 
@@ -89,7 +116,7 @@ class AuthController extends BaseController
     {
         return response()->json([
             'success' => true,
-            'user' => $request->user()->load(['roles.permissions', 'seller']),
+            'user' => $request->user()->load(['roles.permissions', 'seller.profile']),
         ]);
     }
 

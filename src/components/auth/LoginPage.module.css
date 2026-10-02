@@ -1,0 +1,421 @@
+.page {
+  --login-ink: #101112;
+  --login-muted: #777c80;
+  --login-line: #dedfe1;
+  --login-link: #2479d8;
+  display: grid;
+  grid-template-columns: 52% 48%;
+  min-height: 100vh;
+  min-height: 100svh;
+  color: var(--login-ink);
+  background: #fff;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+}
+
+.formPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 32px clamp(24px, 5vw, 76px);
+  overflow-y: auto;
+}
+
+.formContent {
+  width: min(100%, 390px);
+  margin: auto;
+}
+
+.brandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #121417;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f4b740;
+  color: #161719;
+  font-size: 14px;
+}
+
+.brandText {
+  font-size: 13px;
+}
+
+.heading {
+  margin-bottom: 25px;
+}
+
+.heading h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 750;
+  line-height: 1.12;
+  color: #101112;
+}
+
+.heading p {
+  margin: 7px 0 0;
+  color: #92969a;
+  font-size: 13px;
+}
+
+.googleButton {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--login-line);
+  border-radius: 4px;
+  background: #fff;
+  color: #373a3d;
+  font-size: 13px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.googleButton:hover {
+  border-color: #b8bcc0;
+  background: #fafafa;
+}
+
+.googleMark {
+  color: #4285f4;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 20px;
+  color: #777c80;
+  font-size: 11px;
+}
+
+.divider span:first-child,
+.divider span:last-child {
+  height: 1px;
+  background: #e1e3e5;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: #555a5e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field input {
+  display: block;
+  width: 100%;
+  height: 43px;
+  border: 1px solid #dedfe1;
+  border-radius: 4px;
+  padding: 0 12px;
+  background: #fff;
+  color: #151719;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.field input:focus {
+  border-color: #689ddb;
+  box-shadow: 0 0 0 3px rgb(36 121 216 / 12%);
+}
+
+.passwordInput {
+  position: relative;
+  display: block;
+}
+
+.passwordInput input {
+  padding-right: 42px;
+}
+
+.visibilityButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 42px;
+  height: 43px;
+  place-items: center;
+  color: #777c80;
+}
+
+.visibilityButton:hover {
+  color: #161819;
+}
+
+.formOptions {
+  display: flex;
+  min-height: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -3px;
+  font-size: 11px;
+}
+
+.textLink {
+  color: var(--login-link);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.textLink:hover {
+  color: #155eae;
+}
+
+.submitButton {
+  display: flex;
+  min-height: 44px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #050505;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #242424;
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.signupPrompt {
+  margin: 18px 0 0;
+  color: #45494c;
+  text-align: center;
+  font-size: 12px;
+}
+
+.errorMessage,
+.noticeMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -5px 0 15px;
+  border-radius: 4px;
+  padding: 10px 11px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.errorMessage {
+  border: 1px solid #f3c9c5;
+  background: #fff6f5;
+  color: #a3362e;
+}
+
+.errorMessage svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.noticeMessage {
+  border: 1px solid #d8e5f4;
+  background: #f5f9ff;
+  color: #345d86;
+}
+
+.visualPanel {
+  position: relative;
+  min-width: 0;
+  min-height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: #9eb5b4;
+}
+
+.slides,
+.slide,
+.slide img,
+.imageShade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.slide {
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 1100ms ease;
+}
+
+.activeSlide {
+  opacity: 1;
+}
+
+.slide img {
+  object-fit: cover;
+  object-position: center 38%;
+  transform: scale(1.08);
+}
+
+.activeSlide img {
+  animation: image-zoom-out 7.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.imageShade {
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 1%) 44%,
+    rgb(0 0 0 / 52%) 100%
+  );
+}
+
+.caption {
+  position: absolute;
+  z-index: 2;
+  right: clamp(24px, 5vw, 70px);
+  bottom: clamp(28px, 6vh, 60px);
+  left: clamp(24px, 5vw, 70px);
+  color: #fff;
+}
+
+.caption h2 {
+  max-width: 460px;
+  margin: 0;
+  font-size: clamp(24px, 2.5vw, 36px);
+  font-weight: 750;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.caption p {
+  max-width: 380px;
+  margin: 10px 0 0;
+  color: rgb(255 255 255 / 88%);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.slideControls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.slideDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 55%);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.activeDot {
+  width: 22px;
+  background: #fff;
+}
+
+@keyframes image-zoom-out {
+  from {
+    transform: scale(1.16);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 680px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 32svh) minmax(440px, 1fr);
+  }
+
+  .visualPanel {
+    grid-row: 1;
+  }
+
+  .formPanel {
+    grid-row: 2;
+    padding: 36px 24px 42px;
+  }
+
+  .caption {
+    right: 24px;
+    bottom: 22px;
+    left: 24px;
+  }
+
+  .caption h2 {
+    font-size: 24px;
+  }
+
+  .caption p {
+    max-width: 320px;
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .slideControls {
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .formPanel {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .heading h1 {
+    font-size: 27px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide,
+  .activeSlide img,
+  .slideDot {
+    animation: none;
+    transition: none;
+  }
+}

@@ -1,39 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useMarketplace } from "../../context/MarketplaceContext";
 import { useDialog } from "../../context/DialogContext";
-import {
-  Shield,
-  ShieldCheck,
-  BarChart3,
-  Users,
-  Package,
-  ShoppingBag,
-  DollarSign,
-  Ticket,
-  MapPin,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  Search,
-  Filter,
-  ArrowUpRight,
-  TrendingUp,
-  Percent,
-  Lock,
-  Plus,
-  Settings,
-} from "lucide-react";
-import {
-  Role,
-  SellerStatus,
-  PayoutStatus,
-  Coupon,
-  SystemSettings,
-  OrderStatus,
-  DeliveryZone,
-} from "../../types";
+import { Ticket, MapPin, Plus } from "lucide-react";
+import { SystemSettings, OrderStatus, DeliveryZone } from "../../types";
 import { AdminManagementPanel } from "./AdminManagementPanel";
+import { AdminOverview } from "./AdminOverview";
 import { ImageUploadField } from "../ImageUploadField";
 
 const actionButton =
@@ -240,25 +211,6 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
     null,
   );
 
-  // Platform Aggregate Analytics
-  const totalGMV = orders
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + o.grandTotal, 0);
-
-  const totalCommissionsEarned = orders
-    .filter((o) => o.status !== "cancelled")
-    .flatMap((o) => o.sellerSubOrders)
-    .reduce((sum, s) => sum + s.commissionTotal, 0);
-
-  const totalDeliveredOrders = orders.filter(
-    (o) => o.status === "delivered",
-  ).length;
-  const pendingKYCSellers = sellers.filter(
-    (s) => s.status === "under_review",
-  ).length;
-  const pendingPayoutsCount = payouts.filter(
-    (p) => p.status === "pending",
-  ).length;
   const selectedSeller = sellers.find(
     (seller) => seller.id === selectedSellerId,
   );
@@ -411,121 +363,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
 
         {/* ANALYTICS TAB */}
         {adminTab === "analytics" && (
-          <div className="space-y-6">
-            {/* Main KPI metric cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Gross Merchandise Value (GMV)
-                </span>
-                <div className="text-2xl font-extrabold text-neutral-900 mt-1">
-                  {formatKSh(totalGMV)}
-                </div>
-                <p className="text-[11px] text-emerald-600 mt-1 font-semibold flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>Across all vendor transactions</span>
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Platform Commission Revenue
-                </span>
-                <div className="text-2xl font-extrabold text-amber-600 mt-1">
-                  {formatKSh(totalCommissionsEarned)}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  Net earned revenue retained by KESALES
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Active Verified Merchants
-                </span>
-                <div className="text-2xl font-extrabold text-neutral-900 mt-1">
-                  {sellers.filter((s) => s.status === "approved").length}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  {pendingKYCSellers} vendor awaiting KYC verification
-                </p>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  Successful Deliveries
-                </span>
-                <div className="text-2xl font-extrabold text-emerald-700 mt-1">
-                  {totalDeliveredOrders}
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  Out of {orders.length} total orders
-                </p>
-              </div>
-            </div>
-
-            {/* Category Commission Performance & Vendor Distribution */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs">
-                <h3 className="font-bold text-sm text-neutral-900 mb-3">
-                  Category Commission Tiers & Catalog Density
-                </h3>
-                <div className="space-y-3 text-xs">
-                  {categories.map((cat) => {
-                    const count = products.filter(
-                      (p) => p.categoryId === cat.id,
-                    ).length;
-                    return (
-                      <div
-                        key={cat.id}
-                        className="flex items-center justify-between p-2 rounded bg-neutral-50"
-                      >
-                        <div>
-                          <span className="font-bold text-neutral-800">
-                            {cat.name}
-                          </span>
-                          <span className="text-[11px] text-neutral-500 block">
-                            Default commission rate: {cat.commissionRate || 10}%
-                          </span>
-                        </div>
-                        <span className="font-semibold text-neutral-700">
-                          {count} products
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs">
-                <h3 className="font-bold text-sm text-neutral-900 mb-3">
-                  Finance Data Status
-                </h3>
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between items-center p-2.5 rounded bg-emerald-50 text-emerald-800">
-                    <span className="font-bold">Payment records</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 bg-emerald-200 rounded">
-                      Demo dataset
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-2.5 rounded bg-blue-50 text-blue-800">
-                    <span className="font-bold">Pending reconciliation</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 bg-blue-200 rounded">
-                      Review queue
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-2.5 rounded bg-neutral-50 text-neutral-800">
-                    <span className="font-bold">Journal entries</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 bg-neutral-200 rounded">
-                      {ledger.length} demo records
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AdminOverview onNavigateTab={setAdminTab} />
         )}
 
         {/* SELLERS & KYC TAB */}

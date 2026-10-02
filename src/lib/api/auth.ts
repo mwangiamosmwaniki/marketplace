@@ -1,4 +1,26 @@
-import { apiRequest, ApiEnvelope } from "./client";
+import { apiRequest } from "./client";
+
+export type AuthSeller = {
+  id: string;
+  user_id: string;
+  store_name: string;
+  slug: string;
+  legal_name: string;
+  status: string;
+  commission_rate: number | string;
+  rating: number | string;
+  description?: string | null;
+  logo_path?: string | null;
+  banner_path?: string | null;
+  created_at?: string;
+  profile?: {
+    business_registration_number?: string | null;
+    kra_pin?: string;
+    county?: string;
+    town?: string;
+    physical_address?: string;
+  } | null;
+};
 
 export type AuthUser = {
   id: string;
@@ -8,6 +30,7 @@ export type AuthUser = {
   role: string;
   status: string;
   created_at?: string;
+  seller?: AuthSeller | null;
   roles?: Array<{ slug?: string; name?: string }>;
 };
 
@@ -22,8 +45,13 @@ export async function registerUser(payload: {
   phone: string;
   password: string;
   role?: string;
+  sellerBusinessName?: string;
 }) {
-  return apiRequest<AuthSession>("/auth/register", "POST", payload);
+  const { sellerBusinessName, ...userFields } = payload;
+  return apiRequest<AuthSession>("/auth/register", "POST", {
+    ...userFields,
+    ...(sellerBusinessName ? { seller_business_name: sellerBusinessName } : {}),
+  });
 }
 
 export async function loginUser(payload: { email: string; password: string }) {

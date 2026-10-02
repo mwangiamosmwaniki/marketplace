@@ -22,8 +22,6 @@ import {
   FinanceSection,
 } from "./components/admin/finance/FinanceAdminPanel";
 import { FINANCE_NAV } from "./config/permissions";
-import { isFinanceAdmin, isGeneralAdmin } from "./config/permissions";
-import { AuthModal } from "./components/auth/AuthModal";
 import { Footer } from "./components/Footer";
 import { PublicInfoPage, PublicPageSlug } from "./components/PublicInfoPage";
 import { Product, MasterOrder, Role } from "./types";
@@ -144,7 +142,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
-    <div className="relative min-h-[calc(100dvh-52px)] w-full bg-[#eef0f2]">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#eef0f2]">
       <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 xl:hidden">
         <div className="text-xs font-bold text-neutral-800">{title}</div>
         <button
@@ -164,7 +162,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
         </button>
       </div>
       <div
-        className={`grid grid-cols-1 ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} w-full min-h-[calc(100dvh-52px)] xl:h-[calc(100dvh-52px)] overflow-hidden`}
+        className={`grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} overflow-hidden`}
       >
         {mobileSidebarOpen && (
           <button
@@ -178,34 +176,8 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-[52px] z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-52px)] shadow-2xl" : "hidden"} bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}
         >
           <div
-            className={`px-4 py-4 border-b border-neutral-800 flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-3"}`}
+            className={`flex items-center border-b border-neutral-800 px-2 py-1.5 ${sidebarCollapsed ? "justify-center" : "justify-end"}`}
           >
-            {!sidebarCollapsed && (
-              <button
-                type="button"
-                onClick={() => router.push("/")}
-                className="flex items-center gap-3 text-left group cursor-pointer"
-                title="Return to marketplace storefront"
-              >
-                <div className="w-10 h-10 rounded-lg bg-amber-500 text-neutral-950 font-black text-lg flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                  K
-                </div>
-                <div>
-                  <div className="font-black tracking-tight text-xl text-white group-hover:text-amber-400 transition-colors">
-                    KESALES<span className="text-amber-500">.</span>
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
-                    {title.toLowerCase().includes("good morning") || title.toLowerCase().includes("account")
-                      ? "Customer portal"
-                      : title.toLowerCase().includes("finance")
-                        ? "Finance console"
-                        : title.toLowerCase().includes("seller")
-                          ? "Seller center"
-                          : "Admin hub"}
-                  </div>
-                </div>
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
@@ -315,14 +287,18 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                   <div className="text-[11px] font-bold text-white leading-tight">
                     System status
                   </div>
-                  <div className="text-[10px] text-emerald-300 leading-tight">Operational</div>
+                  <div className="text-[10px] text-emerald-300 leading-tight">
+                    Operational
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </aside>
 
-        <div className="bg-[#f3f4f6] h-full overflow-y-auto">{children}</div>
+        <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-[#f3f4f6]">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -468,11 +444,13 @@ function MarketplaceApp({
   const [selectedProductForDetail, setSelectedProductForDetail] =
     useState<Product | null>(null);
 
-  // Real Authentication Modal state
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<
-    "login" | "register_customer" | "register_seller"
-  >("login");
+  const openAuth = (
+    tab?: "login" | "register_customer" | "register_seller",
+  ) => {
+    if (tab === "register_seller") router.push("/seller/register");
+    else if (tab === "register_customer") router.push("/register");
+    else router.push("/login");
+  };
 
   // Search & Filtering
   const [searchQuery, setSearchQuery] = useState("");
@@ -609,8 +587,7 @@ function MarketplaceApp({
             setActiveView("seller");
             router.push("/seller");
           } else {
-            setAuthModalTab("register_seller");
-            setIsAuthModalOpen(true);
+            router.push("/seller/register");
           }
         }}
       />
@@ -643,14 +620,15 @@ function MarketplaceApp({
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col font-sans text-neutral-900 selection:bg-amber-500 selection:text-white">
+    <div
+      className={`${activeView === "storefront" ? "min-h-screen" : "h-dvh overflow-hidden"} flex flex-col bg-neutral-100 font-sans text-neutral-900 selection:bg-amber-500 selection:text-white`}
+    >
       {/* 1. Global Navigation Bar */}
       <Navbar
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAccount={() => {
           if (!authUser) {
-            setAuthModalTab("login");
-            setIsAuthModalOpen(true);
+            router.push("/login");
           } else {
             setCustomerTab("orders");
             setActiveView("customer");
@@ -678,10 +656,7 @@ function MarketplaceApp({
           else if (view === "admin") router.push("/admin");
           else if (view === "finance") router.push("/finance");
         }}
-        onOpenAuthModal={(tab) => {
-          setAuthModalTab(tab || "login");
-          setIsAuthModalOpen(true);
-        }}
+        onOpenAuthModal={openAuth}
         onBackToStorefront={() => {
           setPublicPage(null);
           setActiveView("storefront");
@@ -693,16 +668,13 @@ function MarketplaceApp({
       />
 
       {/* 2. Main Body Content Switcher */}
-      <main className="flex-1">
+      <main className="min-h-0 flex-1">
         {/* VIEW 1: CUSTOMER STOREFRONT */}
         {activeView === "storefront" && publicPage && (
           <PublicInfoPage
             slug={publicPage}
             onBack={() => setPublicPage(null)}
-            onOpenAuth={(tab) => {
-              setAuthModalTab(tab || "login");
-              setIsAuthModalOpen(true);
-            }}
+            onOpenAuth={openAuth}
           />
         )}
 
@@ -1266,28 +1238,6 @@ function MarketplaceApp({
           }}
         />
       )}
-
-      {/* 4. Real Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        defaultTab={authModalTab}
-        onSuccess={(role) => {
-          if (role === "seller") {
-            setActiveView("seller");
-            router.push("/seller");
-          } else if (isFinanceAdmin(role)) {
-            setActiveView("finance");
-            router.push("/finance");
-          } else if (isGeneralAdmin(role)) {
-            setActiveView("admin");
-            router.push("/admin");
-          } else {
-            setActiveView("customer");
-            router.push("/customer");
-          }
-        }}
-      />
 
       {/* 4. Modals & Drawers */}
       {/* Product Detail Modal */}

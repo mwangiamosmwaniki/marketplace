@@ -36,6 +36,7 @@ import {
   loginUser,
   logoutUser,
   registerUser as apiRegisterUser,
+  AuthUser as BackendAuthUser,
 } from "../lib/api/auth";
 
 interface MarketplaceContextType {
@@ -277,6 +278,72 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const [users, setUsers] = useState<User[]>([]);
 
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [sellers, setSellers] = useState<Seller[]>([]);
+
+  const applyAuthenticatedUser = (backendUser: BackendAuthUser): User => {
+    const user: User = {
+      id: backendUser.id,
+      name: backendUser.name,
+      email: backendUser.email,
+      phone: backendUser.phone,
+      role: (backendUser.roles?.[0]?.slug as Role) || "customer",
+      sellerId: backendUser.seller?.id,
+      permissions: [],
+      status: backendUser.status === "active" ? "active" : "suspended",
+      createdAt: backendUser.created_at || new Date().toISOString(),
+    };
+
+    setAuthUser(user);
+    setUsers((previous) =>
+      previous.some((item) => item.id === user.id)
+        ? previous.map((item) => (item.id === user.id ? user : item))
+        : [user, ...previous],
+    );
+
+    const seller = backendUser.seller;
+    if (seller) {
+      const profile = seller.profile;
+      const mappedSeller: Seller = {
+        id: seller.id,
+        userId: seller.user_id,
+        businessName: seller.store_name,
+        slug: seller.slug,
+        ownerName: backendUser.name,
+        email: backendUser.email,
+        phone: backendUser.phone,
+        county: profile?.county || "",
+        town: profile?.town || "",
+        address: profile?.physical_address || "",
+        taxPin: profile?.kra_pin || "",
+        businessRegNumber: profile?.business_registration_number || "",
+        logo: seller.logo_path || "",
+        banner: seller.banner_path || "",
+        description: seller.description || "",
+        status: (seller.status === "submitted"
+          ? "under_review"
+          : seller.status) as SellerStatus,
+        commissionRate: Number(seller.commission_rate) || 10,
+        rating: Number(seller.rating) || 5,
+        totalSalesCount: 0,
+        pendingBalance: 0,
+        availableBalance: 0,
+        totalPayouts: 0,
+        payoutMethod: "mpesa",
+        payoutAccount: backendUser.phone,
+        createdAt: seller.created_at || new Date().toISOString(),
+      };
+
+      setSellers((previous) =>
+        previous.some((item) => item.id === mappedSeller.id)
+          ? previous.map((item) =>
+              item.id === mappedSeller.id ? mappedSeller : item,
+            )
+          : [mappedSeller, ...previous],
+      );
+    }
+
+    return user;
+  };
 
   // This provider is intentionally a UI/session orchestration layer. Business
   // records such as products, orders, payouts, and settings are cached here for
@@ -293,27 +360,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      const backendUser = response.data.user;
-      const mappedUser: User = {
-        id: backendUser.id,
-        name: backendUser.name,
-        email: backendUser.email,
-        phone: backendUser.phone,
-        role: (backendUser.roles?.[0]?.slug as Role) || "customer",
-        permissions: [],
-        status: backendUser.status === "active" ? "active" : "suspended",
-        createdAt: backendUser.created_at || new Date().toISOString(),
-      };
-
-      setAuthUser(mappedUser);
-      setUsers((prev) => {
-        if (prev.some((user) => user.id === mappedUser.id)) {
-          return prev.map((user) =>
-            user.id === mappedUser.id ? mappedUser : user,
-          );
-        }
-        return [mappedUser, ...prev];
-      });
+      applyAuthenticatedUser(response.data.user);
     };
 
     restoreSession();
@@ -349,7 +396,6 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [sellers, setSellers] = useState<Seller[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<MasterOrder[]>([]);
   const [ledger, setLedger] = useState<FinancialLedgerEntry[]>([]);
@@ -446,21 +492,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     }
 
-    const user: User = {
-      id: response.data.user.id,
-      name: response.data.user.name,
-      email: response.data.user.email,
-      phone: response.data.user.phone,
-      role: (response.data.user.roles?.[0]?.slug as Role) || "customer",
-      permissions: [],
-      status: response.data.user.status === "active" ? "active" : "suspended",
-      createdAt: response.data.user.created_at || new Date().toISOString(),
-    };
-
-    setAuthUser(user);
-    setUsers((prev) =>
-      prev.some((item) => item.id === user.id) ? prev : [user, ...prev],
-    );
+    const user = applyAuthenticatedUser(response.data.user);
     return { success: true, user };
   };
 
@@ -490,6 +522,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       phone: userData.phone,
       password: userData.password,
       role: userData.role,
+      sellerBusinessName: userData.sellerBusinessName,
     });
 
     if (!response.success || !response.data?.user) {
@@ -499,21 +532,7 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     }
 
-    const user: User = {
-      id: response.data.user.id,
-      name: response.data.user.name,
-      email: response.data.user.email,
-      phone: response.data.user.phone,
-      role: (response.data.user.roles?.[0]?.slug as Role) || userData.role,
-      permissions: [],
-      status: response.data.user.status === "active" ? "active" : "suspended",
-      createdAt: response.data.user.created_at || new Date().toISOString(),
-    };
-
-    setAuthUser(user);
-    setUsers((prev) =>
-      prev.some((item) => item.id === user.id) ? prev : [user, ...prev],
-    );
+    const user = applyAuthenticatedUser(response.data.user);
     return { success: true, user };
   };
 

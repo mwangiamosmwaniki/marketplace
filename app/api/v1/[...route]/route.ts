@@ -35,8 +35,26 @@ async function proxyRequest(
     "X-Request-ID": requestId,
   });
 
+  const originHeader = request.headers.get("origin");
+  if (originHeader) headers.set("Origin", originHeader);
+
+  const refererHeader = request.headers.get("referer");
+  if (refererHeader) headers.set("Referer", refererHeader);
+
+  const fetchSiteHeader = request.headers.get("sec-fetch-site");
+  if (fetchSiteHeader) headers.set("Sec-Fetch-Site", fetchSiteHeader);
+
   const authHeader = request.headers.get("Authorization");
   if (authHeader) headers.set("Authorization", authHeader);
+
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) headers.set("Cookie", cookieHeader);
+
+  const csrfHeader = request.headers.get("x-csrf-token");
+  if (csrfHeader) headers.set("X-CSRF-TOKEN", csrfHeader);
+
+  const xsrfHeader = request.headers.get("x-xsrf-token");
+  if (xsrfHeader) headers.set("X-XSRF-TOKEN", xsrfHeader);
 
   if (body && method !== "GET" && !(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
@@ -56,29 +74,39 @@ async function proxyRequest(
     const text = await upstream.text();
     const payload = text ? JSON.parse(text) : {};
 
+    const setCookies = upstream.headers.getSetCookie?.() ?? [];
+
+    const formatResponse = (status: number, body: Record<string, unknown>) => {
+      const nextResponse =
+        status === 204 || status === 304
+          ? new NextResponse(null, { status })
+          : NextResponse.json(body, { status });
+      for (const cookie of setCookies) {
+        nextResponse.headers.append("set-cookie", cookie);
+      }
+      return nextResponse;
+    };
+
     if (!upstream.ok) {
       const error = payload?.error ?? {
         code: "UPSTREAM_ERROR",
         message: "The service is temporarily unavailable.",
       };
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: error.code || "UPSTREAM_ERROR",
-            message: error.message || "The service is temporarily unavailable.",
-            fields: error.fields,
-          },
+      return formatResponse(upstream.status, {
+        success: false,
+        error: {
+          code: error.code || "UPSTREAM_ERROR",
+          message: error.message || "The service is temporarily unavailable.",
+          fields: error.fields,
         },
-        { status: upstream.status },
-      );
+      });
     }
 
-    return NextResponse.json(
+    return formatResponse(
+      upstream.status,
       payload && typeof payload === "object" && "success" in payload
         ? payload
         : { success: true, data: payload },
-      { status: upstream.status },
     );
   } catch {
     return upstreamError(path, 503, "The service is temporarily unavailable.");
