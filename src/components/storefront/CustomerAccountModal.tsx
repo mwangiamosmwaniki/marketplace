@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
+import { useApp } from '../../context/AppContext';
 import {
   X,
   Package,
@@ -37,7 +37,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
     addToCart,
     toggleWishlist,
     requestReturn,
-  } = useMarketplace();
+  } = useApp();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
   const [selectedOrder, setSelectedOrder] = useState<MasterOrder | null>(null);
@@ -365,7 +365,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   </div>
                   <div>
                     <span className="text-neutral-500 block">Email:</span>
-                    <span className="font-semibold text-neutral-800">jane.wambui@kesales.ke</span>
+                    <span className="font-semibold text-neutral-800">jane.wambui@shelterhub.ke</span>
                   </div>
                   <div>
                     <span className="text-neutral-500 block">Phone:</span>
@@ -399,7 +399,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
               Request Return & Refund
             </h3>
             <p className="text-xs text-neutral-500 mb-4">
-              KESALES guarantees free 7-15 day returns on eligible items. Our logistics rider will
+              ShelterHub guarantees free 7-15 day returns on eligible items. Our logistics rider will
               collect the item from your registered address.
             </p>
 

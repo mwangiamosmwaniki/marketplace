@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { DialogProvider } from "../../context/DialogContext";
 import {
-  MarketplaceProvider,
-  useMarketplace,
-} from "../../context/MarketplaceContext";
+  AppProvider,
+  useApp,
+} from "../../context/AppContext";
 import { isFinanceAdmin, isGeneralAdmin } from "../../config/permissions";
 import type { Role } from "../../types";
 import styles from "./LoginPage.module.css";
@@ -24,13 +24,13 @@ const authCopy = {
   },
   customer: {
     title: "Create your account",
-    subtitle: "Join KESALES and discover more",
+    subtitle: "Join ShelterHub and discover more",
     submit: "Create account",
     loading: "Creating account...",
     failure: "Unable to create your account. Please try again.",
   },
   seller: {
-    title: "Start selling on KESALES",
+    title: "Start selling on ShelterHub",
     subtitle: "Set up your shop and reach new customers",
     submit: "Create seller account",
     loading: "Creating account...",
@@ -80,7 +80,7 @@ function destinationForRole(role: Role) {
 
 function LoginPageContent({ mode }: Readonly<{ mode: AuthPageMode }>) {
   const router = useRouter();
-  const { login, registerUser, authUser } = useMarketplace();
+  const { login, registerUser, authUser } = useApp();
   const [activeSlide, setActiveSlide] = useState(0);
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -161,12 +161,12 @@ function LoginPageContent({ mode }: Readonly<{ mode: AuthPageMode }>) {
             type="button"
             className={styles.brandButton}
             onClick={() => router.push("/")}
-            aria-label="Go to the KESALES home page"
+            aria-label="Go to the ShelterHub home page"
           >
             <span className={styles.brandMark} aria-hidden="true">
               ★
             </span>
-            <span className={styles.brandText}>KESALES</span>
+            <span className={styles.brandText}>ShelterHub</span>
           </button>
           <header className={styles.heading}>
             <h1 id="login-heading">{copy.title}</h1>
@@ -330,7 +330,7 @@ function LoginPageContent({ mode }: Readonly<{ mode: AuthPageMode }>) {
           <p className={styles.signupPrompt}>
             {isSellerRegistration
               ? "Opening a customer account?"
-              : "Want to sell on KESALES?"}{" "}
+              : "Want to sell on ShelterHub?"}{" "}
             <button
               type="button"
               className={styles.textLink}
@@ -348,7 +348,7 @@ function LoginPageContent({ mode }: Readonly<{ mode: AuthPageMode }>) {
 
       <section
         className={styles.visualPanel}
-        aria-label="KESALES marketplace stories"
+        aria-label="ShelterHub marketplace stories"
       >
         <div className={styles.slides}>
           {slides.map((slide, index) => (
@@ -390,10 +390,10 @@ export default function LoginPage({
   mode = "login",
 }: Readonly<{ mode?: AuthPageMode }>) {
   return (
-    <MarketplaceProvider>
+    <AppProvider>
       <DialogProvider>
         <LoginPageContent mode={mode} />
       </DialogProvider>
-    </MarketplaceProvider>
+    </AppProvider>
   );
 }

@@ -12,7 +12,7 @@ import {
   Store,
   Wallet,
 } from "lucide-react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { OrderStatus } from "../../types";
 
 type OverviewRange = "7D" | "30D" | "3M" | "12M";
@@ -176,7 +176,7 @@ export function SellerOverview({
   onNavigateTab: (tab: "products" | "orders" | "payouts" | "inventory") => void;
 }>) {
   const { categories, currentSeller, formatKSh, orders, payouts, products } =
-    useMarketplace();
+    useApp();
   const [range, setRange] = useState<OverviewRange>("30D");
 
   if (!currentSeller) return null;

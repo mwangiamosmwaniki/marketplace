@@ -90,14 +90,17 @@ async function proxyRequest(
     if (!upstream.ok) {
       const error = payload?.error ?? {
         code: "UPSTREAM_ERROR",
-        message: "The service is temporarily unavailable.",
+        message:
+          (typeof payload?.message === "string" && payload.message) ||
+          "The service is temporarily unavailable.",
+        fields: payload?.errors,
       };
       return formatResponse(upstream.status, {
         success: false,
         error: {
           code: error.code || "UPSTREAM_ERROR",
           message: error.message || "The service is temporarily unavailable.",
-          fields: error.fields,
+          fields: error.fields || payload?.errors,
         },
       });
     }

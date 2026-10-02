@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { useDialog } from "../../context/DialogContext";
 import { ImageUploadField } from "../ImageUploadField";
 import { SellerOverview } from "./SellerOverview";
@@ -45,7 +45,7 @@ interface SellerPortalProps {
 }
 
 const createVerificationDraft = (
-  seller: NonNullable<ReturnType<typeof useMarketplace>["currentSeller"]>,
+  seller: NonNullable<ReturnType<typeof useApp>["currentSeller"]>,
 ): SellerVerification =>
   seller.verification || {
     sellerType: "individual",
@@ -140,7 +140,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
     requestSellerPayout,
     updateSellerProfile,
     updateSellerVerification,
-  } = useMarketplace();
+  } = useApp();
   const supportedCategories = categories.filter(
     (category) => category.isSupported !== false,
   );
@@ -922,7 +922,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                   Build your compliance profile
                 </h2>
                 <p className="text-neutral-300 mt-1 max-w-xl">
-                  Capture the information KESALES needs for identity, KYB, tax,
+                  Capture the information ShelterHub needs for identity, KYB, tax,
                   payout and category review. Requirements update with your
                   seller type and categories.
                 </p>
@@ -1383,7 +1383,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
                   4. Payout identity
                 </h3>
                 <p className="text-neutral-500 mt-1">
-                  KESALES compares the verified seller, business identity and
+                  ShelterHub compares the verified seller, business identity and
                   payout destination.
                 </p>
               </div>
@@ -1645,7 +1645,7 @@ export const SellerPortal: React.FC<SellerPortalProps> = ({ requestedTab }) => {
               {[
                 "Information provided is accurate",
                 "Authorized to sell listed products",
-                "Agrees to KESALES seller terms",
+                "Agrees to ShelterHub seller terms",
                 "Agrees to returns and refund policy",
                 "Agrees to prohibited-products policy",
                 "Agrees to shipping and fulfillment requirements",

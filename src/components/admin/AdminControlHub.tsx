@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { useDialog } from "../../context/DialogContext";
-import { Ticket, MapPin, Plus } from "lucide-react";
+import { Ticket, MapPin, Plus, Tags } from "lucide-react";
 import { SystemSettings, OrderStatus, DeliveryZone } from "../../types";
 import { AdminManagementPanel } from "./AdminManagementPanel";
 import { AdminOverview } from "./AdminOverview";
+import { CategoryManagementPanel } from "./CategoryManagementPanel";
 import { ImageUploadField } from "../ImageUploadField";
 
 const actionButton =
@@ -80,6 +81,7 @@ interface AdminControlHubProps {
     | "system"
     | "sellers"
     | "catalog"
+    | "categories"
     | "orders"
     | "coupons"
     | "logistics"
@@ -101,8 +103,6 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
     promotions,
     flashSales,
     deliveryZones,
-    categories,
-    updateCategory,
     formatKSh,
     approveSeller,
     suspendSeller,
@@ -129,7 +129,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
     addDeliveryZone,
     updateDeliveryZone,
     deleteDeliveryZone,
-  } = useMarketplace();
+  } = useApp();
 
   const [adminTab, setAdminTab] = useState<
     | "analytics"
@@ -140,6 +140,7 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
     | "system"
     | "sellers"
     | "catalog"
+    | "categories"
     | "orders"
     | "finance"
     | "coupons"
@@ -365,6 +366,8 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
         {adminTab === "analytics" && (
           <AdminOverview onNavigateTab={setAdminTab} />
         )}
+
+        {adminTab === "categories" && <CategoryManagementPanel />}
 
         {/* SELLERS & KYC TAB */}
         {adminTab === "sellers" && (
@@ -714,66 +717,24 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
             </div>
 
             <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-              <div className="p-4 border-b border-neutral-200">
-                <h3 className="font-bold text-sm text-neutral-900">
-                  Supported marketplace categories
-                </h3>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Sellers can only list products in supported categories, and
-                  customers will only see these categories in catalog filters.
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4">
+                <div>
+                  <h3 className="font-bold text-sm text-neutral-900">
+                    Marketplace categories
+                  </h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Create, organize, and update database-backed categories.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAdminTab("categories")}
+                  className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+                >
+                  <Tags aria-hidden="true" size={15} />
+                  Manage categories
+                </button>
               </div>
-              <table className="w-full text-left text-xs">
-                <thead className="bg-neutral-50 border-b border-neutral-200 text-[10px] uppercase text-neutral-500">
-                  <tr>
-                    <th className="p-3">Category</th>
-                    <th className="p-3">Products</th>
-                    <th className="p-3">Availability</th>
-                    <th className="p-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {categories.map((category) => {
-                    const supported = category.isSupported !== false;
-                    return (
-                      <tr key={category.id}>
-                        <td className="p-3 font-semibold">{category.name}</td>
-                        <td className="p-3 text-neutral-500">
-                          {
-                            products.filter(
-                              (product) => product.categoryId === category.id,
-                            ).length
-                          }
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={
-                              supported
-                                ? "text-emerald-700"
-                                : "text-neutral-500"
-                            }
-                          >
-                            {supported ? "Supported" : "Hidden"}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            className={actionButton}
-                            onClick={() =>
-                              updateCategory(category.id, {
-                                isSupported: !supported,
-                              })
-                            }
-                          >
-                            {supported ? "Disable" : "Enable"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
 
             <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
@@ -1958,7 +1919,8 @@ export const AdminControlHub: React.FC<AdminControlHubProps> = ({
                 System Settings
               </h2>
               <p className="text-xs text-neutral-500 mt-1">
-                Manage KESALES configuration stored in the frontend demo state.
+                Manage ShelterHub configuration stored in the frontend demo
+                state.
               </p>
             </div>
             <form

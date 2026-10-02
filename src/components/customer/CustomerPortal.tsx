@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import {
   Package,
   Heart,
@@ -57,7 +57,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
     returns,
     requestReturn,
     cancelReturn,
-  } = useMarketplace();
+  } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     "orders" | "wishlist" | "addresses" | "returns" | "payments" | "security"
@@ -350,7 +350,7 @@ export const CustomerPortal: React.FC<CustomerPortalProps> = ({
                       No orders placed yet
                     </h4>
                     <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-                      Explore KESALES official stores, flash sales, and
+                      Explore ShelterHub official stores, flash sales, and
                       top-rated electronics.
                     </p>
                     {onContinueShopping && (

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import {
   Code,
   Play,
@@ -18,7 +18,7 @@ export const RestApiExplorer: React.FC = () => {
     categories,
     brands,
     deliveryZones,
-  } = useMarketplace();
+  } = useApp();
 
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>(
     "GET /api/v1/products",
@@ -236,7 +236,7 @@ export const RestApiExplorer: React.FC = () => {
           <div className="flex items-center gap-2">
             <Code className="w-5 h-5 text-amber-600" />
             <h2 className="text-lg font-bold text-neutral-900">
-              KESALES RESTful API Engine
+              ShelterHub RESTful API Engine
             </h2>
             <span className="text-[10px] bg-neutral-900 text-white font-bold px-2 py-0.5 rounded font-mono">
               v1.4.0 frontend contract draft

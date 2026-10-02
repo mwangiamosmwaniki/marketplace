@@ -16,7 +16,7 @@ export const LaravelArchitectureViewer: React.FC = () => {
 
   const fileTree = [
     {
-      category: "Server-Authoritative Orders (kesales-api/app/Actions/)",
+      category: "Server-Authoritative Orders (shelterhub-api/app/Actions/)",
       files: [
         {
           name: "CreateOrderAction.php",
@@ -182,7 +182,7 @@ class CreateOrderAction
       ],
     },
     {
-      category: "Double-Entry Ledger & Escrow (kesales-api/app/Domain/Finance/)",
+      category: "Double-Entry Ledger & Escrow (shelterhub-api/app/Domain/Finance/)",
       files: [
         {
           name: "LedgerPostingService.php",
@@ -352,7 +352,7 @@ class ReconciliationService
       ],
     },
     {
-      category: "Integrations & Gateways (kesales-api/app/Integrations/)",
+      category: "Integrations & Gateways (shelterhub-api/app/Integrations/)",
       files: [
         {
           name: "StkPushService.php",
@@ -408,9 +408,9 @@ class StkPushService
             'PartyA' => $formattedPhone,
             'PartyB' => $this->client->getShortcode(),
             'PhoneNumber' => $formattedPhone,
-            'CallBackURL' => config('kesales.mpesa.stk_callback_url'),
+            'CallBackURL' => config('shelterhub.mpesa.stk_callback_url'),
             'AccountReference' => substr($accountReference, 0, 12),
-            'TransactionDesc' => "KESALES Order {$accountReference}",
+            'TransactionDesc' => "ShelterHub Order {$accountReference}",
         ];
 
         $response = Http::withToken($this->client->getAccessToken())
@@ -524,7 +524,7 @@ class EtimsClient
       ],
     },
     {
-      category: "Automated Backend Test Suite (kesales-api/tests/)",
+      category: "Automated Backend Test Suite (shelterhub-api/tests/)",
       files: [
         {
           name: "CheckoutApiTest.php",
@@ -626,7 +626,7 @@ class LedgerPostingServiceTest extends TestCase
           <div className="flex items-center gap-2">
             <Layers className="w-6 h-6 text-red-400" />
             <h2 className="text-lg font-bold">
-              KESALES Production Laravel 13 API Architecture (<code>kesales-api/</code>)
+              ShelterHub Production Laravel 13 API Architecture (<code>shelterhub-api/</code>)
             </h2>
           </div>
           <p className="text-xs text-red-200 mt-1">

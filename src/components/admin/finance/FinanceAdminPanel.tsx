@@ -7,7 +7,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useMarketplace } from "../../../context/MarketplaceContext";
+import { useApp } from "../../../context/AppContext";
 import { SellerPayoutRequest } from "../../../types";
 import { FINANCE_NAV, hasPermission } from "../../../config/permissions";
 import { AnalyticsDashboardVisual } from "../../dashboard/AnalyticsDashboardVisual";
@@ -44,7 +44,7 @@ export const FinanceAdminPanel: React.FC<{
     rejectPayout,
     updateReturnStatus,
     processReturnRefund,
-  } = useMarketplace();
+  } = useApp();
   const canApproveRefunds = hasPermission(authUser?.role, "refunds.approve");
   const canProcessRefunds = hasPermission(authUser?.role, "refunds.process");
   const canApprovePayouts = hasPermission(authUser?.role, "payouts.approve");

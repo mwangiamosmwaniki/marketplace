@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { ProductCard } from "./ProductCard";
 import { Zap, Clock, ArrowRight } from "lucide-react";
 import { Product } from "../../types";
@@ -11,7 +11,7 @@ interface FlashSalesSectionProps {
 export const FlashSalesSection: React.FC<FlashSalesSectionProps> = ({
   onViewProduct,
 }) => {
-  const { products, flashSales } = useMarketplace();
+  const { products, flashSales } = useApp();
   const activeSale = flashSales
     .filter((sale) => {
       const now = new Date();

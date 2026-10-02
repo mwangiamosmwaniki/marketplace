@@ -95,7 +95,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("how-to-shop")}
                   className="hover:text-amber-400 text-left"
                 >
-                  How to Shop on KESALES
+                  How to Shop on ShelterHub
                 </button>
               </li>
               <li>
@@ -125,10 +125,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
             </ul>
           </div>
 
-          {/* Col 2: About KESALES */}
+          {/* Col 2: About ShelterHub */}
           <div>
             <h5 className="text-white font-bold uppercase tracking-wider mb-3">
-              About KESALES
+              About ShelterHub
             </h5>
             <ul className="space-y-2 text-neutral-400">
               <li>
@@ -144,7 +144,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("express")}
                   className="hover:text-amber-400 text-left"
                 >
-                  KESALES Express
+                  ShelterHub Express
                 </button>
               </li>
               <li>
@@ -168,7 +168,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("careers")}
                   className="hover:text-amber-400 text-left"
                 >
-                  Careers at KESALES
+                  Careers at ShelterHub
                 </button>
               </li>
             </ul>
@@ -185,7 +185,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("sell")}
                   className="hover:text-amber-400 text-left"
                 >
-                  Sell on KESALES (Vendor Center)
+                  Sell on ShelterHub (Vendor Center)
                 </button>
               </li>
               <li>
@@ -201,7 +201,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("pickup-station")}
                   className="hover:text-amber-400 text-left"
                 >
-                  Open a KESALES Pickup Station
+                  Open a ShelterHub Pickup Station
                 </button>
               </li>
               <li>
@@ -209,7 +209,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
                   onClick={() => onOpenPage("affiliate")}
                   className="hover:text-amber-400 text-left"
                 >
-                  KESALES Affiliate Program
+                  ShelterHub Affiliate Program
                 </button>
               </li>
             </ul>
@@ -243,7 +243,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage }) => {
 
         {/* Bottom copyright */}
         <div className="mt-12 pt-6 border-t border-neutral-800 text-[11px] text-neutral-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 KESALES Marketplace Kenya. All rights reserved.</p>
+          <p>© 2026 ShelterHub Marketplace Kenya. All rights reserved.</p>
           <div className="flex gap-4">
             <span>Kenya</span>
             <span>•</span>

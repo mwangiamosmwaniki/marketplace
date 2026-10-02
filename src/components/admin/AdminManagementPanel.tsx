@@ -11,7 +11,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { useDialog } from "../../context/DialogContext";
 import { Role, User } from "../../types";
 import { ROLE_PERMISSIONS } from "../../config/permissions";
@@ -131,7 +131,7 @@ export const AdminManagementPanel: React.FC<{
     requirePasswordChange,
     requireUserReverification,
     forceLogoutUser,
-  } = useMarketplace();
+  } = useApp();
   const tab = initialTab;
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | Role>("all");

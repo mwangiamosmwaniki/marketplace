@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
+  ChevronDown,
   CheckCircle2,
   Clock,
   CreditCard,
@@ -16,7 +17,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 
 type DashboardRange = "7D" | "30D" | "3M" | "12M";
 
@@ -178,7 +179,7 @@ export function AdminOverview({
     products,
     returns,
     sellers,
-  } = useMarketplace();
+  } = useApp();
   const [range, setRange] = useState<DashboardRange>("30D");
 
   const now = new Date();
@@ -564,7 +565,7 @@ export function AdminOverview({
 
   return (
     <div className="space-y-2.5 text-slate-800">
-      <div className="flex flex-wrap items-end justify-between gap-2 pb-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-0.5">
         <div>
           <p className="text-[10px] text-slate-500">
             Here&apos;s what&apos;s happening in your marketplace today.
@@ -573,21 +574,28 @@ export function AdminOverview({
             Good morning, {greetingName}
           </h2>
         </div>
-        <label className="flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 text-[10px] text-slate-600 shadow-sm">
-          <CalendarDays size={13} className="text-slate-500" />
-          <span className="sr-only">Dashboard date range</span>
+        <div
+          role="group"
+          aria-label="Dashboard date range"
+          className="flex h-9 shrink-0 items-center gap-2.5 rounded-md border border-slate-300 bg-white px-3 text-[11px] leading-none text-slate-700 shadow-sm"
+        >
+          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-500" />
           <select
+            aria-label="Dashboard date range"
             value={range}
             onChange={(event) => setRange(event.target.value as DashboardRange)}
-            className="bg-transparent text-[10px] font-medium outline-none"
+            className="h-4 appearance-none bg-transparent py-0 text-[11px] font-semibold leading-none outline-none"
           >
             <option value="7D">Last 7 days</option>
             <option value="30D">Last 30 days</option>
             <option value="3M">Last 3 months</option>
             <option value="12M">Last 12 months</option>
           </select>
-          <span className="hidden text-slate-400 sm:inline">· {dateLabel}</span>
-        </label>
+          <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" />
+          <span className="hidden items-center text-[11px] leading-none text-slate-500 sm:inline-flex">
+            · {dateLabel}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">

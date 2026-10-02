@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import {
   getFinanceLedger,
   getFinanceSummary,
@@ -49,7 +49,7 @@ export const AnalyticsDashboardVisual: React.FC<
     formatKSh,
     authUser,
     currentSeller,
-  } = useMarketplace();
+  } = useApp();
 
   const [activeToggle, setActiveToggle] = useState<boolean>(true);
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(
@@ -377,7 +377,7 @@ export const AnalyticsDashboardVisual: React.FC<
             col1: "CATALOG_MODERATION",
             col2: "System Automated Rule",
             col3: "SKU-S24U-01",
-            col4: "KESALES Cloud Server",
+            col4: "ShelterHub Cloud Server",
             col5: "active",
           },
           {

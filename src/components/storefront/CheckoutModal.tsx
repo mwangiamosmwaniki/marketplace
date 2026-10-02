@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import {
   X,
   MapPin,
@@ -38,7 +38,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     deliveryZones,
     createOrder,
     formatKSh,
-  } = useMarketplace();
+  } = useApp();
 
   // Multi-step state: 1 = Address & Delivery, 2 = Payment Selection, 3 = Confirmation
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -251,7 +251,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-xs text-neutral-900 mb-1">
                       <MapPin className="w-4 h-4 text-amber-600" />
-                      <span>KESALES Pickup Station</span>
+                      <span>ShelterHub Pickup Station</span>
                     </div>
                     <p className="text-[11px] text-neutral-500">
                       Collect at a designated secure neighborhood hub.
@@ -725,12 +725,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <span className="text-white font-bold">
                 {formatKSh(cartGrandTotal)}
               </span>{" "}
-              to <span className="text-emerald-300 font-bold">KESALES</span>?
+              to <span className="text-emerald-300 font-bold">ShelterHub</span>?
             </p>
 
             <div className="bg-neutral-800 p-3 rounded-lg border border-neutral-700 mb-4 text-left font-mono text-xs text-neutral-300 space-y-1">
               <div>Business No: 829104</div>
-              <div>Account: KESALES-DEMO</div>
+              <div>Account: ShelterHub-DEMO</div>
               <div>Amount: {formatKSh(cartGrandTotal)}</div>
             </div>
 

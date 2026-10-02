@@ -35,5 +35,5 @@
     "**/*.ts",
     "**/*.tsx"
   ],
-  "exclude": ["node_modules", "kesales-api"]
+  "exclude": ["node_modules", "shelterhub-api"]
 }

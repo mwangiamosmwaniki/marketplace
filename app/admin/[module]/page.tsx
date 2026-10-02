@@ -13,6 +13,7 @@ const tabs = {
   system: "system",
   sellers: "sellers",
   catalog: "catalog",
+  categories: "categories",
   orders: "orders",
   marketing: "coupons",
   logistics: "logistics",

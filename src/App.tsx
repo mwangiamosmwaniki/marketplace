@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  MarketplaceProvider,
-  useMarketplace,
-} from "./context/MarketplaceContext";
+import { AppProvider, useApp } from "./context/AppContext";
 import { DialogProvider } from "./context/DialogContext";
 import { Navbar } from "./components/Navbar";
+import { AccountTopbar, type AccountView } from "./components/AccountTopbar";
 import { HeroSection } from "./components/storefront/HeroSection";
 import { FlashSalesSection } from "./components/storefront/FlashSalesSection";
 import { OfficialStoresSection } from "./components/storefront/OfficialStoresSection";
@@ -43,6 +41,7 @@ import {
   Home,
   Users,
   Boxes,
+  Tags,
   Wallet,
   Ticket,
   MapPinned,
@@ -84,6 +83,7 @@ type NavigationState = {
     | "system"
     | "sellers"
     | "catalog"
+    | "categories"
     | "orders"
     | "coupons"
     | "logistics"
@@ -91,6 +91,10 @@ type NavigationState = {
 };
 
 interface DashboardShellProps {
+  accountView: AccountView;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  onBackToStorefront: () => void;
   title: string;
   subtitle: string;
   navItems: Array<{
@@ -108,6 +112,10 @@ interface DashboardShellProps {
 }
 
 const DashboardShell: React.FC<DashboardShellProps> = ({
+  accountView,
+  searchQuery,
+  setSearchQuery,
+  onBackToStorefront,
   title,
   subtitle,
   navItems,
@@ -142,25 +150,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#eef0f2]">
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 xl:hidden">
-        <div className="text-xs font-bold text-neutral-800">{title}</div>
-        <button
-          type="button"
-          onClick={() => setMobileSidebarOpen((open) => !open)}
-          className="rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50"
-          aria-label={
-            mobileSidebarOpen ? "Close navigation" : "Open navigation"
-          }
-          aria-expanded={mobileSidebarOpen}
-        >
-          {mobileSidebarOpen ? (
-            <X className="h-4 w-4" />
-          ) : (
-            <Menu className="h-4 w-4" />
-          )}
-        </button>
-      </div>
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
       <div
         className={`grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} overflow-hidden`}
       >
@@ -169,26 +159,50 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             type="button"
             aria-label="Close navigation"
             onClick={() => setMobileSidebarOpen(false)}
-            className="fixed inset-0 top-[52px] z-40 bg-neutral-950/40 xl:hidden"
+            className="fixed inset-0 top-14 z-40 bg-neutral-950/40 xl:hidden"
           />
         )}
         <aside
-          className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-[52px] z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-52px)] shadow-2xl" : "hidden"} bg-[#0d1420] text-white border-r border-neutral-800 overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}
+          className={`${mobileSidebarOpen ? "fixed inset-y-0 left-0 top-14 z-50 flex w-[min(82vw,280px)] h-[calc(100dvh-56px)] shadow-2xl" : "hidden"} bg-[#F0F2F5] text-neutral-900 border-r border-[#999999] overflow-hidden flex-col min-h-0 xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:min-h-full xl:w-auto xl:shadow-none`}
         >
           <div
-            className={`flex items-center border-b border-neutral-800 px-2 py-1.5 ${sidebarCollapsed ? "justify-center" : "justify-end"}`}
+            className={`flex min-h-14 items-center gap-2 border-b border-[#999999] px-2 ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
           >
+            <div
+              className={`flex min-w-0 items-center gap-2 ${sidebarCollapsed ? "justify-center" : ""}`}
+              title={sidebarCollapsed ? "ShelterHub" : undefined}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-lg font-black text-neutral-950">
+                ★
+              </span>
+              {!sidebarCollapsed && (
+                <span className="min-w-0 leading-tight">
+                  <span className="block truncate text-base font-black text-neutral-950">
+                    ShelterHub
+                  </span>
+                  <span className="block truncate text-[9px] font-extrabold uppercase tracking-widest text-neutral-700">
+                    {accountView === "admin"
+                      ? "Admin Control Hub"
+                      : accountView === "seller"
+                        ? "Seller Center"
+                        : accountView === "finance"
+                          ? "Finance Console"
+                          : "My Account"}
+                  </span>
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+              className="shrink-0 rounded-lg p-2 text-neutral-700 hover:bg-black/10 hover:text-neutral-950"
               aria-label={
                 sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
               }
               title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               <ChevronRight
-                className={`w-4 h-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`}
+                className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`}
               />
             </button>
           </div>
@@ -216,7 +230,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                             [group]: !current[group],
                           }))
                         }
-                        className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 hover:text-neutral-300"
+                        className="w-full flex items-center justify-between px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700 hover:text-neutral-950"
                         aria-expanded={isGroupOpen}
                       >
                         <span>{group}</span>
@@ -225,7 +239,7 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                         />
                       </button>
                     ) : (
-                      <div className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">
+                      <div className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700">
                         {group}
                       </div>
                     ))}
@@ -240,8 +254,8 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
                       }}
                       className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
                         isActive
-                          ? "bg-[#1b2d3e] text-amber-300 border-l-2 border-amber-400"
-                          : "text-neutral-200 hover:bg-white/5"
+                          ? "bg-[#333333] text-white border-l-2 border-amber-400"
+                          : "text-neutral-900 hover:bg-black/10"
                       }`}
                     >
                       <span
@@ -265,18 +279,18 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
             })}
           </nav>
 
-          <div className="mt-auto border-t border-neutral-800 p-3 space-y-2">
+          <div className="mt-auto border-t border-[#999999] p-3 space-y-2">
             <button
               type="button"
               onClick={() => router.push("/")}
-              className={`w-full flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2.5"} px-3 py-2 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 transition-colors text-xs font-semibold cursor-pointer`}
+              className={`w-full flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2.5"} px-3 py-2 rounded-lg bg-[#D0D0D0] hover:bg-[#A5A5A5] text-neutral-900 border border-[#999999] transition-colors text-xs font-semibold cursor-pointer`}
               title="Return to storefront"
             >
               <ShoppingBag className="w-4 h-4 text-amber-400 flex-shrink-0" />
               {!sidebarCollapsed && <span>View Storefront</span>}
             </button>
             <div
-              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#101a27] border border-neutral-700 p-2.5`}
+              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#D0D0D0] border border-[#999999] p-2.5`}
               title={
                 sidebarCollapsed ? "System status: Operational" : undefined
               }
@@ -284,10 +298,10 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
               <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
               {!sidebarCollapsed && (
                 <div className="flex-1">
-                  <div className="text-[11px] font-bold text-white leading-tight">
+                  <div className="text-[11px] font-bold text-neutral-900 leading-tight">
                     System status
                   </div>
-                  <div className="text-[10px] text-emerald-300 leading-tight">
+                  <div className="text-[10px] font-semibold text-emerald-800 leading-tight">
                     Operational
                   </div>
                 </div>
@@ -296,8 +310,18 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
           </div>
         </aside>
 
-        <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-[#f3f4f6]">
-          {children}
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+          <AccountTopbar
+            view={accountView}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onBackToStorefront={onBackToStorefront}
+            mobileSidebarOpen={mobileSidebarOpen}
+            onToggleSidebar={() => setMobileSidebarOpen((open) => !open)}
+          />
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {children}
+          </div>
         </div>
       </div>
     </div>
@@ -327,7 +351,7 @@ function MarketplaceApp({
     formatKSh,
     authUser,
     homepageSettings,
-  } = useMarketplace();
+  } = useApp();
   const supportedCategories = categories.filter(
     (category) => category.isSupported !== false,
   );
@@ -343,7 +367,7 @@ function MarketplaceApp({
     isClientHydrated && typeof window !== "undefined"
       ? (() => {
           try {
-            const saved = localStorage.getItem("kesales_navigation");
+            const saved = localStorage.getItem("shelterhub_navigation");
             return saved
               ? (JSON.parse(saved) as Partial<NavigationState>)
               : null;
@@ -380,6 +404,7 @@ function MarketplaceApp({
     | "system"
     | "sellers"
     | "catalog"
+    | "categories"
     | "orders"
     | "coupons"
     | "logistics"
@@ -419,7 +444,7 @@ function MarketplaceApp({
 
   useEffect(() => {
     localStorage.setItem(
-      "kesales_navigation",
+      "shelterhub_navigation",
       JSON.stringify({
         userId: authUser?.id,
         activeView,
@@ -619,53 +644,57 @@ function MarketplaceApp({
     router.push("/customer/orders");
   };
 
+  const navigateToStorefront = () => {
+    setPublicPage(null);
+    setActiveView("storefront");
+    router.push("/");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <div
       className={`${activeView === "storefront" ? "min-h-screen" : "h-dvh overflow-hidden"} flex flex-col bg-neutral-100 font-sans text-neutral-900 selection:bg-amber-500 selection:text-white`}
     >
-      {/* 1. Global Navigation Bar */}
-      <Navbar
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenAccount={() => {
-          if (!authUser) {
-            router.push("/login");
-          } else {
-            setCustomerTab("orders");
+      {/* Public and account navigation use separate headers. */}
+      {activeView === "storefront" && (
+        <Navbar
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenAccount={() => {
+            if (!authUser) {
+              router.push("/login");
+            } else {
+              setCustomerTab("orders");
+              setActiveView("customer");
+              router.push("/customer");
+            }
+          }}
+          onNavigateCustomerTab={(tab) => {
+            setCustomerTab(tab);
             setActiveView("customer");
-            router.push("/customer");
-          }
-        }}
-        onNavigateCustomerTab={(tab) => {
-          setCustomerTab(tab);
-          setActiveView("customer");
-          router.push(tab === "orders" ? "/customer" : `/customer/${tab}`);
-        }}
-        onSelectCategory={(catId) => {
-          setSelectedCategory(catId);
-          if (activeView !== "storefront") setActiveView("storefront");
-          scrollToCatalog();
-        }}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeView={activeView}
-        setActiveView={(view) => {
-          setActiveView(view);
-          if (view === "storefront") router.push("/");
-          else if (view === "customer") router.push("/customer");
-          else if (view === "seller") router.push("/seller");
-          else if (view === "admin") router.push("/admin");
-          else if (view === "finance") router.push("/finance");
-        }}
-        onOpenAuthModal={openAuth}
-        onBackToStorefront={() => {
-          setPublicPage(null);
-          setActiveView("storefront");
-          router.push("/");
-          if (typeof window !== "undefined") {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        }}
-      />
+            router.push(tab === "orders" ? "/customer" : `/customer/${tab}`);
+          }}
+          onSelectCategory={(catId) => {
+            setSelectedCategory(catId);
+            if (activeView !== "storefront") setActiveView("storefront");
+            scrollToCatalog();
+          }}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeView={activeView}
+          setActiveView={(view) => {
+            setActiveView(view);
+            if (view === "storefront") router.push("/");
+            else if (view === "customer") router.push("/customer");
+            else if (view === "seller") router.push("/seller");
+            else if (view === "admin") router.push("/admin");
+            else if (view === "finance") router.push("/finance");
+          }}
+          onOpenAuthModal={openAuth}
+          onBackToStorefront={navigateToStorefront}
+        />
+      )}
 
       {/* 2. Main Body Content Switcher */}
       <main className="min-h-0 flex-1">
@@ -860,7 +889,7 @@ function MarketplaceApp({
                           onChange={(e) => setOnlyExpress(e.target.checked)}
                           className="rounded text-amber-500"
                         />
-                        <span>KESALES Express eligible</span>
+                        <span>ShelterHub Express eligible</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer text-neutral-700">
                         <input
@@ -914,6 +943,10 @@ function MarketplaceApp({
         {/* VIEW 2: CUSTOMER ACCOUNT PORTAL (WITH SIDEBAR) */}
         {activeView === "customer" && (
           <DashboardShell
+            accountView="customer"
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onBackToStorefront={navigateToStorefront}
             title={`Good morning, ${authUser?.name?.split(" ")[0] || "Robert"}`}
             subtitle="Here’s what’s happening with your marketplace today."
             rightHeaderLabel={authUser?.name || "Robert Otieno"}
@@ -996,6 +1029,10 @@ function MarketplaceApp({
         {/* VIEW 3: SELLER CENTER PORTAL */}
         {activeView === "seller" && (
           <DashboardShell
+            accountView="seller"
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onBackToStorefront={navigateToStorefront}
             title={authUser?.name || "Seller Dashboard"}
             subtitle="Manage your storefront, inventory, orders, and payouts from one view."
             rightHeaderLabel={authUser?.name || "Seller"}
@@ -1071,6 +1108,10 @@ function MarketplaceApp({
         {/* VIEW 4: FINANCE CONSOLE */}
         {activeView === "finance" && (
           <DashboardShell
+            accountView="finance"
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onBackToStorefront={navigateToStorefront}
             title="Finance Dashboard"
             subtitle="Review payments, refunds, payouts, journal records, and reconciliation exceptions."
             rightHeaderLabel={authUser?.name || "Finance Admin"}
@@ -1113,6 +1154,10 @@ function MarketplaceApp({
         {/* VIEW 5: ADMIN CONTROL HUB */}
         {activeView === "admin" && (
           <DashboardShell
+            accountView="admin"
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onBackToStorefront={navigateToStorefront}
             title="Admin Control Hub"
             subtitle="Platform-wide governance, RBAC role management, catalog moderation, audit logs, and settings."
             rightHeaderLabel={authUser?.name || "Robert Otieno"}
@@ -1174,6 +1219,13 @@ function MarketplaceApp({
                 group: "Catalog",
               },
               {
+                label: "Categories",
+                icon: <Tags className="w-4 h-4" />,
+                path: "/admin/categories",
+                active: adminTab === "categories",
+                group: "Catalog",
+              },
+              {
                 label: "Master Orders",
                 icon: <ShoppingBag className="w-4 h-4" />,
                 path: "/admin/orders",
@@ -1213,6 +1265,7 @@ function MarketplaceApp({
                 "Audit Logs": "audit",
                 "Sellers & KYC": "sellers",
                 "Catalog Moderation": "catalog",
+                Categories: "categories",
                 "Master Orders": "orders",
                 "Marketing & Campaigns": "coupons",
                 "Delivery Zones": "logistics",
@@ -1285,10 +1338,10 @@ function MarketplaceApp({
 
 export default function App(props: AppRouteProps) {
   return (
-    <MarketplaceProvider>
+    <AppProvider>
       <DialogProvider>
         <MarketplaceApp {...props} />
       </DialogProvider>
-    </MarketplaceProvider>
+    </AppProvider>
   );
 }

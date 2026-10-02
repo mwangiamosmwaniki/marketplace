@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
+import { useApp } from '../../context/AppContext';
 import {
   X,
   Trash2,
@@ -36,7 +36,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     updateCartQuantity,
     removeFromCart,
     formatKSh,
-  } = useMarketplace();
+  } = useApp();
 
   const [couponInput, setCouponInput] = useState('');
   const [couponMessage, setCouponMessage] = useState<{ text: string; success: boolean } | null>(
@@ -204,7 +204,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <form onSubmit={handleApplyCoupon} className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="e.g. KESALES10 or WELCOME500"
+                      placeholder="e.g. ShelterHub10 or WELCOME500"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                       className="flex-1 text-xs p-2 border border-neutral-300 rounded bg-white font-mono"
@@ -233,12 +233,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setCouponInput('KESALES10');
-                      applyCoupon('KESALES10');
+                      setCouponInput('ShelterHub10');
+                      applyCoupon('ShelterHub10');
                     }}
                     className="underline hover:text-amber-600"
                   >
-                    KESALES10
+                    ShelterHub10
                   </button>
                   <span>•</span>
                   <button

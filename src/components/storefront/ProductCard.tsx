@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
+import { useApp } from '../../context/AppContext';
 import { Star, ShieldCheck, ShoppingCart, Eye } from 'lucide-react';
 import { Product, Seller } from '../../types';
 
@@ -9,7 +9,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onViewProduct }) => {
-  const { sellers, addToCart, formatKSh } = useMarketplace();
+  const { sellers, addToCart, formatKSh } = useApp();
   const seller = sellers.find((s: Seller) => s.id === product.sellerId);
 
   const discountPercent = product.discountPrice

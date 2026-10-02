@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { Product, ProductVariant } from "../../types";
 import {
   X,
@@ -41,7 +41,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     deliveryZones,
     reviews,
     addProductReview,
-  } = useMarketplace();
+  } = useApp();
 
   if (!product) return null;
 

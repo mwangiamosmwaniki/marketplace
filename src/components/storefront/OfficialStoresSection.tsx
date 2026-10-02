@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMarketplace } from '../../context/MarketplaceContext';
+import { useApp } from '../../context/AppContext';
 import { ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface OfficialStoresSectionProps {
@@ -9,7 +9,7 @@ interface OfficialStoresSectionProps {
 export const OfficialStoresSection: React.FC<OfficialStoresSectionProps> = ({
   onSelectBrand,
 }) => {
-  const { brands } = useMarketplace();
+  const { brands } = useApp();
 
   return (
     <div

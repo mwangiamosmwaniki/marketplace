@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMarketplace } from "../../context/MarketplaceContext";
+import { useApp } from "../../context/AppContext";
 import { Role } from "../../types";
 import {
   X,
@@ -27,7 +27,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   defaultTab = "login",
   onSuccess,
 }) => {
-  const { login, registerUser, users } = useMarketplace();
+  const { login, registerUser, users } = useApp();
   const [tab, setTab] = useState<
     "login" | "register_customer" | "register_seller"
   >(defaultTab);
@@ -119,9 +119,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-neutral-900 leading-tight">
-                {tab === "login" && "Sign in to KESALES"}
+                {tab === "login" && "Sign in to ShelterHub"}
                 {tab === "register_customer" && "Create Customer Account"}
-                {tab === "register_seller" && "Register as KESALES Seller"}
+                {tab === "register_seller" && "Register as ShelterHub Seller"}
               </h3>
               <p className="text-xs text-neutral-500">
                 Kenya's premier multi-vendor marketplace
@@ -175,7 +175,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 : "border-transparent hover:text-neutral-900"
             }`}
           >
-            Sell on KESALES
+            Sell on ShelterHub
           </button>
         </div>
 

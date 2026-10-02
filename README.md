@@ -1,6 +1,6 @@
-# KESALES Multi-Vendor Marketplace
+# ShelterHub Multi-Vendor Marketplace
 
-Kenya-focused multi-vendor e-commerce marketplace frontend prototype featuring a customer storefront, Seller Center, Admin Control Hub, mock payment and payout workflows, and multi-vendor order splitting. Financial balances, provider integrations, and verification decisions remain demo/context-backed until the backend is implemented.
+Kenya-focused multi-vendor marketplace with a Next.js frontend and a Laravel API in `shelterhub-api/`. Authentication, checkout pricing, order creation, inventory reservations, payments, settlement, ledger posting, and seller payout state belong to the API. Some admin, marketing, support, and reporting screens are still prototype UI and are not production operations.
 
 ---
 
@@ -11,7 +11,7 @@ Kenya-focused multi-vendor e-commerce marketplace frontend prototype featuring a
 - **Dynamic Search & Filtering**: Multi-attribute filtering across 47 Kenyan counties, categories, official stores, price range, and star rating.
 - **Product Details**: SKU variation matrix (Storage, RAM, Color, Size) with live inventory checks and verified buyer reviews.
 - **Cart & Multi-Vendor Grouping**: Real-time cart calculations grouping products by vendor, computing localized delivery fees and coupon deductions.
-- **Checkout & Safaricom Daraja M-Pesa**: Direct STK push integration, pickup station hub selection, and pay-on-delivery options.
+- **Checkout & Safaricom Daraja M-Pesa**: Checkout quotes and order creation are server-authoritative; provider callbacks settle through the Laravel settlement service.
 
 ### 2. Multi-Vendor Order Splitting Engine
 
@@ -28,7 +28,7 @@ Customer Master Order (e.g. KS-ORD-8829104)
 
 - Atomic database transactions ensure stock is verified and reserved.
 - Automated platform commission deduction (8% - 15% based on product category).
-- Finance-oriented journal records are displayed for frontend planning; authoritative double-entry accounting will be calculated by the future backend.
+- The Laravel API reserves inventory and performs authoritative pricing, payment settlement, and double-entry ledger posting.
 
 ### 3. Customer Portal
 
@@ -78,11 +78,10 @@ Customer Master Order (e.g. KS-ORD-8829104)
 | ------ | --------------------------------- | ----------------------------------------------------- |
 | `GET`  | `/api/v1/products`                | Paginated product catalog with category/brand filters |
 | `POST` | `/api/v1/checkout`                | Master order creation and seller order splitting      |
-| `POST` | `/api/v1/payments/mpesa/stkpush`  | Safaricom Daraja STK Push prompt                      |
-| `POST` | `/api/v1/payments/mpesa/callback` | Idempotent webhook callback processing                |
+| `POST` | `/api/v1/payments/mpesa/stk`      | Safaricom Daraja STK Push prompt                      |
 | `GET`  | `/api/v1/seller/orders`           | Seller-scoped sub-orders and fulfillment actions      |
-| `POST` | `/api/v1/seller/payouts`          | Payout withdrawal request from available escrow       |
-| `GET`  | `/api/v1/admin/ledger`            | Planned backend journal and accounting audit trail    |
+| `POST` | `/api/v1/seller/payouts/request`  | Payout request from eligible settled balance          |
+| `GET`  | `/api/v1/finance/ledger`         | Finance-authorized journal and accounting audit trail |
 
 ---
 

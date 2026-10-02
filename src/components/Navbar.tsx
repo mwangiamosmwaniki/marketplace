@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useMarketplace } from "../context/MarketplaceContext";
+import { useApp } from "../context/AppContext";
 import {
   Search,
   ShoppingCart,
@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentSeller,
     categories,
     cartSubtotal,
-  } = useMarketplace();
+  } = useApp();
 
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -117,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <div>
                   <span className="font-black text-lg tracking-tight text-neutral-900">
-                    KESALES<span className="text-amber-500">.</span>
+                    ShelterHub<span className="text-amber-500">.</span>
                   </span>
                   <span className="text-[10px] font-extrabold tracking-widest text-emerald-700 block -mt-1 uppercase">
                     Seller Center
@@ -262,7 +262,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
             <span>
               <strong className="block text-lg tracking-tight">
-                KESALES<span className="text-amber-500">.</span>
+                ShelterHub<span className="text-amber-500">.</span>
               </strong>
               <span className="block text-[10px] uppercase tracking-widest text-amber-400">
                 Finance
@@ -395,7 +395,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <div>
                   <span className="font-black text-lg tracking-tight text-white">
-                    KESALES<span className="text-amber-500">.</span>
+                    ShelterHub<span className="text-amber-500">.</span>
                   </span>
                   <span className="text-[10px] font-extrabold tracking-widest text-amber-400 block -mt-1 uppercase">
                     Admin Control Hub
@@ -521,7 +521,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 text-[11px]">
             <span className="text-amber-400 font-extrabold tracking-wide flex items-center gap-1">
-              <span>★</span> KESALES MARKETPLACE
+              <span>★</span> ShelterHub MARKETPLACE
             </span>
             <span className="hidden lg:inline text-neutral-400 border-l border-neutral-700 pl-3">
               Kenya's Leading Multi-Vendor E-Commerce Platform
@@ -534,7 +534,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="text-neutral-300 hover:text-amber-400 transition-colors font-medium flex items-center gap-1"
             >
               <Store className="w-3 h-3 text-amber-400" />
-              <span>Sell on KESALES</span>
+              <span>Sell on ShelterHub</span>
             </button>
 
             <div className="hidden sm:flex items-center gap-1 text-neutral-400">
@@ -558,7 +558,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <span className="font-black text-xl tracking-tight text-neutral-900 flex items-center">
-                KESALES
+                ShelterHub
                 <span className="text-amber-500 text-2xl leading-none">.</span>
               </span>
               <span className="text-[9px] font-extrabold tracking-widest text-neutral-500 block -mt-1 uppercase">

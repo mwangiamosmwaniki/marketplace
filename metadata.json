@@ -1,5 +1,5 @@
 {
-  "name": "KESALES",
+  "name": "ShelterHub",
   "description": "Kenya's leading multi-vendor e-commerce marketplace platform featuring Customer Storefront, Seller Center, Admin Control Hub, M-Pesa payments, order splitting, and RESTful APIs.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

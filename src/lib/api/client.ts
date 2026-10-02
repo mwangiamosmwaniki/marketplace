@@ -20,19 +20,7 @@ export type ApiEnvelope<T = unknown> = {
 const API_BASE = "/api/v1";
 
 function getRequestId(): string {
-  if (typeof window === "undefined") {
-    return "server-request";
-  }
-
-  const key = "kesales_request_id";
-  const current = sessionStorage.getItem(key);
-  if (current) {
-    return current;
-  }
-
-  const value = crypto.randomUUID();
-  sessionStorage.setItem(key, value);
-  return value;
+  return crypto.randomUUID();
 }
 
 export async function apiRequest<T = unknown>(
@@ -82,7 +70,7 @@ export async function apiRequest<T = unknown>(
 
     if (!response.ok) {
       if (response.status === 401 && typeof window !== "undefined") {
-        window.dispatchEvent(new Event("kesales:unauthorized"));
+        window.dispatchEvent(new Event("shelterhub:unauthorized"));
       }
 
       const upstreamError = payload.error as ApiError | undefined;
