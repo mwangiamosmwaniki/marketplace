@@ -52,3 +52,83 @@ label:not(.check-label) {
   background: #f5f5f5;
   border: 1px solid #d4d4d4;
 }
+
+.account-theme-dark {
+  color-scheme: dark;
+  color: #ececf5;
+  background-color: #00001a !important;
+}
+
+.account-theme-dark aside,
+.account-theme-dark header {
+  color: #ececf5 !important;
+  background-color: #00001a !important;
+  border-color: #292940 !important;
+}
+
+.account-theme-dark aside[class],
+.account-theme-dark header[class] {
+  background-color: #00001a !important;
+}
+
+.account-theme-dark [class~="bg-white"],
+.account-theme-dark [class~="bg-white/70"],
+.account-theme-dark [class~="bg-neutral-50"],
+.account-theme-dark [class~="bg-slate-50"],
+.account-theme-dark [class~="bg-neutral-100"],
+.account-theme-dark [class~="bg-slate-100"],
+.account-theme-dark [class~="bg-[#F4F4F4]"],
+.account-theme-dark [class~="bg-[#D0D0D0]"],
+.account-theme-dark [class~="bg-[#F0F2F5]"] {
+  background-color: #101027 !important;
+}
+
+.account-theme-dark [class~="bg-[#333333]"] {
+  background-color: #24243d !important;
+}
+
+.account-theme-dark [class~="text-neutral-950"],
+.account-theme-dark [class~="text-neutral-900"],
+.account-theme-dark [class~="text-neutral-800"],
+.account-theme-dark [class~="text-slate-900"],
+.account-theme-dark [class~="text-slate-800"],
+.account-theme-dark [class~="text-gray-900"] {
+  color: #f3f3fa !important;
+}
+
+.account-theme-dark [class~="text-neutral-700"],
+.account-theme-dark [class~="text-slate-700"],
+.account-theme-dark [class~="text-gray-700"] {
+  color: #d6d6e5 !important;
+}
+
+.account-theme-dark [class~="text-neutral-600"],
+.account-theme-dark [class~="text-neutral-500"],
+.account-theme-dark [class~="text-slate-600"],
+.account-theme-dark [class~="text-slate-500"],
+.account-theme-dark [class~="text-gray-600"],
+.account-theme-dark [class~="text-gray-500"] {
+  color: #b2b2c7 !important;
+}
+
+.account-theme-dark [class~="border-neutral-100"],
+.account-theme-dark [class~="border-neutral-200"],
+.account-theme-dark [class~="border-slate-100"],
+.account-theme-dark [class~="border-slate-200"],
+.account-theme-dark [class~="border-[#999999]"],
+.account-theme-dark [class~="border-[#C5C5C5]"] {
+  border-color: #35354d !important;
+}
+
+.account-theme-dark input:not([type="checkbox"]):not([type="radio"]),
+.account-theme-dark select,
+.account-theme-dark textarea {
+  color: #f3f3fa;
+  background-color: #101027;
+  border-color: #41415b;
+}
+
+.account-theme-dark input::placeholder,
+.account-theme-dark textarea::placeholder {
+  color: #a5a5bc;
+}

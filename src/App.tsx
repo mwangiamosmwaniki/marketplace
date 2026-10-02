@@ -52,6 +52,8 @@ import {
   CreditCard,
   BarChart3,
   Menu,
+  Moon,
+  Sun,
   X,
 } from "lucide-react";
 
@@ -134,6 +136,19 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
   }, [navItems, selectedNav]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [accountDarkMode, setAccountDarkMode] = useState(false);
+  useEffect(() => {
+    setAccountDarkMode(
+      localStorage.getItem("shelterhub_account_theme") === "dark",
+    );
+  }, []);
+  const toggleAccountDarkMode = () => {
+    setAccountDarkMode((current) => {
+      const next = !current;
+      localStorage.setItem("shelterhub_account_theme", next ? "dark" : "light");
+      return next;
+    });
+  };
   const groups = Array.from(
     new Set(navItems.map((item) => item.group).filter(Boolean)),
   ) as string[];
@@ -150,7 +165,10 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
     useState<Record<string, boolean>>(initialOpenGroups);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+    <div
+      data-account-theme={accountDarkMode ? "dark" : "light"}
+      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden ${accountDarkMode ? "account-theme-dark bg-[#00001A]" : "bg-white"}`}
+    >
       <div
         className={`grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] ${sidebarCollapsed ? "xl:grid-cols-[76px_minmax(0,1fr)]" : "xl:grid-cols-[260px_minmax(0,1fr)]"} overflow-hidden`}
       >
@@ -289,24 +307,34 @@ const DashboardShell: React.FC<DashboardShellProps> = ({
               <ShoppingBag className="w-4 h-4 text-amber-400 flex-shrink-0" />
               {!sidebarCollapsed && <span>View Storefront</span>}
             </button>
-            <div
-              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} bg-[#D0D0D0] border border-[#999999] p-2.5`}
-              title={
-                sidebarCollapsed ? "System status: Operational" : undefined
+            <button
+              type="button"
+              role="switch"
+              aria-checked={accountDarkMode}
+              aria-label={
+                accountDarkMode ? "Disable dark mode" : "Enable dark mode"
               }
+              onClick={toggleAccountDarkMode}
+              className={`flex w-full items-center ${sidebarCollapsed ? "justify-center" : "gap-2.5"} border border-[#999999] p-2.5 text-xs font-semibold transition-colors ${accountDarkMode ? "bg-[#101027] text-neutral-900" : "bg-[#D0D0D0] text-neutral-900"}`}
+              title={sidebarCollapsed ? "Dark mode" : undefined}
             >
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              {!sidebarCollapsed && (
-                <div className="flex-1">
-                  <div className="text-[11px] font-bold text-neutral-900 leading-tight">
-                    System status
-                  </div>
-                  <div className="text-[10px] font-semibold text-emerald-800 leading-tight">
-                    Operational
-                  </div>
-                </div>
+              {accountDarkMode ? (
+                <Sun className="h-4 w-4 shrink-0 text-amber-500" />
+              ) : (
+                <Moon className="h-4 w-4 shrink-0 text-neutral-600" />
               )}
-            </div>
+              {!sidebarCollapsed && <span>Dark mode</span>}
+              {!sidebarCollapsed && (
+                <span
+                  aria-hidden="true"
+                  className={`ml-auto flex h-4 w-7 items-center rounded-full p-0.5 transition-colors ${accountDarkMode ? "bg-amber-500" : "bg-neutral-400"}`}
+                >
+                  <span
+                    className={`h-3 w-3 rounded-full bg-white transition-transform ${accountDarkMode ? "translate-x-3" : "translate-x-0"}`}
+                  />
+                </span>
+              )}
+            </button>
           </div>
         </aside>
 
